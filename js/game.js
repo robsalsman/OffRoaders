@@ -348,12 +348,24 @@
           const dx = b.x - a.x, dy = b.y - a.y;
           let d = Math.hypot(dx, dy);
           if (d < minDist && d > 0.001) {
-            const push = (minDist - d) / 2;
             const nx = dx / d, ny = dy / d;
+            const push = (minDist - d) / 2;
             a.x -= nx * push; a.y -= ny * push;
             b.x += nx * push; b.y += ny * push;
-            // small speed scrub on contact
-            a.speed *= 0.985; b.speed *= 0.985;
+
+            // Only react when the cars are actually closing along the contact
+            // normal — side-by-side rubbing shouldn't bleed off speed.
+            const rvn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+            if (rvn < 0) {
+              // bounce their velocities apart a little so they deflect instead
+              // of grinding together frame after frame
+              const imp = -rvn * 0.6;
+              a.vx -= nx * imp; a.vy -= ny * imp;
+              b.vx += nx * imp; b.vy += ny * imp;
+              // gentle, impact-scaled speed loss (max ~5% on a hard head-on)
+              const scrub = 1 - 0.05 * Math.min(1, -rvn / 320);
+              a.speed *= scrub; b.speed *= scrub;
+            }
           }
         }
       }
