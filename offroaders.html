@@ -1131,7 +1131,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 /* app.js — UI state machine: menus, garage/shop, results, and launching races. */
 (function () {
   const $ = (sel) => document.querySelector(sel);
-  const $ = (sel) => Array.from(document.querySelectorAll(sel));
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
   const screens = {
     menu: $("#screen-menu"),

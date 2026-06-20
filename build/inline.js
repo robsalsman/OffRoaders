@@ -8,18 +8,22 @@ const read = (p) => fs.readFileSync(path.join(root, p), "utf8");
 
 let html = read("index.html");
 
+// NOTE: replacements are passed as FUNCTIONS, not strings. A string replacement
+// would interpret `$$`, `$&`, `$1`, etc. in the inlined code as special patterns
+// (e.g. `$$` -> `$`), corrupting the source. A function replacement is literal.
+
 // inline the stylesheet
 const css = read("css/style.css");
 html = html.replace(
   /<link rel="stylesheet" href="css\/style\.css"\s*\/?>/,
-  `<style>\n${css}\n</style>`
+  () => `<style>\n${css}\n</style>`
 );
 
 // inline the scripts, preserving order
 ["js/tracks.js", "js/career.js", "js/game.js", "js/app.js"].forEach((src) => {
   const code = read(src);
   const tag = new RegExp(`<script src="${src.replace(/\//g, "\\/")}"><\\/script>`);
-  html = html.replace(tag, `<script>\n${code}\n</script>`);
+  html = html.replace(tag, () => `<script>\n${code}\n</script>`);
 });
 
 // sanity: make sure nothing was left un-inlined
