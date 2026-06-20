@@ -619,8 +619,16 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     const base = document.getElementById("stick-base");
     const knob = document.getElementById("stick-knob");
     if (!zone || !base || !knob) return;
-    const R = 58, dead = 0.14;
+    const R = 58, dead = 0.16;
     let id = null, ox = 0, oy = 0;
+
+    // response curve: gentle near centre for fine control, full at the edge
+    const shape = (v, p) => {
+      const a = Math.abs(v);
+      if (a < dead) return 0;
+      const t = Math.min(1, (a - dead) / (1 - dead));
+      return Math.sign(v) * Math.pow(t, p);
+    };
 
     // origin is the centre of the visible (fixed) d-pad
     const setOrigin = () => { const r = base.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; };
@@ -629,10 +637,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const len = Math.hypot(dx, dy);
       if (len > R) { dx = dx / len * R; dy = dy / len * R; }
       knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-      const sx = dx / R, up = -dy / R;
-      js.steer = Math.abs(sx) < dead ? 0 : clamp(sx, -1, 1);
-      js.throttle = up > dead ? clamp(up, 0, 1) : 0;
-      js.brake = -up > dead ? clamp(-up, 0, 1) : 0;
+      js.steer = shape(dx / R, 1.7);          // softer steering near centre
+      const up = -dy / R;
+      js.throttle = up > dead ? Math.min(1, (up - dead) / (1 - dead)) : 0;
+      js.brake = -up > dead ? Math.min(1, (-up - dead) / (1 - dead)) : 0;
       apply();
     };
     const start = (x, y, pid) => { id = pid; setOrigin(); move(x, y); };
@@ -921,10 +929,12 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       car.speed = clamp(car.speed, -120, maxSpeed);
       if (th <= 0.02 && ctrl.brake <= 0 && Math.abs(car.speed) < 8) car.speed = 0;
 
-      // steering — scaled by speed so you can't spin in place
+      // steering — smoothed + scaled by speed so you can't spin in place
+      if (car.steerS === undefined) car.steerS = 0;
+      car.steerS += (ctrl.steer - car.steerS) * Math.min(1, dt * 13);
       const speedFrac = clamp(Math.abs(car.speed) / s.maxSpeed, 0, 1);
       const steerAuthority = s.turn * (0.35 + 0.65 * Math.min(1, speedFrac * 1.6));
-      car.angle += ctrl.steer * steerAuthority * dt * Math.sign(car.speed || 1);
+      car.angle += car.steerS * steerAuthority * dt * Math.sign(car.speed || 1);
 
       // velocity with a touch of drift (grip blends heading & momentum)
       const hx = Math.cos(car.angle), hy = Math.sin(car.angle);
@@ -1401,7 +1411,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     constructor(o) {
       Object.assign(this, o);
       this.vx = 0; this.vy = 0; this.z = 0; this.vz = 0;
-      this.speedApprox = 0;
+      this.speedApprox = 0; this.steerS = 0;
       this.lap = 0;
       this.lapProg = this.startProg;
       this.lapProgRaw = this.startProg;
@@ -1489,7 +1499,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           maxSpeed: 340 * perf.maxSpeed,
           accel: 250 * perf.accel,
           turn: 3.0 * perf.turn,
-          grip: clamp(0.90 - (perf.grip - 1) * 0.16, 0.80, 0.93),
+          grip: clamp(0.88 - (perf.grip - 1) * 0.16, 0.78, 0.91),
           offroad: clamp(0.5 + (perf.offroad - 1) * 0.6, 0.45, 0.9),
           nitroPower: 1.55 * perf.nitroPower,
           nitroRefill: 9 * perf.nitroRefill,
@@ -1626,13 +1636,15 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       else gripLat = s.grip * (car._offTrack ? 1.05 : 1); // looser grip off-track
       vlat *= Math.pow(clamp(gripLat, 0, 0.999), dt * 60);
 
+      // smooth steering input to take the twitch out
+      car.steerS += (ctrl.steer - car.steerS) * Math.min(1, dt * 13);
       // steering with mild speed-sensitive understeer (drift comes from nitro)
       const speedFrac = clamp(Math.abs(vlong) / s.maxSpeed, 0, 1);
       let authority = s.turn * (0.5 + 0.5 * Math.min(1, speedFrac * 1.7));
-      authority *= 1 - 0.22 * speedFrac * Math.min(1, Math.abs(ctrl.steer)); // gentle wash-out
+      authority *= 1 - 0.22 * speedFrac * Math.min(1, Math.abs(car.steerS)); // gentle wash-out
       if (autoDrift) authority *= 1.5; // sharper rotation when power-drifting
       if (!onGround) authority *= 0.12;
-      car.angle += ctrl.steer * authority * dt * Math.sign(vlong || 1);
+      car.angle += car.steerS * authority * dt * Math.sign(vlong || 1);
 
       // recombine
       car.vx = f.x * vlong + r.x * vlat;

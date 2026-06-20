@@ -15,14 +15,14 @@ let html = read("index.html");
 // inline the stylesheet
 const css = read("css/style.css");
 html = html.replace(
-  /<link rel="stylesheet" href="css\/style\.css"\s*\/?>/,
+  /<link rel="stylesheet" href="css\/style\.css(?:\?[^"]*)?"\s*\/?>/,
   () => `<style>\n${css}\n</style>`
 );
 
-// inline the scripts, preserving order
+// inline the scripts, preserving order (tolerate ?v= cache-busting queries)
 ["js/tracks.js", "js/career.js", "js/input.js", "js/game.js", "js/gamepro.js", "js/app.js"].forEach((src) => {
   const code = read(src);
-  const tag = new RegExp(`<script src="${src.replace(/\//g, "\\/")}"><\\/script>`);
+  const tag = new RegExp(`<script src="${src.replace(/\//g, "\\/")}(?:\\?[^"]*)?"><\\/script>`);
   html = html.replace(tag, () => `<script>\n${code}\n</script>`);
 });
 

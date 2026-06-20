@@ -174,7 +174,7 @@
     constructor(o) {
       Object.assign(this, o);
       this.vx = 0; this.vy = 0; this.z = 0; this.vz = 0;
-      this.speedApprox = 0;
+      this.speedApprox = 0; this.steerS = 0;
       this.lap = 0;
       this.lapProg = this.startProg;
       this.lapProgRaw = this.startProg;
@@ -262,7 +262,7 @@
           maxSpeed: 340 * perf.maxSpeed,
           accel: 250 * perf.accel,
           turn: 3.0 * perf.turn,
-          grip: clamp(0.90 - (perf.grip - 1) * 0.16, 0.80, 0.93),
+          grip: clamp(0.88 - (perf.grip - 1) * 0.16, 0.78, 0.91),
           offroad: clamp(0.5 + (perf.offroad - 1) * 0.6, 0.45, 0.9),
           nitroPower: 1.55 * perf.nitroPower,
           nitroRefill: 9 * perf.nitroRefill,
@@ -399,13 +399,15 @@
       else gripLat = s.grip * (car._offTrack ? 1.05 : 1); // looser grip off-track
       vlat *= Math.pow(clamp(gripLat, 0, 0.999), dt * 60);
 
+      // smooth steering input to take the twitch out
+      car.steerS += (ctrl.steer - car.steerS) * Math.min(1, dt * 13);
       // steering with mild speed-sensitive understeer (drift comes from nitro)
       const speedFrac = clamp(Math.abs(vlong) / s.maxSpeed, 0, 1);
       let authority = s.turn * (0.5 + 0.5 * Math.min(1, speedFrac * 1.7));
-      authority *= 1 - 0.22 * speedFrac * Math.min(1, Math.abs(ctrl.steer)); // gentle wash-out
+      authority *= 1 - 0.22 * speedFrac * Math.min(1, Math.abs(car.steerS)); // gentle wash-out
       if (autoDrift) authority *= 1.5; // sharper rotation when power-drifting
       if (!onGround) authority *= 0.12;
-      car.angle += ctrl.steer * authority * dt * Math.sign(vlong || 1);
+      car.angle += car.steerS * authority * dt * Math.sign(vlong || 1);
 
       // recombine
       car.vx = f.x * vlong + r.x * vlat;

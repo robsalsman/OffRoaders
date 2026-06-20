@@ -249,10 +249,12 @@
       car.speed = clamp(car.speed, -120, maxSpeed);
       if (th <= 0.02 && ctrl.brake <= 0 && Math.abs(car.speed) < 8) car.speed = 0;
 
-      // steering — scaled by speed so you can't spin in place
+      // steering — smoothed + scaled by speed so you can't spin in place
+      if (car.steerS === undefined) car.steerS = 0;
+      car.steerS += (ctrl.steer - car.steerS) * Math.min(1, dt * 13);
       const speedFrac = clamp(Math.abs(car.speed) / s.maxSpeed, 0, 1);
       const steerAuthority = s.turn * (0.35 + 0.65 * Math.min(1, speedFrac * 1.6));
-      car.angle += ctrl.steer * steerAuthority * dt * Math.sign(car.speed || 1);
+      car.angle += car.steerS * steerAuthority * dt * Math.sign(car.speed || 1);
 
       // velocity with a touch of drift (grip blends heading & momentum)
       const hx = Math.cos(car.angle), hy = Math.sin(car.angle);

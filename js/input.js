@@ -48,8 +48,16 @@
     const base = document.getElementById("stick-base");
     const knob = document.getElementById("stick-knob");
     if (!zone || !base || !knob) return;
-    const R = 58, dead = 0.14;
+    const R = 58, dead = 0.16;
     let id = null, ox = 0, oy = 0;
+
+    // response curve: gentle near centre for fine control, full at the edge
+    const shape = (v, p) => {
+      const a = Math.abs(v);
+      if (a < dead) return 0;
+      const t = Math.min(1, (a - dead) / (1 - dead));
+      return Math.sign(v) * Math.pow(t, p);
+    };
 
     // origin is the centre of the visible (fixed) d-pad
     const setOrigin = () => { const r = base.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; };
@@ -58,10 +66,10 @@
       const len = Math.hypot(dx, dy);
       if (len > R) { dx = dx / len * R; dy = dy / len * R; }
       knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-      const sx = dx / R, up = -dy / R;
-      js.steer = Math.abs(sx) < dead ? 0 : clamp(sx, -1, 1);
-      js.throttle = up > dead ? clamp(up, 0, 1) : 0;
-      js.brake = -up > dead ? clamp(-up, 0, 1) : 0;
+      js.steer = shape(dx / R, 1.7);          // softer steering near centre
+      const up = -dy / R;
+      js.throttle = up > dead ? Math.min(1, (up - dead) / (1 - dead)) : 0;
+      js.brake = -up > dead ? Math.min(1, (-up - dead) / (1 - dead)) : 0;
       apply();
     };
     const start = (x, y, pid) => { id = pid; setOrigin(); move(x, y); };
