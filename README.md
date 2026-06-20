@@ -20,9 +20,23 @@ Plays on **desktop (keyboard)** and **phone/tablet (on-screen touch controls)**.
 
 ## How to run
 
-### Option A — open the file
-Open `index.html` directly in a modern browser. (It uses plain `<script>` tags,
-so it works from `file://` with no server.)
+### Option A — single file (easiest) ⭐
+Download **`offroaders.html`** and double-click it. All CSS and JS are inlined
+into that one file, so it runs anywhere with nothing else needed — perfect for
+"download and play" on a PC or phone.
+
+> ⚠️ Don't download `index.html` by itself — it loads `css/` and `js/` from
+> sibling folders, so on its own it shows unstyled HTML with every menu stacked.
+> Use `offroaders.html`, or keep the whole folder together.
+
+Rebuild it after changing the source:
+```bash
+node build/inline.js   # regenerates offroaders.html
+```
+
+### Option B — the full folder
+Keep the whole project together and open `index.html`. It uses plain
+`<script>` tags, so it works from `file://` with no server.
 
 ### Option B — local server (recommended for phone testing on your LAN)
 ```bash
