@@ -74,7 +74,7 @@ html, body {
 .touch-left { position: absolute; left: 10px; bottom: 18px; display: flex; gap: 12px; }
 .touch-right { position: absolute; right: 10px; bottom: 18px; display: flex; gap: 12px; align-items: flex-end; }
 .tbtn {
-  pointer-events: auto; width: 74px; height: 74px; border-radius: 50%;
+  pointer-events: auto; touch-action: none; width: 74px; height: 74px; border-radius: 50%;
   border: 2px solid rgba(255,255,255,.35); background: rgba(20,14,10,.5);
   color: var(--text); font-size: 26px; font-weight: bold; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -734,33 +734,39 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       window.addEventListener("keydown", this._bound.kd);
       window.addEventListener("keyup", this._bound.ku);
 
-      // touch buttons
+      // touch buttons — use Pointer Events (unified mouse/touch, reliable on
+      // iOS Safari). Fall back to touch+mouse on very old browsers.
       this._touchBtns = Array.from(document.querySelectorAll("#touch .tbtn"));
-      this._bound.touchHandlers = [];
+      this._bound.btnListeners = [];
+      const bind = (btn, type, fn) => { btn.addEventListener(type, fn, { passive: false }); this._bound.btnListeners.push({ btn, type, fn }); };
       this._touchBtns.forEach((btn) => {
         const key = btn.dataset.key;
-        const on = (e) => { this.input[key] = true; e.preventDefault(); };
-        const off = (e) => { this.input[key] = false; e.preventDefault(); };
-        btn.addEventListener("touchstart", on, { passive: false });
-        btn.addEventListener("touchend", off, { passive: false });
-        btn.addEventListener("touchcancel", off, { passive: false });
-        btn.addEventListener("mousedown", on);
-        btn.addEventListener("mouseup", off);
-        btn.addEventListener("mouseleave", off);
-        this._bound.touchHandlers.push({ btn, on, off });
+        const on = (e) => {
+          this.input[key] = true;
+          if (e.preventDefault) e.preventDefault();
+          if (e.pointerId != null && btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (_) {} }
+        };
+        const off = (e) => { this.input[key] = false; };
+        if (window.PointerEvent) {
+          bind(btn, "pointerdown", on);
+          bind(btn, "pointerup", off);
+          bind(btn, "pointercancel", off);
+          bind(btn, "pointerleave", off);
+        } else {
+          bind(btn, "touchstart", on);
+          bind(btn, "touchend", off);
+          bind(btn, "touchcancel", off);
+          bind(btn, "mousedown", on);
+          bind(btn, "mouseup", off);
+          bind(btn, "mouseleave", off);
+        }
       });
     }
     _detachInput() {
       window.removeEventListener("keydown", this._bound.kd);
       window.removeEventListener("keyup", this._bound.ku);
-      (this._bound.touchHandlers || []).forEach(({ btn, on, off }) => {
-        btn.removeEventListener("touchstart", on);
-        btn.removeEventListener("touchend", off);
-        btn.removeEventListener("touchcancel", off);
-        btn.removeEventListener("mousedown", on);
-        btn.removeEventListener("mouseup", off);
-        btn.removeEventListener("mouseleave", off);
-      });
+      (this._bound.btnListeners || []).forEach(({ btn, type, fn }) => btn.removeEventListener(type, fn));
+      this._bound.btnListeners = [];
       for (const k in this.input) this.input[k] = false;
     }
 

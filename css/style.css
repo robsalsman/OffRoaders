@@ -66,7 +66,7 @@ html, body {
 .touch-left { position: absolute; left: 10px; bottom: 18px; display: flex; gap: 12px; }
 .touch-right { position: absolute; right: 10px; bottom: 18px; display: flex; gap: 12px; align-items: flex-end; }
 .tbtn {
-  pointer-events: auto; width: 74px; height: 74px; border-radius: 50%;
+  pointer-events: auto; touch-action: none; width: 74px; height: 74px; border-radius: 50%;
   border: 2px solid rgba(255,255,255,.35); background: rgba(20,14,10,.5);
   color: var(--text); font-size: 26px; font-weight: bold; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
