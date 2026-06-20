@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1b1410" />
+  <title>OffRoaders — Arcade Off-Road Racing</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- The race canvas -->
+    <canvas id="game"></canvas>
+
+    <!-- In-race HUD -->
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="hud-box"><span class="hud-label">LAP</span><span id="hud-lap">1/4</span></div>
+        <div class="hud-box"><span class="hud-label">POS</span><span id="hud-pos">1/6</span></div>
+        <div class="hud-box"><span class="hud-label">TIME</span><span id="hud-time">0:00</span></div>
+      </div>
+      <div class="hud-bottom">
+        <div class="meter">
+          <span class="hud-label">NITRO</span>
+          <div class="meter-bar"><div id="hud-nitro" class="meter-fill"></div></div>
+        </div>
+        <div class="meter">
+          <span class="hud-label">SPEED</span>
+          <div class="meter-bar"><div id="hud-speed" class="meter-fill speed"></div></div>
+        </div>
+      </div>
+
+      <!-- Touch controls (shown on touch devices) -->
+      <div id="touch" class="hidden">
+        <div class="touch-left">
+          <button class="tbtn" data-key="left">◀</button>
+          <button class="tbtn" data-key="right">▶</button>
+        </div>
+        <div class="touch-right">
+          <button class="tbtn nitro" data-key="nitro">N<small>NITRO</small></button>
+          <button class="tbtn brake" data-key="brake">BRAKE</button>
+          <button class="tbtn gas" data-key="gas">GAS</button>
+        </div>
+      </div>
+
+      <button id="pauseBtn" title="Pause">⏸</button>
+    </div>
+
+    <!-- Screen overlays (menus) -->
+    <div id="overlay">
+
+      <!-- Main menu -->
+      <section id="screen-menu" class="screen">
+        <h1 class="logo">OFF<span>ROADERS</span></h1>
+        <p class="tagline">Arcade off-road racing • build your career</p>
+        <div class="btn-col">
+          <button id="btn-continue" class="big primary">Continue Career</button>
+          <button id="btn-new" class="big">New Career</button>
+          <button id="btn-howto" class="big">How To Play</button>
+        </div>
+        <p class="version">Inspired by classic 1989 arcade off-road racers. Progress saves automatically to this device.</p>
+      </section>
+
+      <!-- Garage / shop / season hub -->
+      <section id="screen-garage" class="screen hidden">
+        <div class="garage-head">
+          <h2>GARAGE</h2>
+          <div class="cash">💰 <span id="cash">0</span></div>
+        </div>
+
+        <div class="garage-grid">
+          <div class="panel">
+            <h3>Next Race</h3>
+            <div id="next-race" class="next-race"></div>
+            <button id="btn-race" class="big primary">Start Race ▶</button>
+          </div>
+
+          <div class="panel">
+            <h3>Upgrades</h3>
+            <div id="upgrades" class="upgrades"></div>
+          </div>
+
+          <div class="panel">
+            <h3>Championship Standings</h3>
+            <table id="standings" class="standings"></table>
+          </div>
+        </div>
+
+        <div class="garage-foot">
+          <button id="btn-menu" class="ghost">← Main Menu</button>
+          <button id="btn-reset" class="ghost danger">Reset Career</button>
+        </div>
+      </section>
+
+      <!-- Race results -->
+      <section id="screen-results" class="screen hidden">
+        <h2 id="results-title">RACE COMPLETE</h2>
+        <table id="results-table" class="results-table"></table>
+        <div id="results-reward" class="reward"></div>
+        <button id="btn-next" class="big primary">Continue ▶</button>
+      </section>
+
+      <!-- Season champion -->
+      <section id="screen-champion" class="screen hidden">
+        <h2 id="champion-title">SEASON COMPLETE</h2>
+        <div id="champion-body" class="champion-body"></div>
+        <button id="btn-newseason" class="big primary">New Season</button>
+        <button id="btn-champion-menu" class="ghost">← Main Menu</button>
+      </section>
+
+      <!-- How to play -->
+      <section id="screen-howto" class="screen hidden">
+        <h2>HOW TO PLAY</h2>
+        <div class="howto">
+          <p><strong>Goal:</strong> Finish each race as high as you can. Cash and championship points are awarded by finishing position.</p>
+          <p><strong>Keyboard:</strong> <kbd>↑</kbd>/<kbd>W</kbd> gas, <kbd>↓</kbd>/<kbd>S</kbd> brake, <kbd>←</kbd><kbd>→</kbd>/<kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> nitro, <kbd>Esc</kbd> pause.</p>
+          <p><strong>Touch:</strong> On-screen pedals appear automatically on phones/tablets.</p>
+          <p><strong>Tips:</strong> Stay on the dirt track — the grass slows you down. Save nitro for straights. Spend winnings in the Garage on Engine, Tires, Shocks and Nitro to keep up as rivals get tougher.</p>
+        </div>
+        <button id="btn-howto-back" class="big">Back</button>
+      </section>
+
+      <!-- Pause -->
+      <section id="screen-pause" class="screen hidden">
+        <h2>PAUSED</h2>
+        <div class="btn-col">
+          <button id="btn-resume" class="big primary">Resume</button>
+          <button id="btn-restart" class="big">Restart Race</button>
+          <button id="btn-quit" class="big">Quit to Garage</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="js/tracks.js"></script>
+  <script src="js/career.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
