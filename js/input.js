@@ -23,8 +23,8 @@
     js.steer = js.throttle = js.brake = 0; js.nitro = false;
     for (const k in kb) kb[k] = false;
     apply();
-    const base = document.getElementById("stick-base");
-    if (base) base.style.display = "none";
+    const knob = document.getElementById("stick-knob");
+    if (knob) knob.style.transform = "translate(-50%,-50%)";
   };
 
   let inited = false;
@@ -48,15 +48,11 @@
     const base = document.getElementById("stick-base");
     const knob = document.getElementById("stick-knob");
     if (!zone || !base || !knob) return;
-    const R = 66, dead = 0.14;
+    const R = 58, dead = 0.14;
     let id = null, ox = 0, oy = 0;
 
-    const start = (x, y, pid) => {
-      id = pid; ox = x; oy = y;
-      base.style.display = "block";
-      base.style.left = x + "px"; base.style.top = y + "px";
-      knob.style.transform = "translate(-50%,-50%)";
-    };
+    // origin is the centre of the visible (fixed) d-pad
+    const setOrigin = () => { const r = base.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; };
     const move = (x, y) => {
       let dx = x - ox, dy = y - oy;
       const len = Math.hypot(dx, dy);
@@ -68,7 +64,8 @@
       js.brake = -up > dead ? clamp(-up, 0, 1) : 0;
       apply();
     };
-    const end = () => { id = null; js.steer = js.throttle = js.brake = 0; base.style.display = "none"; apply(); };
+    const start = (x, y, pid) => { id = pid; setOrigin(); move(x, y); };
+    const end = () => { id = null; js.steer = js.throttle = js.brake = 0; knob.style.transform = "translate(-50%,-50%)"; apply(); };
 
     if (window.PointerEvent) {
       zone.addEventListener("pointerdown", (e) => { start(e.clientX, e.clientY, e.pointerId); try { zone.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });

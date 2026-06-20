@@ -64,34 +64,40 @@ html, body {
 /* ---------- Touch controls (analog thumbstick + nitro) ---------- */
 #touch { position: absolute; inset: 0; pointer-events: none; }
 
-/* left-side zone becomes a thumbstick wherever you press */
+/* RIGHT-side touch zone drives the always-visible d-pad */
 .stick-zone {
-  position: absolute; left: 0; bottom: 0;
-  width: 58%; height: 62%; pointer-events: auto; touch-action: none;
+  position: absolute; right: 0; bottom: 0;
+  width: 55%; height: 60%; pointer-events: auto; touch-action: none;
 }
 .stick-hint {
-  position: absolute; left: 28px; bottom: 28px;
-  color: rgba(255,255,255,.4); font-size: 13px; font-weight: bold;
+  position: absolute; right: 50px; bottom: 220px;
+  color: rgba(255,255,255,.45); font-size: 12px; font-weight: bold;
   line-height: 1.5; letter-spacing: 1px; text-align: center;
 }
+/* visible d-pad, anchored bottom-right */
 .stick-base {
-  position: fixed; display: none; pointer-events: none;
-  width: 152px; height: 152px; margin-left: -76px; margin-top: -76px;
-  border-radius: 50%; border: 2px solid rgba(255,255,255,.3);
-  background: radial-gradient(circle, rgba(20,14,10,.35), rgba(20,14,10,.55));
+  position: fixed; right: 60px; bottom: 96px; pointer-events: none;
+  width: 156px; height: 156px;
+  border-radius: 50%; border: 2px solid rgba(255,255,255,.32);
+  background: radial-gradient(circle, rgba(20,14,10,.42), rgba(20,14,10,.62));
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
 }
 .stick-base::before, .stick-base::after {
-  content: ""; position: absolute; left: 50%; transform: translateX(-50%);
-  color: rgba(255,255,255,.5); font-size: 16px;
+  position: absolute; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,.55); font-size: 15px; font-weight: bold;
 }
+.stick-base::before { content: "▲ GO"; top: 8px; }
+.stick-base::after { content: "▼ BRAKE"; bottom: 8px; }
 .stick-knob {
   position: absolute; left: 50%; top: 50%;
-  width: 66px; height: 66px; border-radius: 50%;
-  background: rgba(255,180,58,.55); border: 2px solid rgba(255,255,255,.6);
+  width: 70px; height: 70px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(255,205,110,.95), rgba(255,150,40,.85));
+  border: 2px solid rgba(255,255,255,.7);
   transform: translate(-50%,-50%); pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
 }
 .nitro-btn {
-  position: absolute; right: 24px; bottom: 40px; pointer-events: auto; touch-action: none;
+  position: absolute; left: 24px; bottom: 40px; pointer-events: auto; touch-action: none;
   width: 108px; height: 108px; border-radius: 50%;
   border: 2px solid rgba(255,255,255,.45); background: rgba(47,208,255,.32);
   color: var(--text); font-size: 30px; font-weight: bold; cursor: pointer;

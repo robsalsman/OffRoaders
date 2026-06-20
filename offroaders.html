@@ -72,34 +72,40 @@ html, body {
 /* ---------- Touch controls (analog thumbstick + nitro) ---------- */
 #touch { position: absolute; inset: 0; pointer-events: none; }
 
-/* left-side zone becomes a thumbstick wherever you press */
+/* RIGHT-side touch zone drives the always-visible d-pad */
 .stick-zone {
-  position: absolute; left: 0; bottom: 0;
-  width: 58%; height: 62%; pointer-events: auto; touch-action: none;
+  position: absolute; right: 0; bottom: 0;
+  width: 55%; height: 60%; pointer-events: auto; touch-action: none;
 }
 .stick-hint {
-  position: absolute; left: 28px; bottom: 28px;
-  color: rgba(255,255,255,.4); font-size: 13px; font-weight: bold;
+  position: absolute; right: 50px; bottom: 220px;
+  color: rgba(255,255,255,.45); font-size: 12px; font-weight: bold;
   line-height: 1.5; letter-spacing: 1px; text-align: center;
 }
+/* visible d-pad, anchored bottom-right */
 .stick-base {
-  position: fixed; display: none; pointer-events: none;
-  width: 152px; height: 152px; margin-left: -76px; margin-top: -76px;
-  border-radius: 50%; border: 2px solid rgba(255,255,255,.3);
-  background: radial-gradient(circle, rgba(20,14,10,.35), rgba(20,14,10,.55));
+  position: fixed; right: 60px; bottom: 96px; pointer-events: none;
+  width: 156px; height: 156px;
+  border-radius: 50%; border: 2px solid rgba(255,255,255,.32);
+  background: radial-gradient(circle, rgba(20,14,10,.42), rgba(20,14,10,.62));
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
 }
 .stick-base::before, .stick-base::after {
-  content: ""; position: absolute; left: 50%; transform: translateX(-50%);
-  color: rgba(255,255,255,.5); font-size: 16px;
+  position: absolute; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,.55); font-size: 15px; font-weight: bold;
 }
+.stick-base::before { content: "▲ GO"; top: 8px; }
+.stick-base::after { content: "▼ BRAKE"; bottom: 8px; }
 .stick-knob {
   position: absolute; left: 50%; top: 50%;
-  width: 66px; height: 66px; border-radius: 50%;
-  background: rgba(255,180,58,.55); border: 2px solid rgba(255,255,255,.6);
+  width: 70px; height: 70px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(255,205,110,.95), rgba(255,150,40,.85));
+  border: 2px solid rgba(255,255,255,.7);
   transform: translate(-50%,-50%); pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
 }
 .nitro-btn {
-  position: absolute; right: 24px; bottom: 40px; pointer-events: auto; touch-action: none;
+  position: absolute; left: 24px; bottom: 40px; pointer-events: auto; touch-action: none;
   width: 108px; height: 108px; border-radius: 50%;
   border: 2px solid rgba(255,255,255,.45); background: rgba(47,208,255,.32);
   color: var(--text); font-size: 30px; font-weight: bold; cursor: pointer;
@@ -221,7 +227,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       <div id="touch" class="hidden">
         <!-- analog thumbstick: up = accelerate (farther = faster), down = brake, left/right = steer -->
         <div id="stick" class="stick-zone">
-          <div class="stick-hint">drive ▲<br>brake ▼</div>
+          <div class="stick-hint">◀ steer ▶</div>
           <div id="stick-base" class="stick-base"><div id="stick-knob" class="stick-knob"></div></div>
         </div>
         <button id="btn-nitro" class="nitro-btn">N<small>NITRO</small></button>
@@ -299,7 +305,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         <div class="howto">
           <p><strong>Goal:</strong> Finish each race as high as you can. Cash and championship points are awarded by finishing position.</p>
           <p><strong>Keyboard:</strong> <kbd>↑</kbd>/<kbd>W</kbd> gas, <kbd>↓</kbd>/<kbd>S</kbd> brake, <kbd>←</kbd><kbd>→</kbd>/<kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> nitro, <kbd>Esc</kbd> pause.</p>
-          <p><strong>Touch:</strong> Press and drag anywhere on the left side — it becomes a thumbstick. Push <strong>up to go (farther = faster)</strong>, <strong>down to brake</strong>, left/right to steer. The <strong>NITRO</strong> button is on the right.</p>
+          <p><strong>Touch:</strong> Use the on-screen <strong>d-pad on the right</strong> — push <strong>up to go (farther = faster)</strong>, <strong>down to brake</strong>, left/right to steer. The <strong>NITRO</strong> button is on the left.</p>
           <p><strong>Drifting:</strong> In Enhanced mode the trucks turn normally — but hold <strong>NITRO</strong> while turning and the truck automatically drifts through the corner.</p>
           <p><strong>Jumps:</strong> Hit the ramps (chevrons) with speed to launch — you can't steer much in the air, so line it up before takeoff and brace for the landing.</p>
           <p><strong>Tips:</strong> Stay on the dirt track — grass slows you down. Save nitro for straights. Spend winnings in the Garage on Engine, Tires (grip), Shocks and Nitro. Switch between Enhanced (2.5D) and Classic graphics with the Garage button.</p>
@@ -588,8 +594,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     js.steer = js.throttle = js.brake = 0; js.nitro = false;
     for (const k in kb) kb[k] = false;
     apply();
-    const base = document.getElementById("stick-base");
-    if (base) base.style.display = "none";
+    const knob = document.getElementById("stick-knob");
+    if (knob) knob.style.transform = "translate(-50%,-50%)";
   };
 
   let inited = false;
@@ -613,15 +619,11 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     const base = document.getElementById("stick-base");
     const knob = document.getElementById("stick-knob");
     if (!zone || !base || !knob) return;
-    const R = 66, dead = 0.14;
+    const R = 58, dead = 0.14;
     let id = null, ox = 0, oy = 0;
 
-    const start = (x, y, pid) => {
-      id = pid; ox = x; oy = y;
-      base.style.display = "block";
-      base.style.left = x + "px"; base.style.top = y + "px";
-      knob.style.transform = "translate(-50%,-50%)";
-    };
+    // origin is the centre of the visible (fixed) d-pad
+    const setOrigin = () => { const r = base.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; };
     const move = (x, y) => {
       let dx = x - ox, dy = y - oy;
       const len = Math.hypot(dx, dy);
@@ -633,7 +635,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       js.brake = -up > dead ? clamp(-up, 0, 1) : 0;
       apply();
     };
-    const end = () => { id = null; js.steer = js.throttle = js.brake = 0; base.style.display = "none"; apply(); };
+    const start = (x, y, pid) => { id = pid; setOrigin(); move(x, y); };
+    const end = () => { id = null; js.steer = js.throttle = js.brake = 0; knob.style.transform = "translate(-50%,-50%)"; apply(); };
 
     if (window.PointerEvent) {
       zone.addEventListener("pointerdown", (e) => { start(e.clientX, e.clientY, e.pointerId); try { zone.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });
