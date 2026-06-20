@@ -1512,8 +1512,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           turn: 3.0 * perf.turn,
           grip: clamp(0.88 - (perf.grip - 1) * 0.16, 0.78, 0.91),
           offroad: clamp(0.5 + (perf.offroad - 1) * 0.6, 0.45, 0.9),
-          nitroPower: 1.55 * perf.nitroPower,
-          nitroRefill: 9 * perf.nitroRefill,
+          nitroPower: 1.5 * perf.nitroPower,
+          nitroRefill: 13 * perf.nitroRefill,
         } : {
           maxSpeed: 385 * aiSkill,
           accel: 278 * aiSkill,
@@ -1521,7 +1521,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           grip: 0.875,
           offroad: 0.6,
           nitroPower: 1.5,
-          nitroRefill: 8,
+          nitroRefill: 12,
         };
 
         this.cars.push(new Car({
@@ -1616,7 +1616,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       car.nitroActive = false;
       let maxSpeed = s.maxSpeed, accel = s.accel;
       if (ctrl.nitro && car.nitro > 1 && onGround) {
-        car.nitro = Math.max(0, car.nitro - 32 * dt);
+        car.nitro = Math.max(0, car.nitro - 24 * dt);
         maxSpeed *= s.nitroPower; accel *= 1.7; car.nitroActive = true;
       } else {
         car.nitro = Math.min(100, car.nitro + s.nitroRefill * dt);
@@ -1638,24 +1638,38 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         if (th <= 0.02 && ctrl.brake <= 0 && Math.abs(vlong) < 6) vlong = 0;
       }
 
-      // lateral grip — drift/understeer core. Trucks grip normally; holding
-      // NITRO while turning automatically breaks the rear loose into a drift.
-      const autoDrift = car.nitroActive && Math.abs(ctrl.steer) > 0.25 && Math.abs(vlong) > 120;
-      let gripLat;
-      if (!onGround) gripLat = 0.999;
-      else if (autoDrift) gripLat = 0.94;
-      else gripLat = s.grip * (car._offTrack ? 1.05 : 1); // looser grip off-track
-      vlat *= Math.pow(clamp(gripLat, 0, 0.999), dt * 60);
-
       // smooth steering input to take the twitch out
       car.steerS += (ctrl.steer - car.steerS) * Math.min(1, dt * 13);
-      // steering with mild speed-sensitive understeer (drift comes from nitro)
+
+      // Drift: holding NITRO while turning breaks the rear loose. Trucks grip
+      // normally otherwise. The drift is the FAST line through a corner — it
+      // holds a limited slip angle instead of spinning into a donut.
+      const autoDrift = onGround && car.nitroActive && Math.abs(car.steerS) > 0.2 && Math.abs(vlong) > 110;
+      let gripLat;
+      if (!onGround) gripLat = 0.999;
+      else if (autoDrift) gripLat = 0.92; // slide, but bleed lateral so it settles
+      else gripLat = s.grip * (car._offTrack ? 1.05 : 1);
+      vlat *= Math.pow(clamp(gripLat, 0, 0.999), dt * 60);
+
+      // steering authority (mild speed-sensitive wash-out)
       const speedFrac = clamp(Math.abs(vlong) / s.maxSpeed, 0, 1);
       let authority = s.turn * (0.5 + 0.5 * Math.min(1, speedFrac * 1.7));
-      authority *= 1 - 0.22 * speedFrac * Math.min(1, Math.abs(car.steerS)); // gentle wash-out
-      if (autoDrift) authority *= 1.5; // sharper rotation when power-drifting
+      authority *= 1 - 0.22 * speedFrac * Math.min(1, Math.abs(car.steerS));
       if (!onGround) authority *= 0.12;
-      car.angle += car.steerS * authority * dt * Math.sign(vlong || 1);
+
+      let dAngle = car.steerS * authority * dt * Math.sign(vlong || 1);
+      if (autoDrift) {
+        // slip = angle of travel relative to where the nose points
+        const slip = angWrap(Math.atan2(car.vy, car.vx) - car.angle);
+        const slipMax = 0.62; // ~35° sustained drift angle
+        // strong turn-in while there's slip room; fades to 0 at slipMax so the
+        // car settles into a held drift rather than rotating forever
+        const room = clamp((slipMax - Math.abs(slip)) / slipMax, 0, 1);
+        dAngle = car.steerS * authority * dt * Math.sign(vlong || 1) * (0.7 + 1.3 * room);
+        // auto counter-steer if it overshoots, to recover instead of spinning
+        if (Math.abs(slip) > slipMax) dAngle += (-slip) * 3.0 * dt;
+      }
+      car.angle += dAngle;
 
       // recombine
       car.vx = f.x * vlong + r.x * vlat;
