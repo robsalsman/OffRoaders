@@ -37,6 +37,7 @@
           <button class="tbtn" data-key="right">▶</button>
         </div>
         <div class="touch-right">
+          <button class="tbtn drift" data-key="drift">DRIFT</button>
           <button class="tbtn nitro" data-key="nitro">N<small>NITRO</small></button>
           <button class="tbtn brake" data-key="brake">BRAKE</button>
           <button class="tbtn gas" data-key="gas">GAS</button>
@@ -73,6 +74,7 @@
             <h3>Next Race</h3>
             <div id="next-race" class="next-race"></div>
             <button id="btn-race" class="big primary">Start Race ▶</button>
+            <button id="btn-graphics" class="big graphics-toggle">Graphics: Enhanced</button>
           </div>
 
           <div class="panel">
@@ -113,9 +115,11 @@
         <h2>HOW TO PLAY</h2>
         <div class="howto">
           <p><strong>Goal:</strong> Finish each race as high as you can. Cash and championship points are awarded by finishing position.</p>
-          <p><strong>Keyboard:</strong> <kbd>↑</kbd>/<kbd>W</kbd> gas, <kbd>↓</kbd>/<kbd>S</kbd> brake, <kbd>←</kbd><kbd>→</kbd>/<kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> nitro, <kbd>Esc</kbd> pause.</p>
-          <p><strong>Touch:</strong> On-screen pedals appear automatically on phones/tablets.</p>
-          <p><strong>Tips:</strong> Stay on the dirt track — the grass slows you down. Save nitro for straights. Spend winnings in the Garage on Engine, Tires, Shocks and Nitro to keep up as rivals get tougher.</p>
+          <p><strong>Keyboard:</strong> <kbd>↑</kbd>/<kbd>W</kbd> gas, <kbd>↓</kbd>/<kbd>S</kbd> brake, <kbd>←</kbd><kbd>→</kbd>/<kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> nitro, <kbd>Shift</kbd> handbrake/drift, <kbd>Esc</kbd> pause.</p>
+          <p><strong>Touch:</strong> On-screen pedals (GAS, BRAKE, NITRO, DRIFT, steer) appear automatically on phones/tablets.</p>
+          <p><strong>Drifting:</strong> In Enhanced mode the trucks understeer (push wide) at speed — tap <kbd>Shift</kbd>/DRIFT or the brake while turning to break the rear loose and rotate through tight corners.</p>
+          <p><strong>Jumps:</strong> Hit the ramps (chevrons) with speed to launch — you can't steer much in the air, so line it up before takeoff and brace for the landing.</p>
+          <p><strong>Tips:</strong> Stay on the dirt track — grass slows you down. Save nitro for straights. Spend winnings in the Garage on Engine, Tires (grip), Shocks and Nitro. Switch between Enhanced (2.5D) and Classic graphics with the Garage button.</p>
         </div>
         <button id="btn-howto-back" class="big">Back</button>
       </section>
@@ -136,6 +140,7 @@
   <script src="js/tracks.js"></script>
   <script src="js/career.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/gamepro.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

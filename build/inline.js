@@ -20,7 +20,7 @@ html = html.replace(
 );
 
 // inline the scripts, preserving order
-["js/tracks.js", "js/career.js", "js/game.js", "js/app.js"].forEach((src) => {
+["js/tracks.js", "js/career.js", "js/game.js", "js/gamepro.js", "js/app.js"].forEach((src) => {
   const code = read(src);
   const tag = new RegExp(`<script src="${src.replace(/\//g, "\\/")}"><\\/script>`);
   html = html.replace(tag, () => `<script>\n${code}\n</script>`);

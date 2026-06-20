@@ -75,6 +75,7 @@ html, body {
 .tbtn.gas { background: rgba(95,211,95,.32); width: 92px; height: 92px; font-size: 18px; }
 .tbtn.brake { background: rgba(255,91,91,.3); font-size: 13px; }
 .tbtn.nitro { background: rgba(47,208,255,.3); }
+.tbtn.drift { background: rgba(255,180,58,.3); font-size: 13px; }
 .tbtn:active { transform: scale(.94); filter: brightness(1.3); }
 
 /* ---------- Overlay / screens ---------- */
@@ -116,6 +117,7 @@ button.ghost.danger { color: var(--bad); border-color: rgba(255,91,91,.4); }
 }
 .panel { background: var(--panel); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 14px; }
 .panel h3 { margin: 0 0 10px; color: var(--accent); font-size: 15px; letter-spacing: .5px; }
+.graphics-toggle { margin-top: 10px; font-size: 15px; background: var(--panel-2); }
 .next-race { font-size: 15px; line-height: 1.6; margin-bottom: 12px; }
 .next-race .rname { font-size: 22px; font-weight: bold; color: var(--text); }
 .next-race .meta { color: var(--muted); }

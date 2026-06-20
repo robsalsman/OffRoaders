@@ -92,6 +92,10 @@
       wrap.appendChild(el);
     });
 
+    // graphics toggle label
+    const g = Career.graphics();
+    $("#btn-graphics").textContent = "Graphics: " + (g === "enhanced" ? "Enhanced ✨" : "Classic");
+
     // standings
     renderStandings($("#standings"), Career.sortedStandings());
   }
@@ -114,6 +118,7 @@
     }
   };
   $("#btn-race").onclick = startRace;
+  $("#btn-graphics").onclick = () => { Career.toggleGraphics(); renderGarage(); };
 
   // ---------------- Race ----------------
   function startRace() {
@@ -122,7 +127,8 @@
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
 
-    race = new Race(canvas, {
+    const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
+    race = new Engine(canvas, {
       track,
       perf: Career.performance(),
       aiStrength: Career.aiStrength(),

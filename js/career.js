@@ -32,6 +32,7 @@
       version: 1,
       money: 800, // a little starting cash for a first upgrade
       upgrades: { engine: 0, tires: 0, shocks: 0, nitro: 0 },
+      graphics: "enhanced", // "enhanced" (2.5D) or "classic" (original 2D)
       season: freshSeason(),
     };
   }
@@ -52,6 +53,7 @@
           // light migration / safety
           if (!this.state.season || !this.state.season.order) this.state.season = freshSeason();
           if (!this.state.upgrades) this.state.upgrades = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
+          if (!this.state.graphics) this.state.graphics = "enhanced";
           return this.state;
         }
       } catch (e) { /* corrupt save — start fresh */ }
@@ -86,6 +88,14 @@
     raceLabel() {
       const s = this.state.season;
       return `Race ${s.raceIndex + 1} / ${s.order.length}`;
+    },
+
+    // ---- graphics mode ----
+    graphics() { return this.state.graphics || "enhanced"; },
+    toggleGraphics() {
+      this.state.graphics = this.graphics() === "enhanced" ? "classic" : "enhanced";
+      this.save();
+      return this.state.graphics;
     },
 
     // ---- upgrades ----
