@@ -33,6 +33,7 @@
       money: 800, // a little starting cash for a first upgrade
       upgrades: { engine: 0, tires: 0, shocks: 0, nitro: 0 },
       graphics: "enhanced", // "enhanced" (2.5D) or "classic" (original 2D)
+      records: {}, // { trackId: { lap: seconds|null, race: seconds|null } }
       season: freshSeason(),
     };
   }
@@ -54,6 +55,7 @@
           if (!this.state.season || !this.state.season.order) this.state.season = freshSeason();
           if (!this.state.upgrades) this.state.upgrades = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
           if (!this.state.graphics) this.state.graphics = "enhanced";
+          if (!this.state.records) this.state.records = {};
           return this.state;
         }
       } catch (e) { /* corrupt save — start fresh */ }
@@ -96,6 +98,29 @@
       this.state.graphics = this.graphics() === "enhanced" ? "classic" : "enhanced";
       this.save();
       return this.state.graphics;
+    },
+
+    // ---- lap & track records ----
+    getRecord(trackId) { return (this.state.records && this.state.records[trackId]) || { lap: null, race: null }; },
+    _rec(trackId) {
+      if (!this.state.records) this.state.records = {};
+      return this.state.records[trackId] || (this.state.records[trackId] = { lap: null, race: null });
+    },
+    submitLap(trackId, t) {
+      if (!t || t <= 0) return false;
+      const rec = this._rec(trackId);
+      const beat = rec.lap == null || t < rec.lap;
+      if (beat) rec.lap = t;
+      this.save();
+      return beat;
+    },
+    submitRace(trackId, t) {
+      if (!t || t <= 0) return false;
+      const rec = this._rec(trackId);
+      const beat = rec.race == null || t < rec.race;
+      if (beat) rec.race = t;
+      this.save();
+      return beat;
     },
 
     // ---- upgrades ----

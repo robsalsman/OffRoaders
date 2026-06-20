@@ -108,6 +108,15 @@ if (finished) {
   assert(finished.some((c) => c.isPlayer), "player is in finish order");
   assert(race.player.lap >= track.laps, "player completed required laps (" + race.player.lap + "/" + track.laps + ")");
 
+  // lap timing & records
+  const bl = race.player.bestLapThisRace;
+  assert(bl != null && bl > 0, "player best lap recorded: " + (bl && bl.toFixed(2)) + "s");
+  assert(race.player.finishTime > bl, "race time longer than a single lap");
+  assert(C.submitLap(track.id, bl) === true, "first lap time sets a lap record");
+  assert(C.getRecord(track.id).lap === bl, "lap record persisted");
+  assert(C.submitLap(track.id, bl + 1) === false, "a slower lap does not beat the record");
+  assert(C.submitRace(track.id, race.player.finishTime) === true, "race time sets a track record");
+
   // record result into career
   const res = C.recordResult(finished);
   assert(typeof res.prize === "number" && res.prize > 0, "prize awarded: " + res.prize);

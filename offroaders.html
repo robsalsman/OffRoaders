@@ -50,8 +50,24 @@ html, body {
   font-weight: bold; font-size: 20px; backdrop-filter: blur(2px);
 }
 .hud-label { font-size: 10px; letter-spacing: 1px; color: var(--accent); font-weight: bold; }
+.hud-laprow {
+  position: absolute; top: calc(env(safe-area-inset-top, 8px) + 58px); left: 0; right: 0;
+  display: flex; gap: 14px; justify-content: center; align-items: center;
+  font-weight: bold; font-size: 15px; pointer-events: none;
+}
+.hud-laprow span { background: rgba(20,14,10,.55); border-radius: 8px; padding: 2px 10px; }
+.laprow-cur { color: var(--text); }
+.laprow-best { color: var(--accent); font-size: 13px; }
+.lapflash {
+  position: absolute; top: 30%; left: 0; right: 0; text-align: center;
+  font-size: clamp(20px, 6vw, 34px); font-weight: 900; pointer-events: none;
+  color: var(--accent); text-shadow: 0 2px 0 var(--accent-2), 0 4px 14px rgba(0,0,0,.7);
+  transition: opacity .3s; opacity: 1;
+}
+.lapflash.record { color: #6fe06f; text-shadow: 0 2px 0 #2a8a2a, 0 4px 14px rgba(0,0,0,.7); }
+
 .hud-bottom {
-  position: absolute; left: 10px; top: 76px; display: flex; flex-direction: column; gap: 6px;
+  position: absolute; left: 10px; top: 104px; display: flex; flex-direction: column; gap: 6px;
 }
 .meter { display: flex; align-items: center; gap: 6px; }
 .meter .hud-label { width: 44px; text-align: right; }
@@ -183,6 +199,9 @@ button.ghost.danger { color: var(--bad); border-color: rgba(255,91,91,.4); }
 .results-table td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .results-table tr.you { color: var(--accent); font-weight: bold; }
 .results-table td.pos { width: 36px; text-align: center; font-weight: bold; }
+.records-box { text-align: center; font-size: 15px; line-height: 1.7; margin: 6px 0; color: var(--muted); }
+.records-box .rec { color: var(--text); font-weight: bold; }
+.records-box .new { color: #6fe06f; font-weight: bold; }
 .reward { font-size: 18px; margin: 10px 0 18px; text-align: center; }
 .reward b { color: var(--accent); }
 
@@ -212,6 +231,11 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         <div class="hud-box"><span class="hud-label">POS</span><span id="hud-pos">1/6</span></div>
         <div class="hud-box"><span class="hud-label">TIME</span><span id="hud-time">0:00</span></div>
       </div>
+      <div class="hud-laprow">
+        <span class="laprow-cur">⏱ <span id="hud-laptime">0:00.0</span></span>
+        <span class="laprow-best">BEST <span id="hud-bestlap">—</span></span>
+      </div>
+      <div id="lapflash" class="lapflash hidden"></div>
       <div class="hud-bottom">
         <div class="meter">
           <span class="hud-label">NITRO</span>
@@ -287,6 +311,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       <section id="screen-results" class="screen hidden">
         <h2 id="results-title">RACE COMPLETE</h2>
         <table id="results-table" class="results-table"></table>
+        <div id="results-records" class="records-box"></div>
         <div id="results-reward" class="reward"></div>
         <button id="btn-next" class="big primary">Continue ▶</button>
       </section>
@@ -427,6 +452,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       money: 800, // a little starting cash for a first upgrade
       upgrades: { engine: 0, tires: 0, shocks: 0, nitro: 0 },
       graphics: "enhanced", // "enhanced" (2.5D) or "classic" (original 2D)
+      records: {}, // { trackId: { lap: seconds|null, race: seconds|null } }
       season: freshSeason(),
     };
   }
@@ -448,6 +474,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           if (!this.state.season || !this.state.season.order) this.state.season = freshSeason();
           if (!this.state.upgrades) this.state.upgrades = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
           if (!this.state.graphics) this.state.graphics = "enhanced";
+          if (!this.state.records) this.state.records = {};
           return this.state;
         }
       } catch (e) { /* corrupt save — start fresh */ }
@@ -490,6 +517,29 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this.state.graphics = this.graphics() === "enhanced" ? "classic" : "enhanced";
       this.save();
       return this.state.graphics;
+    },
+
+    // ---- lap & track records ----
+    getRecord(trackId) { return (this.state.records && this.state.records[trackId]) || { lap: null, race: null }; },
+    _rec(trackId) {
+      if (!this.state.records) this.state.records = {};
+      return this.state.records[trackId] || (this.state.records[trackId] = { lap: null, race: null });
+    },
+    submitLap(trackId, t) {
+      if (!t || t <= 0) return false;
+      const rec = this._rec(trackId);
+      const beat = rec.lap == null || t < rec.lap;
+      if (beat) rec.lap = t;
+      this.save();
+      return beat;
+    },
+    submitRace(trackId, t) {
+      if (!t || t <= 0) return false;
+      const rec = this._rec(trackId);
+      const beat = rec.race == null || t < rec.race;
+      if (beat) rec.race = t;
+      this.save();
+      return beat;
     },
 
     // ---- upgrades ----
@@ -738,6 +788,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this.position = 0;
       this.nitro = 100;
       this.nitroActive = false;
+      this.lapStart = 0; this.lastLap = null; this.bestLapThisRace = null;
     }
   }
 
@@ -981,6 +1032,12 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const lapsDone = Math.floor((car.lapProgRaw - car.startProg) / this.N);
       if (racing && lapsDone > car.lap) {
         car.lap = lapsDone;
+        if (car.isPlayer) {
+          const split = this.time - car.lapStart;
+          car.lapStart = this.time;
+          car.lastLap = split;
+          if (car.bestLapThisRace == null || split < car.bestLapThisRace) car.bestLapThisRace = split;
+        }
         if (car.lap >= this.track.laps && !car.finished) {
           car.finished = true;
           car.finishTime = this.time;
@@ -1058,6 +1115,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         speed: clamp(Math.abs(p.speed) / (p.stats.maxSpeed * p.stats.nitroPower), 0, 1),
         countdown: this.countdown,
         finished: p.finished,
+        lapTime: this.time - p.lapStart, lastLap: p.lastLap, bestLap: p.bestLapThisRace, lapsDone: p.lap,
       });
     }
 
@@ -1428,6 +1486,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this.lapProgRaw = this.startProg;
       this._lastProgRaw = this.startProg;
       this.finished = false; this.finishTime = 0; this.position = 0;
+      this.lapStart = 0; this.lastLap = null; this.bestLapThisRace = null;
       this.nitro = 100; this.nitroActive = false;
       this.rampCooldown = 0;
       this.slip = 0; this.drifting = false;
@@ -1742,6 +1801,12 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const lapsDone = Math.floor((car.lapProgRaw - car.startProg) / this.N);
       if (racing && lapsDone > car.lap) {
         car.lap = lapsDone;
+        if (car.isPlayer) {
+          const split = this.time - car.lapStart;
+          car.lapStart = this.time;
+          car.lastLap = split;
+          if (car.bestLapThisRace == null || split < car.bestLapThisRace) car.bestLapThisRace = split;
+        }
         if (car.lap >= this.track.laps && !car.finished) {
           car.finished = true; car.finishTime = this.time;
           this.finishOrder.push(car); this._checkRaceEnd();
@@ -1799,6 +1864,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         pos: p.position, total: this.cars.length, time: this.time,
         nitro: p.nitro, speed: clamp(p.speedApprox / (p.stats.maxSpeed * p.stats.nitroPower), 0, 1),
         countdown: this.countdown, finished: p.finished,
+        lapTime: this.time - p.lapStart, lastLap: p.lastLap, bestLap: p.bestLapThisRace, lapsDone: p.lap,
       });
     }
 
@@ -2060,6 +2126,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
   let race = null;
   let lastResult = null;
+  let liveBestLap = null;   // best lap to beat during the current race (record or this-race best)
+  let prevLapsDone = 0;
+  let lapFlashTimer = null;
 
   const isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
 
@@ -2076,6 +2145,12 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   function fmtTime(t) {
     const m = Math.floor(t / 60), s = Math.floor(t % 60);
     return `${m}:${String(s).padStart(2, "0")}`;
+  }
+  // lap/record time: M:SS.cc
+  function fmtLap(t) {
+    if (t == null || !isFinite(t)) return "—";
+    const m = Math.floor(t / 60), s = Math.floor(t % 60), cc = Math.floor((t % 1) * 100);
+    return `${m}:${String(s).padStart(2, "0")}.${String(cc).padStart(2, "0")}`;
   }
 
   // ---------------- Menu ----------------
@@ -2107,9 +2182,14 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     const track = Career.currentTrack();
     const stars = "★".repeat(track.difficulty) + "☆".repeat(5 - track.difficulty);
+    const rec = Career.getRecord(track.id);
+    const recTxt = (rec.lap != null || rec.race != null)
+      ? `🏁 Best lap ${fmtLap(rec.lap)} &nbsp;•&nbsp; 🏆 Best race ${fmtTime(rec.race)}`
+      : "No records yet — set one!";
     $("#next-race").innerHTML = `
       <div class="rname">${track.name}</div>
-      <div class="meta">${Career.raceLabel()} • ${track.laps} laps • Difficulty ${stars}</div>`;
+      <div class="meta">${Career.raceLabel()} • ${track.laps} laps • Difficulty ${stars}</div>
+      <div class="meta records">${recTxt}</div>`;
 
     // upgrades
     const wrap = $("#upgrades");
@@ -2170,6 +2250,13 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
 
+    // set up lap-record tracking for this race
+    liveBestLap = Career.getRecord(track.id).lap;
+    prevLapsDone = 0;
+    $("#hud-bestlap").textContent = fmtLap(liveBestLap);
+    $("#hud-laptime").textContent = "0:00.0";
+    $("#lapflash").classList.add("hidden");
+
     const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
     race = new Engine(canvas, {
       track,
@@ -2187,6 +2274,26 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     $("#hud-time").textContent = fmtTime(s.time);
     $("#hud-nitro").style.width = s.nitro + "%";
     $("#hud-speed").style.width = (s.speed * 100) + "%";
+    $("#hud-laptime").textContent = fmtLap(s.lapTime || 0);
+
+    // a lap just completed?
+    if (s.lapsDone > prevLapsDone && s.lastLap != null) {
+      prevLapsDone = s.lapsDone;
+      const isRecord = liveBestLap == null || s.lastLap < liveBestLap;
+      if (isRecord) liveBestLap = s.lastLap;
+      $("#hud-bestlap").textContent = fmtLap(liveBestLap);
+      flashLap(`LAP ${s.lapsDone}  ${fmtLap(s.lastLap)}`, isRecord);
+    }
+  }
+
+  function flashLap(text, isRecord) {
+    const el = $("#lapflash");
+    el.textContent = isRecord ? "★ " + text + "  RECORD!" : text;
+    el.classList.toggle("record", !!isRecord);
+    el.classList.remove("hidden");
+    el.style.opacity = "1";
+    clearTimeout(lapFlashTimer);
+    lapFlashTimer = setTimeout(() => { el.style.opacity = "0"; }, 1600);
   }
 
   function endRaceCleanup() {
@@ -2197,7 +2304,18 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
   function onRaceFinish(order) {
     const track = Career.currentTrack();
+    // capture the player's times before tearing the race down
+    const p = race && race.player;
+    const bestLap = p ? p.bestLapThisRace : null;
+    const raceTime = p ? p.finishTime : null;
+    const lapIsRecord = bestLap != null && Career.submitLap(track.id, bestLap);
+    const raceIsRecord = raceTime != null && Career.submitRace(track.id, raceTime);
+
     lastResult = Career.recordResult(order);
+    lastResult.bestLap = bestLap;
+    lastResult.raceTime = raceTime;
+    lastResult.lapIsRecord = lapIsRecord;
+    lastResult.raceIsRecord = raceIsRecord;
     endRaceCleanup();
     showResults(order, track);
   }
@@ -2216,6 +2334,15 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         <td style="text-align:right">${Career.POINTS[idx] || 0} pts</td>`;
       table.appendChild(tr);
     });
+
+    // lap / track record summary
+    const lapTxt = lastResult.bestLap != null
+      ? `Best lap: <span class="${lastResult.lapIsRecord ? "new" : "rec"}">${fmtLap(lastResult.bestLap)}</span>${lastResult.lapIsRecord ? " 🏁 NEW LAP RECORD" : ""}`
+      : "";
+    const raceTxt = lastResult.raceTime != null
+      ? `Race time: <span class="${lastResult.raceIsRecord ? "new" : "rec"}">${fmtTime(lastResult.raceTime)}</span>${lastResult.raceIsRecord ? " 🏆 NEW TRACK RECORD" : ""}`
+      : "";
+    $("#results-records").innerHTML = [lapTxt, raceTxt].filter(Boolean).join("<br>");
 
     const pos = lastResult.playerPos;
     $("#results-title").textContent = pos === 0 ? "🏆 WINNER!" : `Finished ${ordinal(pos + 1)}`;

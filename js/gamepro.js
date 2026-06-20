@@ -180,6 +180,7 @@
       this.lapProgRaw = this.startProg;
       this._lastProgRaw = this.startProg;
       this.finished = false; this.finishTime = 0; this.position = 0;
+      this.lapStart = 0; this.lastLap = null; this.bestLapThisRace = null;
       this.nitro = 100; this.nitroActive = false;
       this.rampCooldown = 0;
       this.slip = 0; this.drifting = false;
@@ -494,6 +495,12 @@
       const lapsDone = Math.floor((car.lapProgRaw - car.startProg) / this.N);
       if (racing && lapsDone > car.lap) {
         car.lap = lapsDone;
+        if (car.isPlayer) {
+          const split = this.time - car.lapStart;
+          car.lapStart = this.time;
+          car.lastLap = split;
+          if (car.bestLapThisRace == null || split < car.bestLapThisRace) car.bestLapThisRace = split;
+        }
         if (car.lap >= this.track.laps && !car.finished) {
           car.finished = true; car.finishTime = this.time;
           this.finishOrder.push(car); this._checkRaceEnd();
@@ -551,6 +558,7 @@
         pos: p.position, total: this.cars.length, time: this.time,
         nitro: p.nitro, speed: clamp(p.speedApprox / (p.stats.maxSpeed * p.stats.nitroPower), 0, 1),
         countdown: this.countdown, finished: p.finished,
+        lapTime: this.time - p.lapStart, lastLap: p.lastLap, bestLap: p.bestLapThisRace, lapsDone: p.lap,
       });
     }
 

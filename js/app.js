@@ -18,6 +18,9 @@
 
   let race = null;
   let lastResult = null;
+  let liveBestLap = null;   // best lap to beat during the current race (record or this-race best)
+  let prevLapsDone = 0;
+  let lapFlashTimer = null;
 
   const isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
 
@@ -34,6 +37,12 @@
   function fmtTime(t) {
     const m = Math.floor(t / 60), s = Math.floor(t % 60);
     return `${m}:${String(s).padStart(2, "0")}`;
+  }
+  // lap/record time: M:SS.cc
+  function fmtLap(t) {
+    if (t == null || !isFinite(t)) return "—";
+    const m = Math.floor(t / 60), s = Math.floor(t % 60), cc = Math.floor((t % 1) * 100);
+    return `${m}:${String(s).padStart(2, "0")}.${String(cc).padStart(2, "0")}`;
   }
 
   // ---------------- Menu ----------------
@@ -65,9 +74,14 @@
 
     const track = Career.currentTrack();
     const stars = "★".repeat(track.difficulty) + "☆".repeat(5 - track.difficulty);
+    const rec = Career.getRecord(track.id);
+    const recTxt = (rec.lap != null || rec.race != null)
+      ? `🏁 Best lap ${fmtLap(rec.lap)} &nbsp;•&nbsp; 🏆 Best race ${fmtTime(rec.race)}`
+      : "No records yet — set one!";
     $("#next-race").innerHTML = `
       <div class="rname">${track.name}</div>
-      <div class="meta">${Career.raceLabel()} • ${track.laps} laps • Difficulty ${stars}</div>`;
+      <div class="meta">${Career.raceLabel()} • ${track.laps} laps • Difficulty ${stars}</div>
+      <div class="meta records">${recTxt}</div>`;
 
     // upgrades
     const wrap = $("#upgrades");
@@ -128,6 +142,13 @@
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
 
+    // set up lap-record tracking for this race
+    liveBestLap = Career.getRecord(track.id).lap;
+    prevLapsDone = 0;
+    $("#hud-bestlap").textContent = fmtLap(liveBestLap);
+    $("#hud-laptime").textContent = "0:00.0";
+    $("#lapflash").classList.add("hidden");
+
     const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
     race = new Engine(canvas, {
       track,
@@ -145,6 +166,26 @@
     $("#hud-time").textContent = fmtTime(s.time);
     $("#hud-nitro").style.width = s.nitro + "%";
     $("#hud-speed").style.width = (s.speed * 100) + "%";
+    $("#hud-laptime").textContent = fmtLap(s.lapTime || 0);
+
+    // a lap just completed?
+    if (s.lapsDone > prevLapsDone && s.lastLap != null) {
+      prevLapsDone = s.lapsDone;
+      const isRecord = liveBestLap == null || s.lastLap < liveBestLap;
+      if (isRecord) liveBestLap = s.lastLap;
+      $("#hud-bestlap").textContent = fmtLap(liveBestLap);
+      flashLap(`LAP ${s.lapsDone}  ${fmtLap(s.lastLap)}`, isRecord);
+    }
+  }
+
+  function flashLap(text, isRecord) {
+    const el = $("#lapflash");
+    el.textContent = isRecord ? "★ " + text + "  RECORD!" : text;
+    el.classList.toggle("record", !!isRecord);
+    el.classList.remove("hidden");
+    el.style.opacity = "1";
+    clearTimeout(lapFlashTimer);
+    lapFlashTimer = setTimeout(() => { el.style.opacity = "0"; }, 1600);
   }
 
   function endRaceCleanup() {
@@ -155,7 +196,18 @@
 
   function onRaceFinish(order) {
     const track = Career.currentTrack();
+    // capture the player's times before tearing the race down
+    const p = race && race.player;
+    const bestLap = p ? p.bestLapThisRace : null;
+    const raceTime = p ? p.finishTime : null;
+    const lapIsRecord = bestLap != null && Career.submitLap(track.id, bestLap);
+    const raceIsRecord = raceTime != null && Career.submitRace(track.id, raceTime);
+
     lastResult = Career.recordResult(order);
+    lastResult.bestLap = bestLap;
+    lastResult.raceTime = raceTime;
+    lastResult.lapIsRecord = lapIsRecord;
+    lastResult.raceIsRecord = raceIsRecord;
     endRaceCleanup();
     showResults(order, track);
   }
@@ -174,6 +226,15 @@
         <td style="text-align:right">${Career.POINTS[idx] || 0} pts</td>`;
       table.appendChild(tr);
     });
+
+    // lap / track record summary
+    const lapTxt = lastResult.bestLap != null
+      ? `Best lap: <span class="${lastResult.lapIsRecord ? "new" : "rec"}">${fmtLap(lastResult.bestLap)}</span>${lastResult.lapIsRecord ? " 🏁 NEW LAP RECORD" : ""}`
+      : "";
+    const raceTxt = lastResult.raceTime != null
+      ? `Race time: <span class="${lastResult.raceIsRecord ? "new" : "rec"}">${fmtTime(lastResult.raceTime)}</span>${lastResult.raceIsRecord ? " 🏆 NEW TRACK RECORD" : ""}`
+      : "";
+    $("#results-records").innerHTML = [lapTxt, raceTxt].filter(Boolean).join("<br>");
 
     const pos = lastResult.playerPos;
     $("#results-title").textContent = pos === 0 ? "🏆 WINNER!" : `Finished ${ordinal(pos + 1)}`;

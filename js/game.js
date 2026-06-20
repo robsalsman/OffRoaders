@@ -57,6 +57,7 @@
       this.position = 0;
       this.nitro = 100;
       this.nitroActive = false;
+      this.lapStart = 0; this.lastLap = null; this.bestLapThisRace = null;
     }
   }
 
@@ -300,6 +301,12 @@
       const lapsDone = Math.floor((car.lapProgRaw - car.startProg) / this.N);
       if (racing && lapsDone > car.lap) {
         car.lap = lapsDone;
+        if (car.isPlayer) {
+          const split = this.time - car.lapStart;
+          car.lapStart = this.time;
+          car.lastLap = split;
+          if (car.bestLapThisRace == null || split < car.bestLapThisRace) car.bestLapThisRace = split;
+        }
         if (car.lap >= this.track.laps && !car.finished) {
           car.finished = true;
           car.finishTime = this.time;
@@ -377,6 +384,7 @@
         speed: clamp(Math.abs(p.speed) / (p.stats.maxSpeed * p.stats.nitroPower), 0, 1),
         countdown: this.countdown,
         finished: p.finished,
+        lapTime: this.time - p.lapStart, lastLap: p.lastLap, bestLap: p.bestLapThisRace, lapsDone: p.lap,
       });
     }
 
