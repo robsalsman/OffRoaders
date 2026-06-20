@@ -37,7 +37,7 @@ function loadFile(rel) {
   vm.runInContext(code, ctx, { filename: rel });
 }
 
-["js/tracks.js", "js/career.js", "js/game.js"].forEach(loadFile);
+["js/tracks.js", "js/career.js", "js/input.js", "js/game.js"].forEach(loadFile);
 
 let failures = 0;
 function assert(cond, msg) {
@@ -73,8 +73,8 @@ const race = new ctx.Race(canvas, {
 });
 race.countdown = 0; // skip countdown for the test
 
-// player just holds full gas; AI drives itself
-race.input.gas = true;
+// player drives via the shared analog Input (full throttle); AI drives itself
+ctx.Input.throttle = 1;
 race._attachInput = () => {}; // don't bind real listeners
 race.stop = function () { this.running = false; }; // keep onFinish via setTimeout stub
 
@@ -96,8 +96,8 @@ while (!finished && steps < maxSteps) {
   let diff = desired - p.angle;
   while (diff > Math.PI) diff -= Math.PI * 2;
   while (diff < -Math.PI) diff += Math.PI * 2;
-  race.input.left = diff < -0.05;
-  race.input.right = diff > 0.05;
+  ctx.Input.throttle = 1;
+  ctx.Input.steer = diff < -0.05 ? -1 : diff > 0.05 ? 1 : 0;
   race._update(dt);
   steps++;
 }

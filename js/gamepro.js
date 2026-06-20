@@ -308,34 +308,8 @@
     }
 
     // ---- input ----
-    _attachInput() {
-      const map = {
-        ArrowUp: "gas", KeyW: "gas", ArrowDown: "brake", KeyS: "brake",
-        ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
-        Space: "nitro", ShiftLeft: "drift", ShiftRight: "drift",
-      };
-      const k = (e, down) => { if (map[e.code]) { this.input[map[e.code]] = down; e.preventDefault(); } };
-      this._bound.kd = (e) => k(e, true); this._bound.ku = (e) => k(e, false);
-      window.addEventListener("keydown", this._bound.kd);
-      window.addEventListener("keyup", this._bound.ku);
-
-      this._bound.btnListeners = [];
-      const bind = (btn, type, fn) => { btn.addEventListener(type, fn, { passive: false }); this._bound.btnListeners.push({ btn, type, fn }); };
-      Array.from(document.querySelectorAll("#touch .tbtn")).forEach((btn) => {
-        const key = btn.dataset.key;
-        const on = (e) => { this.input[key] = true; if (e.preventDefault) e.preventDefault(); if (e.pointerId != null && btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (_) {} } };
-        const off = () => { this.input[key] = false; };
-        if (window.PointerEvent) { bind(btn, "pointerdown", on); bind(btn, "pointerup", off); bind(btn, "pointercancel", off); bind(btn, "pointerleave", off); }
-        else { bind(btn, "touchstart", on); bind(btn, "touchend", off); bind(btn, "touchcancel", off); bind(btn, "mousedown", on); bind(btn, "mouseup", off); bind(btn, "mouseleave", off); }
-      });
-    }
-    _detachInput() {
-      window.removeEventListener("keydown", this._bound.kd);
-      window.removeEventListener("keyup", this._bound.ku);
-      (this._bound.btnListeners || []).forEach(({ btn, type, fn }) => btn.removeEventListener(type, fn));
-      this._bound.btnListeners = [];
-      for (const k in this.input) this.input[k] = false;
-    }
+    _attachInput() { window.Input.init(); window.Input.reset(); }
+    _detachInput() { window.Input.reset(); }
 
     // ---- simulation ----
     _update(dt) {
@@ -344,7 +318,7 @@
 
       for (const car of this.cars) {
         let ctrl = car.isPlayer ? this._playerControl() : this._aiControl(car);
-        if (!racing) ctrl = { steer: 0, throttle: 0, brake: 0, nitro: false, drift: false };
+        if (!racing) ctrl = { steer: 0, throttle: 0, brake: 0, nitro: false };
         this._drive(car, ctrl, dt);
         this._trackLogic(car, dt, racing);
       }
@@ -364,8 +338,8 @@
     }
 
     _playerControl() {
-      const i = this.input;
-      return { steer: (i.right ? 1 : 0) - (i.left ? 1 : 0), throttle: i.gas ? 1 : 0, brake: i.brake ? 1 : 0, nitro: i.nitro, drift: i.drift };
+      const i = window.Input;
+      return { steer: i.steer, throttle: i.throttle, brake: i.brake, nitro: i.nitro };
     }
     _aiControl(car) {
       const look = 2.4 + car.speedApprox / 150;
@@ -376,9 +350,10 @@
       const sharp = Math.abs(diff);
       let throttle = sharp > 1.0 ? 0.62 : sharp > 0.55 ? 0.9 : 1;
       if (car._offTrack) throttle *= 0.88;
-      const drift = sharp > 0.85 && car.speedApprox > 220; // handbrake-rotate tight corners
-      const nitro = car.nitro > 45 && sharp < 0.3 && car.aiAggro > 0.45 && car.z <= 0;
-      return { steer, throttle, brake: 0, nitro, drift };
+      // AI uses nitro on flow-y bits AND to power-drift tight corners
+      const nitro = car.z <= 0 && car.nitro > 35 &&
+        ((sharp < 0.3 && car.aiAggro > 0.45) || (sharp > 0.7 && car.speedApprox > 210));
+      return { steer, throttle, brake: 0, nitro };
     }
 
     _drive(car, ctrl, dt) {
@@ -402,24 +377,33 @@
       maxSpeed *= offFactor;
 
       if (onGround) {
-        if (ctrl.throttle) vlong += accel * dt;
-        else vlong -= 150 * dt * Math.sign(vlong || 1);
-        if (ctrl.brake) vlong -= 460 * dt;
+        const th = ctrl.throttle || 0; // analog: stick position sets target speed
+        if (th > 0.02) {
+          const cap = maxSpeed * Math.max(th, 0.35);
+          if (vlong < cap) vlong += accel * dt;
+          else vlong = Math.max(cap, vlong - 240 * dt);
+        } else {
+          vlong -= 150 * dt * Math.sign(vlong || 1);
+        }
+        if (ctrl.brake > 0) vlong -= 460 * ctrl.brake * dt;
         vlong = clamp(vlong, -130, maxSpeed);
-        if (!ctrl.throttle && !ctrl.brake && Math.abs(vlong) < 6) vlong = 0;
+        if (th <= 0.02 && ctrl.brake <= 0 && Math.abs(vlong) < 6) vlong = 0;
       }
 
-      // lateral grip — the drift/understeer core
+      // lateral grip — drift/understeer core. Trucks grip normally; holding
+      // NITRO while turning automatically breaks the rear loose into a drift.
+      const autoDrift = car.nitroActive && Math.abs(ctrl.steer) > 0.25 && Math.abs(vlong) > 120;
       let gripLat;
       if (!onGround) gripLat = 0.999;
-      else if (ctrl.drift || (ctrl.brake && Math.abs(vlong) > 120)) gripLat = 0.93; // handbrake slide
+      else if (autoDrift) gripLat = 0.94;
       else gripLat = s.grip * (car._offTrack ? 1.05 : 1); // looser grip off-track
       vlat *= Math.pow(clamp(gripLat, 0, 0.999), dt * 60);
 
-      // steering with speed-sensitive understeer
+      // steering with mild speed-sensitive understeer (drift comes from nitro)
       const speedFrac = clamp(Math.abs(vlong) / s.maxSpeed, 0, 1);
-      let authority = s.turn * (0.45 + 0.55 * Math.min(1, speedFrac * 1.7));
-      authority *= 1 - 0.40 * speedFrac * Math.min(1, Math.abs(ctrl.steer)); // wash-out at speed
+      let authority = s.turn * (0.5 + 0.5 * Math.min(1, speedFrac * 1.7));
+      authority *= 1 - 0.22 * speedFrac * Math.min(1, Math.abs(ctrl.steer)); // gentle wash-out
+      if (autoDrift) authority *= 1.5; // sharper rotation when power-drifting
       if (!onGround) authority *= 0.12;
       car.angle += ctrl.steer * authority * dt * Math.sign(vlong || 1);
 

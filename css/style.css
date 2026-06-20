@@ -61,22 +61,44 @@ html, body {
   width: 42px; height: 42px; border-radius: 10px; font-size: 18px; cursor: pointer;
 }
 
-/* ---------- Touch controls ---------- */
+/* ---------- Touch controls (analog thumbstick + nitro) ---------- */
 #touch { position: absolute; inset: 0; pointer-events: none; }
-.touch-left { position: absolute; left: 10px; bottom: 18px; display: flex; gap: 12px; }
-.touch-right { position: absolute; right: 10px; bottom: 18px; display: flex; gap: 12px; align-items: flex-end; }
-.tbtn {
-  pointer-events: auto; touch-action: none; width: 74px; height: 74px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.35); background: rgba(20,14,10,.5);
-  color: var(--text); font-size: 26px; font-weight: bold; cursor: pointer;
+
+/* left-side zone becomes a thumbstick wherever you press */
+.stick-zone {
+  position: absolute; left: 0; bottom: 0;
+  width: 58%; height: 62%; pointer-events: auto; touch-action: none;
+}
+.stick-hint {
+  position: absolute; left: 28px; bottom: 28px;
+  color: rgba(255,255,255,.4); font-size: 13px; font-weight: bold;
+  line-height: 1.5; letter-spacing: 1px; text-align: center;
+}
+.stick-base {
+  position: fixed; display: none; pointer-events: none;
+  width: 152px; height: 152px; margin-left: -76px; margin-top: -76px;
+  border-radius: 50%; border: 2px solid rgba(255,255,255,.3);
+  background: radial-gradient(circle, rgba(20,14,10,.35), rgba(20,14,10,.55));
+}
+.stick-base::before, .stick-base::after {
+  content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,.5); font-size: 16px;
+}
+.stick-knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 66px; height: 66px; border-radius: 50%;
+  background: rgba(255,180,58,.55); border: 2px solid rgba(255,255,255,.6);
+  transform: translate(-50%,-50%); pointer-events: none;
+}
+.nitro-btn {
+  position: absolute; right: 24px; bottom: 40px; pointer-events: auto; touch-action: none;
+  width: 108px; height: 108px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.45); background: rgba(47,208,255,.32);
+  color: var(--text); font-size: 30px; font-weight: bold; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.tbtn small { font-size: 9px; letter-spacing: 1px; }
-.tbtn.gas { background: rgba(95,211,95,.32); width: 92px; height: 92px; font-size: 18px; }
-.tbtn.brake { background: rgba(255,91,91,.3); font-size: 13px; }
-.tbtn.nitro { background: rgba(47,208,255,.3); }
-.tbtn.drift { background: rgba(255,180,58,.3); font-size: 13px; }
-.tbtn:active { transform: scale(.94); filter: brightness(1.3); }
+.nitro-btn small { font-size: 11px; letter-spacing: 1px; }
+.nitro-btn:active { transform: scale(.94); filter: brightness(1.35); }
 
 /* ---------- Overlay / screens ---------- */
 #overlay { position: absolute; inset: 0; display: flex; }

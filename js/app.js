@@ -38,6 +38,7 @@
 
   // ---------------- Menu ----------------
   function initMenu() {
+    if (window.Input) window.Input.init();
     Career.load();
     $("#btn-continue").classList.toggle("hidden", !Career.hasSave());
     show("menu");

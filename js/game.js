@@ -171,57 +171,8 @@
     }
 
     // ---------- input ----------
-    _attachInput() {
-      const k = (e, down) => {
-        const map = {
-          ArrowUp: "gas", KeyW: "gas",
-          ArrowDown: "brake", KeyS: "brake",
-          ArrowLeft: "left", KeyA: "left",
-          ArrowRight: "right", KeyD: "right",
-          Space: "nitro",
-        };
-        if (map[e.code]) { this.input[map[e.code]] = down; e.preventDefault(); }
-      };
-      this._bound.kd = (e) => k(e, true);
-      this._bound.ku = (e) => k(e, false);
-      window.addEventListener("keydown", this._bound.kd);
-      window.addEventListener("keyup", this._bound.ku);
-
-      // touch buttons — use Pointer Events (unified mouse/touch, reliable on
-      // iOS Safari). Fall back to touch+mouse on very old browsers.
-      this._touchBtns = Array.from(document.querySelectorAll("#touch .tbtn"));
-      this._bound.btnListeners = [];
-      const bind = (btn, type, fn) => { btn.addEventListener(type, fn, { passive: false }); this._bound.btnListeners.push({ btn, type, fn }); };
-      this._touchBtns.forEach((btn) => {
-        const key = btn.dataset.key;
-        const on = (e) => {
-          this.input[key] = true;
-          if (e.preventDefault) e.preventDefault();
-          if (e.pointerId != null && btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (_) {} }
-        };
-        const off = (e) => { this.input[key] = false; };
-        if (window.PointerEvent) {
-          bind(btn, "pointerdown", on);
-          bind(btn, "pointerup", off);
-          bind(btn, "pointercancel", off);
-          bind(btn, "pointerleave", off);
-        } else {
-          bind(btn, "touchstart", on);
-          bind(btn, "touchend", off);
-          bind(btn, "touchcancel", off);
-          bind(btn, "mousedown", on);
-          bind(btn, "mouseup", off);
-          bind(btn, "mouseleave", off);
-        }
-      });
-    }
-    _detachInput() {
-      window.removeEventListener("keydown", this._bound.kd);
-      window.removeEventListener("keyup", this._bound.ku);
-      (this._bound.btnListeners || []).forEach(({ btn, type, fn }) => btn.removeEventListener(type, fn));
-      this._bound.btnListeners = [];
-      for (const k in this.input) this.input[k] = false;
-    }
+    _attachInput() { window.Input.init(); window.Input.reset(); }
+    _detachInput() { window.Input.reset(); }
 
     // ---------- simulation ----------
     _update(dt) {
@@ -244,13 +195,8 @@
     }
 
     _playerControl() {
-      const i = this.input;
-      return {
-        steer: (i.right ? 1 : 0) - (i.left ? 1 : 0),
-        throttle: i.gas ? 1 : 0,
-        brake: i.brake ? 1 : 0,
-        nitro: i.nitro,
-      };
+      const i = window.Input;
+      return { steer: i.steer, throttle: i.throttle, brake: i.brake, nitro: i.nitro };
     }
 
     _aiControl(car) {
@@ -290,12 +236,18 @@
       const offFactor = car._offTrack ? s.offroad : 1;
       maxSpeed *= offFactor;
 
-      // longitudinal
-      if (ctrl.throttle) car.speed += accel * dt;
-      else car.speed -= 160 * dt; // engine braking / rolling drag
-      if (ctrl.brake) car.speed -= 420 * dt;
+      // longitudinal — analog throttle (stick position sets target speed)
+      const th = ctrl.throttle || 0;
+      if (th > 0.02) {
+        const cap = maxSpeed * Math.max(th, 0.35);
+        if (car.speed < cap) car.speed += accel * dt;
+        else car.speed = Math.max(cap, car.speed - 220 * dt);
+      } else {
+        car.speed -= 160 * dt; // coast / rolling drag
+      }
+      if (ctrl.brake > 0) car.speed -= 460 * ctrl.brake * dt;
       car.speed = clamp(car.speed, -120, maxSpeed);
-      if (!ctrl.throttle && !ctrl.brake && Math.abs(car.speed) < 8) car.speed = 0;
+      if (th <= 0.02 && ctrl.brake <= 0 && Math.abs(car.speed) < 8) car.speed = 0;
 
       // steering — scaled by speed so you can't spin in place
       const speedFrac = clamp(Math.abs(car.speed) / s.maxSpeed, 0, 1);
