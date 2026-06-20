@@ -120,10 +120,10 @@
       };
     },
 
-    // Difficulty scales with how far into the season we are.
+    // Difficulty scales with how far into the season we are (and across seasons).
     aiStrength() {
       const s = this.state.season;
-      return 0.86 + 0.03 * s.raceIndex + 0.02 * ((s.season || 1) - 1);
+      return 0.93 + 0.022 * s.raceIndex + 0.025 * ((s.season || 1) - 1);
     },
 
     /* Record the result of a race.

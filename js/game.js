@@ -117,8 +117,8 @@
           nitroRefill: 9 * perf.nitroRefill,
         } : {
           maxSpeed: 330 * aiSkill,
-          accel: 230 * aiSkill,
-          turn: 3.1,
+          accel: 245 * aiSkill,
+          turn: 3.15,
           grip: 0.87,
           offroad: 0.55,
           nitroPower: 1.5,
@@ -257,10 +257,10 @@
       const steer = clamp(diff * 2.2, -1, 1);
 
       const sharp = Math.abs(diff);
-      let throttle = sharp > 0.9 ? 0.55 : sharp > 0.5 ? 0.82 : 1;
+      let throttle = sharp > 1.0 ? 0.62 : sharp > 0.55 ? 0.88 : 1;
       // off-track recovery: if far from line, steer harder & ease off
-      if (car._offTrack) throttle *= 0.85;
-      const nitro = car.nitro > 55 && sharp < 0.25 && car.aiAggro > 0.55;
+      if (car._offTrack) throttle *= 0.88;
+      const nitro = car.nitro > 45 && sharp < 0.3 && car.aiAggro > 0.45;
       return { steer, throttle, brake: 0, nitro };
     }
 
