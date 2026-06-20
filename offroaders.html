@@ -308,7 +308,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           <p><strong>Touch:</strong> Use the on-screen <strong>d-pad on the right</strong> — push <strong>up to go (farther = faster)</strong>, <strong>down to brake</strong>, left/right to steer. The <strong>NITRO</strong> button is on the left.</p>
           <p><strong>Drifting:</strong> In Enhanced mode the trucks turn normally — but hold <strong>NITRO</strong> while turning and the truck automatically drifts through the corner.</p>
           <p><strong>Jumps:</strong> Hit the ramps (chevrons) with speed to launch — you can't steer much in the air, so line it up before takeoff and brace for the landing.</p>
-          <p><strong>Tips:</strong> Stay on the dirt track — grass slows you down. Save nitro for straights. Spend winnings in the Garage on Engine, Tires (grip), Shocks and Nitro. Switch between Enhanced (2.5D) and Classic graphics with the Garage button.</p>
+          <p><strong>Tips:</strong> The track has edge walls so you can't fly off into the grass — lean on them through corners. Save nitro for straights. Spend winnings in the Garage on Engine, Tires (grip), Shocks and Nitro. Switch between Enhanced (2.5D) and Classic graphics with the Garage button.</p>
         </div>
         <button id="btn-howto-back" class="big">Back</button>
       </section>
@@ -639,8 +639,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
       js.steer = shape(dx / R, 1.7);          // softer steering near centre
       const up = -dy / R;
-      js.throttle = up > dead ? Math.min(1, (up - dead) / (1 - dead)) : 0;
-      js.brake = -up > dead ? Math.min(1, (-up - dead) / (1 - dead)) : 0;
+      // throttle reaches full at ~half-up so steering diagonally still keeps speed
+      js.throttle = up > dead ? Math.min(1, (up - dead) / (0.5 - dead)) : 0;
+      js.brake = -up > dead ? Math.min(1, (-up - dead) / (0.5 - dead)) : 0;
       apply();
     };
     const start = (x, y, pid) => { id = pid; setOrigin(); move(x, y); };
@@ -788,16 +789,16 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
         // base stats (player modified by upgrades, AI by difficulty)
         const stats = isPlayer ? {
-          maxSpeed: 330 * perf.maxSpeed,
-          accel: 240 * perf.accel,
+          maxSpeed: 375 * perf.maxSpeed,
+          accel: 270 * perf.accel,
           turn: 3.2 * perf.turn,
           grip: 0.86 + 0.03 * (perf.grip - 1) * 10,
           offroad: 0.5 + 0.06 * (perf.offroad - 1) * 10, // off-track speed factor (higher=better)
           nitroPower: 1.55 * perf.nitroPower,
           nitroRefill: 9 * perf.nitroRefill,
         } : {
-          maxSpeed: 330 * aiSkill,
-          accel: 245 * aiSkill,
+          maxSpeed: 375 * aiSkill,
+          accel: 270 * aiSkill,
           turn: 3.15,
           grip: 0.87,
           offroad: 0.55,
@@ -954,8 +955,18 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     _trackLogic(car, dt, racing) {
       const c = closestOnLoop(this.pts, car.x, car.y);
-      car._offTrack = c.dist > this.track.width / 2;
-      car._distToLine = c.dist;
+
+      // invisible edge walls — keep the truck on the dirt, slide along the edge
+      const maxOff = this.track.width / 2 - 12;
+      if (c.dist > maxOff) {
+        let nx = car.x - c.x, ny = car.y - c.y;
+        const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        car.x = c.x + nx * maxOff; car.y = c.y + ny * maxOff;
+        const vn = car.vx * nx + car.vy * ny;
+        if (vn > 0) { car.vx -= nx * vn; car.vy -= ny * vn; }
+      }
+      car._offTrack = false;
+      car._distToLine = Math.min(c.dist, maxOff);
 
       // monotonic progress (raw) for ranking & AI lookahead
       let prog = c.progress;
@@ -1496,16 +1507,16 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         const aiSkill = isPlayer ? 1 : this.cfg.aiStrength * (1 + bias) * (0.985 + Math.random() * 0.03);
 
         const stats = isPlayer ? {
-          maxSpeed: 340 * perf.maxSpeed,
-          accel: 250 * perf.accel,
+          maxSpeed: 385 * perf.maxSpeed,
+          accel: 280 * perf.accel,
           turn: 3.0 * perf.turn,
           grip: clamp(0.88 - (perf.grip - 1) * 0.16, 0.78, 0.91),
           offroad: clamp(0.5 + (perf.offroad - 1) * 0.6, 0.45, 0.9),
           nitroPower: 1.55 * perf.nitroPower,
           nitroRefill: 9 * perf.nitroRefill,
         } : {
-          maxSpeed: 340 * aiSkill,
-          accel: 248 * aiSkill,
+          maxSpeed: 385 * aiSkill,
+          accel: 278 * aiSkill,
           turn: 3.0,
           grip: 0.875,
           offroad: 0.6,
@@ -1697,7 +1708,19 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     _trackLogic(car, dt, racing) {
       const c = closestOnLoop(this.pts, car.x, car.y);
-      car._offTrack = c.dist > this.track.width / 2;
+
+      // invisible edge walls — keep the truck on the dirt, slide along the edge
+      const maxOff = this.track.width / 2 - 12;
+      if (c.dist > maxOff) {
+        const cp = pointAtProgress(this.pts, c.progress);
+        let nx = car.x - cp.x, ny = car.y - cp.y;
+        const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        car.x = cp.x + nx * maxOff; car.y = cp.y + ny * maxOff;
+        const vn = car.vx * nx + car.vy * ny; // outward velocity
+        if (vn > 0) { car.vx -= nx * vn; car.vy -= ny * vn; }
+      }
+      car._offTrack = false; // walls keep everyone on track now
+
       let prog = c.progress;
       let delta = prog - (car._lastProgRaw % this.N);
       if (delta < -this.N / 2) delta += this.N; else if (delta > this.N / 2) delta -= this.N;

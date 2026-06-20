@@ -259,16 +259,16 @@
         const aiSkill = isPlayer ? 1 : this.cfg.aiStrength * (1 + bias) * (0.985 + Math.random() * 0.03);
 
         const stats = isPlayer ? {
-          maxSpeed: 340 * perf.maxSpeed,
-          accel: 250 * perf.accel,
+          maxSpeed: 385 * perf.maxSpeed,
+          accel: 280 * perf.accel,
           turn: 3.0 * perf.turn,
           grip: clamp(0.88 - (perf.grip - 1) * 0.16, 0.78, 0.91),
           offroad: clamp(0.5 + (perf.offroad - 1) * 0.6, 0.45, 0.9),
           nitroPower: 1.55 * perf.nitroPower,
           nitroRefill: 9 * perf.nitroRefill,
         } : {
-          maxSpeed: 340 * aiSkill,
-          accel: 248 * aiSkill,
+          maxSpeed: 385 * aiSkill,
+          accel: 278 * aiSkill,
           turn: 3.0,
           grip: 0.875,
           offroad: 0.6,
@@ -460,7 +460,19 @@
 
     _trackLogic(car, dt, racing) {
       const c = closestOnLoop(this.pts, car.x, car.y);
-      car._offTrack = c.dist > this.track.width / 2;
+
+      // invisible edge walls — keep the truck on the dirt, slide along the edge
+      const maxOff = this.track.width / 2 - 12;
+      if (c.dist > maxOff) {
+        const cp = pointAtProgress(this.pts, c.progress);
+        let nx = car.x - cp.x, ny = car.y - cp.y;
+        const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        car.x = cp.x + nx * maxOff; car.y = cp.y + ny * maxOff;
+        const vn = car.vx * nx + car.vy * ny; // outward velocity
+        if (vn > 0) { car.vx -= nx * vn; car.vy -= ny * vn; }
+      }
+      car._offTrack = false; // walls keep everyone on track now
+
       let prog = c.progress;
       let delta = prog - (car._lastProgRaw % this.N);
       if (delta < -this.N / 2) delta += this.N; else if (delta > this.N / 2) delta -= this.N;

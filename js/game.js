@@ -108,16 +108,16 @@
 
         // base stats (player modified by upgrades, AI by difficulty)
         const stats = isPlayer ? {
-          maxSpeed: 330 * perf.maxSpeed,
-          accel: 240 * perf.accel,
+          maxSpeed: 375 * perf.maxSpeed,
+          accel: 270 * perf.accel,
           turn: 3.2 * perf.turn,
           grip: 0.86 + 0.03 * (perf.grip - 1) * 10,
           offroad: 0.5 + 0.06 * (perf.offroad - 1) * 10, // off-track speed factor (higher=better)
           nitroPower: 1.55 * perf.nitroPower,
           nitroRefill: 9 * perf.nitroRefill,
         } : {
-          maxSpeed: 330 * aiSkill,
-          accel: 245 * aiSkill,
+          maxSpeed: 375 * aiSkill,
+          accel: 270 * aiSkill,
           turn: 3.15,
           grip: 0.87,
           offroad: 0.55,
@@ -274,8 +274,18 @@
 
     _trackLogic(car, dt, racing) {
       const c = closestOnLoop(this.pts, car.x, car.y);
-      car._offTrack = c.dist > this.track.width / 2;
-      car._distToLine = c.dist;
+
+      // invisible edge walls — keep the truck on the dirt, slide along the edge
+      const maxOff = this.track.width / 2 - 12;
+      if (c.dist > maxOff) {
+        let nx = car.x - c.x, ny = car.y - c.y;
+        const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        car.x = c.x + nx * maxOff; car.y = c.y + ny * maxOff;
+        const vn = car.vx * nx + car.vy * ny;
+        if (vn > 0) { car.vx -= nx * vn; car.vy -= ny * vn; }
+      }
+      car._offTrack = false;
+      car._distToLine = Math.min(c.dist, maxOff);
 
       // monotonic progress (raw) for ranking & AI lookahead
       let prog = c.progress;

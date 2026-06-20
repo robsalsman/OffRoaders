@@ -68,8 +68,9 @@
       knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
       js.steer = shape(dx / R, 1.7);          // softer steering near centre
       const up = -dy / R;
-      js.throttle = up > dead ? Math.min(1, (up - dead) / (1 - dead)) : 0;
-      js.brake = -up > dead ? Math.min(1, (-up - dead) / (1 - dead)) : 0;
+      // throttle reaches full at ~half-up so steering diagonally still keeps speed
+      js.throttle = up > dead ? Math.min(1, (up - dead) / (0.5 - dead)) : 0;
+      js.brake = -up > dead ? Math.min(1, (-up - dead) / (0.5 - dead)) : 0;
       apply();
     };
     const start = (x, y, pid) => { id = pid; setOrigin(); move(x, y); };
