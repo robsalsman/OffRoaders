@@ -334,6 +334,7 @@
     hideOverlay();
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
+    if (window.Input) window.Input.setAutoGas(isTouch); // mobile: truck drives itself, you steer
 
     // set up lap-record tracking for this race
     liveBestLap = Career.getRecord(track.id).lap;

@@ -1,36 +1,44 @@
 /* input.js — shared player input controller (window.Input).
  * Produces an analog control state read by both race engines:
  *   steer    -1 (left) .. +1 (right)
- *   throttle  0 .. 1   (how far the stick is pushed up)
- *   brake     0 .. 1   (how far the stick is pushed down)
+ *   throttle  0 .. 1
+ *   brake     0 .. 1
  *   nitro     bool
- * Sources: keyboard (digital) + a virtual thumbstick & NITRO button (touch).
+ *
+ * Desktop: keyboard (manual gas/brake/steer/nitro).
+ * Mobile: AUTO-ACCELERATE + a wide analog steering bar across the bottom
+ * (slide a thumb left/right to steer), plus NITRO and BRAKE buttons. This
+ * frees the thumb to do nothing but steer, which is far easier one-handed.
  */
 (function () {
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const I = { steer: 0, throttle: 0, brake: 0, nitro: false };
   const kb = { left: false, right: false, gas: false, brake: false, nitro: false };
-  const js = { steer: 0, throttle: 0, brake: 0, nitro: false };
+  const js = { steer: 0, brake: 0, nitro: false }; // touch state
+  let autoGas = false;
 
   function apply() {
     I.steer = clamp(js.steer + (kb.right ? 1 : 0) - (kb.left ? 1 : 0), -1, 1);
-    I.throttle = Math.max(js.throttle, kb.gas ? 1 : 0);
     I.brake = Math.max(js.brake, kb.brake ? 1 : 0);
+    const auto = autoGas && I.brake <= 0 ? 1 : 0;
+    I.throttle = Math.max(kb.gas ? 1 : 0, auto);
     I.nitro = js.nitro || kb.nitro;
   }
 
+  // app enables auto-accelerate when racing on a touch device
+  I.setAutoGas = function (on) { autoGas = !!on; apply(); };
+
   I.reset = function () {
-    js.steer = js.throttle = js.brake = 0; js.nitro = false;
+    js.steer = js.brake = 0; js.nitro = false;
     for (const k in kb) kb[k] = false;
     apply();
-    const knob = document.getElementById("stick-knob");
-    if (knob) knob.style.transform = "translate(-50%,-50%)";
+    const knob = document.getElementById("steer-knob");
+    if (knob) knob.style.left = "50%";
   };
 
   let inited = false;
   I.init = function () {
     if (inited) return; inited = true;
-
     const map = {
       ArrowUp: "gas", KeyW: "gas", ArrowDown: "brake", KeyS: "brake",
       ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
@@ -38,62 +46,47 @@
     };
     window.addEventListener("keydown", (e) => { if (map[e.code]) { kb[map[e.code]] = true; apply(); e.preventDefault(); } });
     window.addEventListener("keyup", (e) => { if (map[e.code]) { kb[map[e.code]] = false; apply(); e.preventDefault(); } });
-
-    bindStick();
-    bindNitro();
+    bindBar();
+    bindButton("btn-nitro", (v) => { js.nitro = v; });
+    bindButton("btn-brake", (v) => { js.brake = v ? 1 : 0; });
   };
 
-  function bindStick() {
-    const zone = document.getElementById("stick");
-    const base = document.getElementById("stick-base");
-    const knob = document.getElementById("stick-knob");
-    if (!zone || !base || !knob) return;
-    const R = 58, dead = 0.16;
-    let id = null, ox = 0, oy = 0;
-
-    // response curve: gentle near centre for fine control, full at the edge
-    const shape = (v, p) => {
-      const a = Math.abs(v);
-      if (a < dead) return 0;
-      const t = Math.min(1, (a - dead) / (1 - dead));
-      return Math.sign(v) * Math.pow(t, p);
-    };
-
-    // origin is the centre of the visible (fixed) d-pad
-    const setOrigin = () => { const r = base.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; };
-    const move = (x, y) => {
-      let dx = x - ox, dy = y - oy;
-      const len = Math.hypot(dx, dy);
-      if (len > R) { dx = dx / len * R; dy = dy / len * R; }
-      knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-      js.steer = shape(dx / R, 1.7);          // softer steering near centre
-      const up = -dy / R;
-      // throttle reaches full at ~half-up so steering diagonally still keeps speed
-      js.throttle = up > dead ? Math.min(1, (up - dead) / (0.5 - dead)) : 0;
-      js.brake = -up > dead ? Math.min(1, (-up - dead) / (0.5 - dead)) : 0;
+  // relative analog steering: wherever you grab the bar is centre; slide
+  // left/right from there to steer (full lock after ~half the bar's reach).
+  function bindBar() {
+    const bar = document.getElementById("steerbar");
+    const knob = document.getElementById("steer-knob");
+    if (!bar) return;
+    let id = null, ox = 0;
+    const shape = (v) => Math.sign(v) * Math.pow(Math.min(1, Math.abs(v)), 1.35);
+    const move = (x) => {
+      const w = bar.getBoundingClientRect().width;
+      const range = clamp(w * 0.42, 70, 240);
+      js.steer = shape(clamp((x - ox) / range, -1, 1));
+      if (knob) knob.style.left = (50 + js.steer * 42) + "%";
       apply();
     };
-    const start = (x, y, pid) => { id = pid; setOrigin(); move(x, y); };
-    const end = () => { id = null; js.steer = js.throttle = js.brake = 0; knob.style.transform = "translate(-50%,-50%)"; apply(); };
+    const start = (x, pid) => { id = pid; ox = x; move(x); };
+    const end = () => { id = null; js.steer = 0; if (knob) knob.style.left = "50%"; apply(); };
 
     if (window.PointerEvent) {
-      zone.addEventListener("pointerdown", (e) => { start(e.clientX, e.clientY, e.pointerId); try { zone.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });
-      zone.addEventListener("pointermove", (e) => { if (e.pointerId === id) { move(e.clientX, e.clientY); e.preventDefault(); } }, { passive: false });
-      zone.addEventListener("pointerup", (e) => { if (e.pointerId === id) { end(); e.preventDefault(); } });
-      zone.addEventListener("pointercancel", (e) => { if (e.pointerId === id) end(); });
+      bar.addEventListener("pointerdown", (e) => { start(e.clientX, e.pointerId); try { bar.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });
+      bar.addEventListener("pointermove", (e) => { if (e.pointerId === id) { move(e.clientX); e.preventDefault(); } }, { passive: false });
+      bar.addEventListener("pointerup", (e) => { if (e.pointerId === id) { end(); e.preventDefault(); } });
+      bar.addEventListener("pointercancel", (e) => { if (e.pointerId === id) end(); });
     } else {
-      zone.addEventListener("touchstart", (e) => { const t = e.changedTouches[0]; start(t.clientX, t.clientY, t.identifier); e.preventDefault(); }, { passive: false });
-      zone.addEventListener("touchmove", (e) => { for (const t of e.changedTouches) if (t.identifier === id) move(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
-      zone.addEventListener("touchend", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
-      zone.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
+      bar.addEventListener("touchstart", (e) => { const t = e.changedTouches[0]; start(t.clientX, t.identifier); e.preventDefault(); }, { passive: false });
+      bar.addEventListener("touchmove", (e) => { for (const t of e.changedTouches) if (t.identifier === id) move(t.clientX); e.preventDefault(); }, { passive: false });
+      bar.addEventListener("touchend", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
+      bar.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
     }
   }
 
-  function bindNitro() {
-    const btn = document.getElementById("btn-nitro");
+  function bindButton(elId, setter) {
+    const btn = document.getElementById(elId);
     if (!btn) return;
-    const on = (e) => { js.nitro = true; apply(); if (e.preventDefault) e.preventDefault(); if (e.pointerId != null && btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (_) {} } };
-    const off = () => { js.nitro = false; apply(); };
+    const on = (e) => { setter(true); btn.classList.add("pressed"); apply(); if (e && e.preventDefault) e.preventDefault(); if (e && e.pointerId != null && btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (_) {} } };
+    const off = () => { setter(false); btn.classList.remove("pressed"); apply(); };
     if (window.PointerEvent) {
       btn.addEventListener("pointerdown", on); btn.addEventListener("pointerup", off);
       btn.addEventListener("pointercancel", off); btn.addEventListener("pointerleave", off);
