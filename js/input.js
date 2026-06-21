@@ -15,18 +15,21 @@
   const I = { steer: 0, throttle: 0, brake: 0, nitro: false };
   const kb = { left: false, right: false, gas: false, brake: false, nitro: false };
   const js = { steer: 0, brake: 0, nitro: false }; // touch state
-  let autoGas = false;
+  let autoGas = false, smart = false;
 
   function apply() {
     I.steer = clamp(js.steer + (kb.right ? 1 : 0) - (kb.left ? 1 : 0), -1, 1);
     I.brake = Math.max(js.brake, kb.brake ? 1 : 0);
-    const auto = autoGas && I.brake <= 0 ? 1 : 0;
+    // smart auto-gas eases off the throttle the harder you're steering
+    const autoLevel = smart ? 1 - 0.42 * Math.pow(Math.abs(I.steer), 1.3) : 1;
+    const auto = autoGas && I.brake <= 0 ? autoLevel : 0;
     I.throttle = Math.max(kb.gas ? 1 : 0, auto);
     I.nitro = js.nitro || kb.nitro;
   }
 
   // app enables auto-accelerate when racing on a touch device
   I.setAutoGas = function (on) { autoGas = !!on; apply(); };
+  I.setSmartThrottle = function (on) { smart = !!on; apply(); };
 
   I.reset = function () {
     js.steer = js.brake = 0; js.nitro = false;

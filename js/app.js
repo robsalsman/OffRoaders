@@ -98,6 +98,7 @@
     // graphics toggle label
     const g = Career.graphics();
     $("#btn-graphics").textContent = "Graphics: " + (g === "enhanced" ? "Enhanced ✨" : "Classic");
+    $("#btn-throttle").textContent = "Throttle: " + (Career.assist() === "smart" ? "Smart 🅰" : "Full");
 
     renderDriverPanel();
 
@@ -209,6 +210,7 @@
   };
   $("#btn-race").onclick = startRace;
   $("#btn-graphics").onclick = () => { Career.toggleGraphics(); renderGarage(); };
+  $("#btn-throttle").onclick = () => { Career.toggleAssist(); renderGarage(); };
   $("#btn-change-driver").onclick = () => openDriverSelect("garage");
 
   // ---------------- Driver select ----------------
@@ -334,7 +336,10 @@
     hideOverlay();
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
-    if (window.Input) window.Input.setAutoGas(isTouch); // mobile: truck drives itself, you steer
+    if (window.Input) { // mobile: truck drives itself, you steer
+      window.Input.setAutoGas(isTouch);
+      window.Input.setSmartThrottle(Career.assist() === "smart");
+    }
 
     // set up lap-record tracking for this race
     liveBestLap = Career.getRecord(track.id).lap;

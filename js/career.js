@@ -43,6 +43,7 @@
       driver: window.CHARACTERS[0].id,
       training: freshTraining(),
       graphics: "enhanced",
+      assist: "full", // touch auto-gas: "full" or "smart" (eases in corners)
       records: {},
       season: freshSeason(),
     };
@@ -125,6 +126,13 @@
     toggleGraphics() {
       this.state.graphics = this.graphics() === "enhanced" ? "classic" : "enhanced";
       this.save(); return this.state.graphics;
+    },
+
+    // ---- throttle assist (touch auto-gas) ----
+    assist() { return this.state.assist || "full"; },
+    toggleAssist() {
+      this.state.assist = this.assist() === "full" ? "smart" : "full";
+      this.save(); return this.state.assist;
     },
 
     // ---- driver selection ----

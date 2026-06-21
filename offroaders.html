@@ -320,6 +320,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
             <button id="btn-race" class="big primary">Start Race ▶</button>
             <button id="btn-choose-track" class="big graphics-toggle">Choose Track</button>
             <button id="btn-graphics" class="big graphics-toggle">Graphics: Enhanced</button>
+            <button id="btn-throttle" class="big graphics-toggle">Throttle: Full</button>
           </div>
 
           <div class="panel">
@@ -927,6 +928,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       driver: window.CHARACTERS[0].id,
       training: freshTraining(),
       graphics: "enhanced",
+      assist: "full", // touch auto-gas: "full" or "smart" (eases in corners)
       records: {},
       season: freshSeason(),
     };
@@ -1009,6 +1011,13 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     toggleGraphics() {
       this.state.graphics = this.graphics() === "enhanced" ? "classic" : "enhanced";
       this.save(); return this.state.graphics;
+    },
+
+    // ---- throttle assist (touch auto-gas) ----
+    assist() { return this.state.assist || "full"; },
+    toggleAssist() {
+      this.state.assist = this.assist() === "full" ? "smart" : "full";
+      this.save(); return this.state.assist;
     },
 
     // ---- driver selection ----
@@ -1199,18 +1208,21 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   const I = { steer: 0, throttle: 0, brake: 0, nitro: false };
   const kb = { left: false, right: false, gas: false, brake: false, nitro: false };
   const js = { steer: 0, brake: 0, nitro: false }; // touch state
-  let autoGas = false;
+  let autoGas = false, smart = false;
 
   function apply() {
     I.steer = clamp(js.steer + (kb.right ? 1 : 0) - (kb.left ? 1 : 0), -1, 1);
     I.brake = Math.max(js.brake, kb.brake ? 1 : 0);
-    const auto = autoGas && I.brake <= 0 ? 1 : 0;
+    // smart auto-gas eases off the throttle the harder you're steering
+    const autoLevel = smart ? 1 - 0.42 * Math.pow(Math.abs(I.steer), 1.3) : 1;
+    const auto = autoGas && I.brake <= 0 ? autoLevel : 0;
     I.throttle = Math.max(kb.gas ? 1 : 0, auto);
     I.nitro = js.nitro || kb.nitro;
   }
 
   // app enables auto-accelerate when racing on a touch device
   I.setAutoGas = function (on) { autoGas = !!on; apply(); };
+  I.setSmartThrottle = function (on) { smart = !!on; apply(); };
 
   I.reset = function () {
     js.steer = js.brake = 0; js.nitro = false;
@@ -2764,6 +2776,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     // graphics toggle label
     const g = Career.graphics();
     $("#btn-graphics").textContent = "Graphics: " + (g === "enhanced" ? "Enhanced ✨" : "Classic");
+    $("#btn-throttle").textContent = "Throttle: " + (Career.assist() === "smart" ? "Smart 🅰" : "Full");
 
     renderDriverPanel();
 
@@ -2875,6 +2888,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   };
   $("#btn-race").onclick = startRace;
   $("#btn-graphics").onclick = () => { Career.toggleGraphics(); renderGarage(); };
+  $("#btn-throttle").onclick = () => { Career.toggleAssist(); renderGarage(); };
   $("#btn-change-driver").onclick = () => openDriverSelect("garage");
 
   // ---------------- Driver select ----------------
@@ -3000,7 +3014,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     hideOverlay();
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
-    if (window.Input) window.Input.setAutoGas(isTouch); // mobile: truck drives itself, you steer
+    if (window.Input) { // mobile: truck drives itself, you steer
+      window.Input.setAutoGas(isTouch);
+      window.Input.setSmartThrottle(Career.assist() === "smart");
+    }
 
     // set up lap-record tracking for this race
     liveBestLap = Career.getRecord(track.id).lap;
