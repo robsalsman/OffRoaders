@@ -1,42 +1,59 @@
 /* input.js — shared player input controller (window.Input).
- * Produces an analog control state read by both race engines:
- *   steer    -1 (left) .. +1 (right)
- *   throttle  0 .. 1
- *   brake     0 .. 1
- *   nitro     bool
  *
- * Desktop: keyboard (manual gas/brake/steer/nitro).
- * Mobile: AUTO-ACCELERATE + a wide analog steering bar across the bottom
- * (slide a thumb left/right to steer), plus NITRO and BRAKE buttons. This
- * frees the thumb to do nothing but steer, which is far easier one-handed.
+ * Desktop: keyboard (arrows/WASD steer, up/down gas/brake, space nitro).
+ *
+ * Mobile: a DIRECTIONAL joystick. You push the pad in the on-screen direction
+ * you want the truck to go, and it steers to head that way — so pushing "down"
+ * makes the truck drive down the screen (no more "up = gas" confusion). The
+ * truck auto-accelerates; NITRO and BRAKE are separate buttons.
+ *
+ * Engines call Input.resolve(carAngle) to get { steer, throttle, brake, nitro }.
  */
 (function () {
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const PI = Math.PI;
   const I = { steer: 0, throttle: 0, brake: 0, nitro: false };
   const kb = { left: false, right: false, gas: false, brake: false, nitro: false };
-  const js = { steer: 0, brake: 0, nitro: false }; // touch state
+  const pad = { x: 0, y: 0, active: false }; // joystick vector (screen space, up = -y)
+  const btn = { brake: false, nitro: false };
   let autoGas = false, smart = false;
 
-  function apply() {
-    I.steer = clamp(js.steer + (kb.right ? 1 : 0) - (kb.left ? 1 : 0), -1, 1);
-    I.brake = Math.max(js.brake, kb.brake ? 1 : 0);
-    // smart auto-gas eases off the throttle the harder you're steering
-    const autoLevel = smart ? 1 - 0.42 * Math.pow(Math.abs(I.steer), 1.3) : 1;
-    const auto = autoGas && I.brake <= 0 ? autoLevel : 0;
-    I.throttle = Math.max(kb.gas ? 1 : 0, auto);
-    I.nitro = js.nitro || kb.nitro;
-  }
+  I.setAutoGas = function (on) { autoGas = !!on; };
+  I.setSmartThrottle = function (on) { smart = !!on; };
 
-  // app enables auto-accelerate when racing on a touch device
-  I.setAutoGas = function (on) { autoGas = !!on; apply(); };
-  I.setSmartThrottle = function (on) { smart = !!on; apply(); };
+  // Convert raw inputs into a control command for a car at the given heading.
+  I.resolve = function (carAngle) {
+    if (I.override) return { steer: I.steer, throttle: I.throttle, brake: I.brake, nitro: I.nitro };
+    const brake = (btn.brake ? 1 : 0) || (kb.brake ? 1 : 0);
+    const nitro = btn.nitro || kb.nitro;
+    let steer = (kb.right ? 1 : 0) - (kb.left ? 1 : 0);
+    let turn = Math.abs(steer);
+
+    if (pad.active) { // directional joystick steers toward the pushed heading
+      let diff = Math.atan2(pad.y, pad.x) - carAngle;
+      while (diff > PI) diff -= 2 * PI;
+      while (diff < -PI) diff += 2 * PI;
+      steer = clamp(diff * 2.4, -1, 1);
+      turn = Math.min(1, Math.abs(diff) / 1.2);
+    }
+
+    let throttle;
+    if (autoGas) throttle = brake > 0 ? 0 : (smart ? 1 - 0.42 * Math.pow(turn, 1.3) : 1);
+    else throttle = kb.gas ? 1 : 0;
+
+    // expose for any legacy readers / HUD
+    I.steer = steer; I.throttle = throttle; I.brake = brake; I.nitro = nitro;
+    return { steer, throttle, brake, nitro };
+  };
 
   I.reset = function () {
-    js.steer = js.brake = 0; js.nitro = false;
+    pad.x = pad.y = 0; pad.active = false;
+    btn.brake = btn.nitro = false;
     for (const k in kb) kb[k] = false;
-    apply();
-    const knob = document.getElementById("steer-knob");
-    if (knob) knob.style.left = "50%";
+    const base = document.getElementById("stick-base");
+    const knob = document.getElementById("stick-knob");
+    if (base) base.classList.remove("show");
+    if (knob) knob.style.transform = "translate(-50%,-50%)";
   };
 
   let inited = false;
@@ -47,55 +64,63 @@
       ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
       Space: "nitro",
     };
-    window.addEventListener("keydown", (e) => { if (map[e.code]) { kb[map[e.code]] = true; apply(); e.preventDefault(); } });
-    window.addEventListener("keyup", (e) => { if (map[e.code]) { kb[map[e.code]] = false; apply(); e.preventDefault(); } });
-    bindBar();
-    bindButton("btn-nitro", (v) => { js.nitro = v; });
-    bindButton("btn-brake", (v) => { js.brake = v ? 1 : 0; });
+    window.addEventListener("keydown", (e) => { if (map[e.code]) { kb[map[e.code]] = true; e.preventDefault(); } });
+    window.addEventListener("keyup", (e) => { if (map[e.code]) { kb[map[e.code]] = false; e.preventDefault(); } });
+    bindPad();
+    bindButton("btn-nitro", (v) => { btn.nitro = v; });
+    bindButton("btn-brake", (v) => { btn.brake = v; });
   };
 
-  // relative analog steering: wherever you grab the bar is centre; slide
-  // left/right from there to steer (full lock after ~half the bar's reach).
-  function bindBar() {
-    const bar = document.getElementById("steerbar");
-    const knob = document.getElementById("steer-knob");
-    if (!bar) return;
-    let id = null, ox = 0;
-    const shape = (v) => Math.sign(v) * Math.pow(Math.min(1, Math.abs(v)), 1.35);
-    const move = (x) => {
-      const w = bar.getBoundingClientRect().width;
-      const range = clamp(w * 0.42, 70, 240);
-      js.steer = shape(clamp((x - ox) / range, -1, 1));
-      if (knob) knob.style.left = (50 + js.steer * 42) + "%";
-      apply();
+  // floating directional joystick: the base appears where your thumb lands
+  function bindPad() {
+    const zone = document.getElementById("stick");
+    const base = document.getElementById("stick-base");
+    const knob = document.getElementById("stick-knob");
+    if (!zone || !base || !knob) return;
+    const R = 64, dead = 0.2;
+    let id = null, ox = 0, oy = 0;
+
+    const place = (x, y) => {
+      ox = x; oy = y;
+      base.style.left = x + "px"; base.style.top = y + "px";
+      base.classList.add("show");
     };
-    const start = (x, pid) => { id = pid; ox = x; move(x); };
-    const end = () => { id = null; js.steer = 0; if (knob) knob.style.left = "50%"; apply(); };
+    const move = (x, y) => {
+      let dx = x - ox, dy = y - oy;
+      const len = Math.hypot(dx, dy);
+      if (len > R) { dx = dx / len * R; dy = dy / len * R; }
+      knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      const mag = Math.min(1, len / R);
+      pad.active = mag > dead;
+      pad.x = dx; pad.y = dy; // screen-space vector (up = negative y)
+    };
+    const start = (x, y, pid) => { id = pid; place(x, y); move(x, y); };
+    const end = () => { id = null; pad.active = false; pad.x = pad.y = 0; base.classList.remove("show"); knob.style.transform = "translate(-50%,-50%)"; };
 
     if (window.PointerEvent) {
-      bar.addEventListener("pointerdown", (e) => { start(e.clientX, e.pointerId); try { bar.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });
-      bar.addEventListener("pointermove", (e) => { if (e.pointerId === id) { move(e.clientX); e.preventDefault(); } }, { passive: false });
-      bar.addEventListener("pointerup", (e) => { if (e.pointerId === id) { end(); e.preventDefault(); } });
-      bar.addEventListener("pointercancel", (e) => { if (e.pointerId === id) end(); });
+      zone.addEventListener("pointerdown", (e) => { start(e.clientX, e.clientY, e.pointerId); try { zone.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });
+      zone.addEventListener("pointermove", (e) => { if (e.pointerId === id) { move(e.clientX, e.clientY); e.preventDefault(); } }, { passive: false });
+      zone.addEventListener("pointerup", (e) => { if (e.pointerId === id) { end(); e.preventDefault(); } });
+      zone.addEventListener("pointercancel", (e) => { if (e.pointerId === id) end(); });
     } else {
-      bar.addEventListener("touchstart", (e) => { const t = e.changedTouches[0]; start(t.clientX, t.identifier); e.preventDefault(); }, { passive: false });
-      bar.addEventListener("touchmove", (e) => { for (const t of e.changedTouches) if (t.identifier === id) move(t.clientX); e.preventDefault(); }, { passive: false });
-      bar.addEventListener("touchend", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
-      bar.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
+      zone.addEventListener("touchstart", (e) => { const t = e.changedTouches[0]; start(t.clientX, t.clientY, t.identifier); e.preventDefault(); }, { passive: false });
+      zone.addEventListener("touchmove", (e) => { for (const t of e.changedTouches) if (t.identifier === id) move(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
+      zone.addEventListener("touchend", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
+      zone.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
     }
   }
 
   function bindButton(elId, setter) {
-    const btn = document.getElementById(elId);
-    if (!btn) return;
-    const on = (e) => { setter(true); btn.classList.add("pressed"); apply(); if (e && e.preventDefault) e.preventDefault(); if (e && e.pointerId != null && btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (_) {} } };
-    const off = () => { setter(false); btn.classList.remove("pressed"); apply(); };
+    const b = document.getElementById(elId);
+    if (!b) return;
+    const on = (e) => { setter(true); b.classList.add("pressed"); if (e && e.preventDefault) e.preventDefault(); if (e && e.pointerId != null && b.setPointerCapture) { try { b.setPointerCapture(e.pointerId); } catch (_) {} } };
+    const off = () => { setter(false); b.classList.remove("pressed"); };
     if (window.PointerEvent) {
-      btn.addEventListener("pointerdown", on); btn.addEventListener("pointerup", off);
-      btn.addEventListener("pointercancel", off); btn.addEventListener("pointerleave", off);
+      b.addEventListener("pointerdown", on); b.addEventListener("pointerup", off);
+      b.addEventListener("pointercancel", off); b.addEventListener("pointerleave", off);
     } else {
-      btn.addEventListener("touchstart", on, { passive: false }); btn.addEventListener("touchend", off);
-      btn.addEventListener("mousedown", on); btn.addEventListener("mouseup", off); btn.addEventListener("mouseleave", off);
+      b.addEventListener("touchstart", on, { passive: false }); b.addEventListener("touchend", off);
+      b.addEventListener("mousedown", on); b.addEventListener("mouseup", off); b.addEventListener("mouseleave", off);
     }
   }
 

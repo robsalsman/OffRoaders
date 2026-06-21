@@ -312,7 +312,7 @@
       const racing = this.countdown <= 0;
 
       for (const car of this.cars) {
-        let ctrl = car.isPlayer ? this._playerControl() : this._aiControl(car);
+        let ctrl = car.isPlayer ? this._playerControl(car) : this._aiControl(car);
         if (!racing) ctrl = { steer: 0, throttle: 0, brake: 0, nitro: false };
         this._drive(car, ctrl, dt);
         this._trackLogic(car, dt, racing);
@@ -332,9 +332,8 @@
       this._emitHud();
     }
 
-    _playerControl() {
-      const i = window.Input;
-      return { steer: i.steer, throttle: i.throttle, brake: i.brake, nitro: i.nitro };
+    _playerControl(car) {
+      return window.Input.resolve(car.angle);
     }
     _aiControl(car) {
       const look = 2.4 + car.speedApprox / 150;

@@ -169,7 +169,7 @@
       for (const car of this.cars) {
         if (car.finished) { this._integrateStopped(car, dt); continue; }
         let ctrl;
-        if (car.isPlayer) ctrl = this._playerControl();
+        if (car.isPlayer) ctrl = this._playerControl(car);
         else ctrl = this._aiControl(car);
         if (!racing) ctrl = { steer: 0, throttle: 0, brake: 0, nitro: false };
         this._drive(car, ctrl, dt);
@@ -180,9 +180,8 @@
       this._emitHud();
     }
 
-    _playerControl() {
-      const i = window.Input;
-      return { steer: i.steer, throttle: i.throttle, brake: i.brake, nitro: i.nitro };
+    _playerControl(car) {
+      return window.Input.resolve(car.angle);
     }
 
     _aiControl(car) {

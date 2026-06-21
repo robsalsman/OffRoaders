@@ -96,40 +96,44 @@ html, body {
 /* ---------- Touch controls (analog thumbstick + nitro) ---------- */
 #touch { position: absolute; inset: 0; pointer-events: none; }
 
-/* analog steering bar across the bottom (auto-accelerate) */
-.steerbar {
-  position: absolute; left: 12px; right: 12px; bottom: 14px; height: 92px;
+/* directional joystick: push the pad toward where you want the truck to go */
+.stick-zone {
+  position: absolute; right: 0; bottom: 0; left: 38%; top: 30%;
   pointer-events: auto; touch-action: none;
-  display: flex; align-items: center; justify-content: center;
 }
-.steerbar-track {
-  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
-  height: 56px; border-radius: 30px;
-  background: linear-gradient(180deg, rgba(20,14,10,.5), rgba(20,14,10,.72));
-  border: 2px solid rgba(255,255,255,.28);
-  box-shadow: inset 0 2px 10px rgba(0,0,0,.45), 0 4px 14px rgba(0,0,0,.3);
+.stick-hint {
+  position: absolute; right: 28px; bottom: 200px;
+  color: rgba(255,255,255,.4); font-size: 13px; font-weight: bold; letter-spacing: 1px;
+  pointer-events: none;
 }
-.steerbar-hint {
-  position: relative; color: rgba(255,255,255,.4); font-size: 13px;
-  font-weight: bold; letter-spacing: 2px; pointer-events: none;
+/* floating base: positioned in JS where the thumb lands */
+.stick-base {
+  position: fixed; left: -999px; top: 0; transform: translate(-50%,-50%);
+  width: 150px; height: 150px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.3);
+  background: radial-gradient(circle, rgba(20,14,10,.4), rgba(20,14,10,.62));
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  pointer-events: none; opacity: 0; transition: opacity .12s;
 }
-.steer-knob {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
-  width: 76px; height: 76px; border-radius: 50%;
+.stick-base.show { opacity: 1; }
+.stick-knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 74px; height: 74px; border-radius: 50%;
   background: radial-gradient(circle at 40% 35%, rgba(255,210,120,.97), rgba(255,150,40,.9));
   border: 3px solid rgba(255,255,255,.8);
-  box-shadow: 0 3px 12px rgba(0,0,0,.45);
-  pointer-events: none; transition: left .05s linear;
+  transform: translate(-50%,-50%); pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
 }
 .drive-btn {
-  position: absolute; bottom: 118px; pointer-events: auto; touch-action: none;
-  width: 96px; height: 96px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.45);
-  color: var(--text); font-size: 16px; font-weight: bold; letter-spacing: 1px;
+  position: absolute; left: 22px; pointer-events: auto; touch-action: none;
+  border-radius: 50%; border: 2px solid rgba(255,255,255,.45);
+  color: var(--text); font-weight: bold; letter-spacing: 1px;
   cursor: pointer; transition: transform .06s, filter .06s;
 }
-.drive-btn.nitro { right: 18px; background: radial-gradient(circle at 40% 35%, rgba(80,225,255,.5), rgba(47,160,255,.4)); }
-.drive-btn.brake { left: 18px; width: 82px; height: 82px; font-size: 14px; background: radial-gradient(circle at 40% 35%, rgba(255,120,90,.45), rgba(220,60,60,.38)); }
+.drive-btn.nitro { bottom: 40px; width: 104px; height: 104px; font-size: 17px;
+  background: radial-gradient(circle at 40% 35%, rgba(80,225,255,.5), rgba(47,160,255,.4)); }
+.drive-btn.brake { bottom: 156px; width: 78px; height: 78px; font-size: 13px;
+  background: radial-gradient(circle at 40% 35%, rgba(255,120,90,.45), rgba(220,60,60,.38)); }
 .drive-btn.pressed { transform: scale(.93); filter: brightness(1.4); }
 
 /* ---------- Overlay / screens ---------- */
@@ -277,14 +281,13 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         </div>
       </div>
 
-      <!-- Touch controls: auto-accelerate; slide the bar to steer -->
+      <!-- Touch controls: auto-accelerate; push the pad where you want to go -->
       <div id="touch" class="hidden">
-        <button id="btn-brake" class="drive-btn brake">BRAKE</button>
         <button id="btn-nitro" class="drive-btn nitro">NITRO</button>
-        <div id="steerbar" class="steerbar">
-          <div class="steerbar-track"></div>
-          <div id="steer-knob" class="steer-knob"></div>
-          <span class="steerbar-hint">◀ &nbsp; slide to steer &nbsp; ▶</span>
+        <button id="btn-brake" class="drive-btn brake">BRAKE</button>
+        <div id="stick" class="stick-zone">
+          <span class="stick-hint">push to steer ⛂</span>
+          <div id="stick-base" class="stick-base"><div id="stick-knob" class="stick-knob"></div></div>
         </div>
       </div>
 
@@ -372,7 +375,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         <div class="howto">
           <p><strong>Goal:</strong> Finish each race as high as you can. Cash and championship points are awarded by finishing position.</p>
           <p><strong>Keyboard:</strong> <kbd>↑</kbd>/<kbd>W</kbd> gas, <kbd>↓</kbd>/<kbd>S</kbd> brake, <kbd>←</kbd><kbd>→</kbd>/<kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> nitro, <kbd>Esc</kbd> pause.</p>
-          <p><strong>Touch:</strong> Your truck <strong>accelerates automatically</strong> — just steer! Rest a thumb anywhere on the <strong>steering bar</strong> along the bottom and slide left/right to turn. <strong>NITRO</strong> is bottom-right, <strong>BRAKE</strong> bottom-left.</p>
+          <p><strong>Touch:</strong> Your truck <strong>accelerates automatically</strong>. Touch anywhere on the right and a <strong>steering pad</strong> appears — push it in the <strong>direction you want the truck to go</strong> (push down to head down the screen). <strong>NITRO</strong> and <strong>BRAKE</strong> are on the left.</p>
           <p><strong>Drifting:</strong> In Enhanced mode the trucks turn normally — but hold <strong>NITRO</strong> while steering and the truck automatically drifts through the corner.</p>
           <p><strong>Jumps:</strong> Hit the ramps (chevrons) with speed to launch — you can't steer much in the air, so line it up before takeoff and brace for the landing.</p>
           <p><strong>Tips:</strong> The track has edge walls so you can't fly off into the grass — lean on them through corners. Save nitro for straights. Spend winnings in the Garage on Engine, Tires (grip), Shocks and Nitro. Switch between Enhanced (2.5D) and Classic graphics with the Garage button.</p>
@@ -1192,44 +1195,61 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 </script>
   <script>
 /* input.js — shared player input controller (window.Input).
- * Produces an analog control state read by both race engines:
- *   steer    -1 (left) .. +1 (right)
- *   throttle  0 .. 1
- *   brake     0 .. 1
- *   nitro     bool
  *
- * Desktop: keyboard (manual gas/brake/steer/nitro).
- * Mobile: AUTO-ACCELERATE + a wide analog steering bar across the bottom
- * (slide a thumb left/right to steer), plus NITRO and BRAKE buttons. This
- * frees the thumb to do nothing but steer, which is far easier one-handed.
+ * Desktop: keyboard (arrows/WASD steer, up/down gas/brake, space nitro).
+ *
+ * Mobile: a DIRECTIONAL joystick. You push the pad in the on-screen direction
+ * you want the truck to go, and it steers to head that way — so pushing "down"
+ * makes the truck drive down the screen (no more "up = gas" confusion). The
+ * truck auto-accelerates; NITRO and BRAKE are separate buttons.
+ *
+ * Engines call Input.resolve(carAngle) to get { steer, throttle, brake, nitro }.
  */
 (function () {
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const PI = Math.PI;
   const I = { steer: 0, throttle: 0, brake: 0, nitro: false };
   const kb = { left: false, right: false, gas: false, brake: false, nitro: false };
-  const js = { steer: 0, brake: 0, nitro: false }; // touch state
+  const pad = { x: 0, y: 0, active: false }; // joystick vector (screen space, up = -y)
+  const btn = { brake: false, nitro: false };
   let autoGas = false, smart = false;
 
-  function apply() {
-    I.steer = clamp(js.steer + (kb.right ? 1 : 0) - (kb.left ? 1 : 0), -1, 1);
-    I.brake = Math.max(js.brake, kb.brake ? 1 : 0);
-    // smart auto-gas eases off the throttle the harder you're steering
-    const autoLevel = smart ? 1 - 0.42 * Math.pow(Math.abs(I.steer), 1.3) : 1;
-    const auto = autoGas && I.brake <= 0 ? autoLevel : 0;
-    I.throttle = Math.max(kb.gas ? 1 : 0, auto);
-    I.nitro = js.nitro || kb.nitro;
-  }
+  I.setAutoGas = function (on) { autoGas = !!on; };
+  I.setSmartThrottle = function (on) { smart = !!on; };
 
-  // app enables auto-accelerate when racing on a touch device
-  I.setAutoGas = function (on) { autoGas = !!on; apply(); };
-  I.setSmartThrottle = function (on) { smart = !!on; apply(); };
+  // Convert raw inputs into a control command for a car at the given heading.
+  I.resolve = function (carAngle) {
+    if (I.override) return { steer: I.steer, throttle: I.throttle, brake: I.brake, nitro: I.nitro };
+    const brake = (btn.brake ? 1 : 0) || (kb.brake ? 1 : 0);
+    const nitro = btn.nitro || kb.nitro;
+    let steer = (kb.right ? 1 : 0) - (kb.left ? 1 : 0);
+    let turn = Math.abs(steer);
+
+    if (pad.active) { // directional joystick steers toward the pushed heading
+      let diff = Math.atan2(pad.y, pad.x) - carAngle;
+      while (diff > PI) diff -= 2 * PI;
+      while (diff < -PI) diff += 2 * PI;
+      steer = clamp(diff * 2.4, -1, 1);
+      turn = Math.min(1, Math.abs(diff) / 1.2);
+    }
+
+    let throttle;
+    if (autoGas) throttle = brake > 0 ? 0 : (smart ? 1 - 0.42 * Math.pow(turn, 1.3) : 1);
+    else throttle = kb.gas ? 1 : 0;
+
+    // expose for any legacy readers / HUD
+    I.steer = steer; I.throttle = throttle; I.brake = brake; I.nitro = nitro;
+    return { steer, throttle, brake, nitro };
+  };
 
   I.reset = function () {
-    js.steer = js.brake = 0; js.nitro = false;
+    pad.x = pad.y = 0; pad.active = false;
+    btn.brake = btn.nitro = false;
     for (const k in kb) kb[k] = false;
-    apply();
-    const knob = document.getElementById("steer-knob");
-    if (knob) knob.style.left = "50%";
+    const base = document.getElementById("stick-base");
+    const knob = document.getElementById("stick-knob");
+    if (base) base.classList.remove("show");
+    if (knob) knob.style.transform = "translate(-50%,-50%)";
   };
 
   let inited = false;
@@ -1240,55 +1260,63 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right",
       Space: "nitro",
     };
-    window.addEventListener("keydown", (e) => { if (map[e.code]) { kb[map[e.code]] = true; apply(); e.preventDefault(); } });
-    window.addEventListener("keyup", (e) => { if (map[e.code]) { kb[map[e.code]] = false; apply(); e.preventDefault(); } });
-    bindBar();
-    bindButton("btn-nitro", (v) => { js.nitro = v; });
-    bindButton("btn-brake", (v) => { js.brake = v ? 1 : 0; });
+    window.addEventListener("keydown", (e) => { if (map[e.code]) { kb[map[e.code]] = true; e.preventDefault(); } });
+    window.addEventListener("keyup", (e) => { if (map[e.code]) { kb[map[e.code]] = false; e.preventDefault(); } });
+    bindPad();
+    bindButton("btn-nitro", (v) => { btn.nitro = v; });
+    bindButton("btn-brake", (v) => { btn.brake = v; });
   };
 
-  // relative analog steering: wherever you grab the bar is centre; slide
-  // left/right from there to steer (full lock after ~half the bar's reach).
-  function bindBar() {
-    const bar = document.getElementById("steerbar");
-    const knob = document.getElementById("steer-knob");
-    if (!bar) return;
-    let id = null, ox = 0;
-    const shape = (v) => Math.sign(v) * Math.pow(Math.min(1, Math.abs(v)), 1.35);
-    const move = (x) => {
-      const w = bar.getBoundingClientRect().width;
-      const range = clamp(w * 0.42, 70, 240);
-      js.steer = shape(clamp((x - ox) / range, -1, 1));
-      if (knob) knob.style.left = (50 + js.steer * 42) + "%";
-      apply();
+  // floating directional joystick: the base appears where your thumb lands
+  function bindPad() {
+    const zone = document.getElementById("stick");
+    const base = document.getElementById("stick-base");
+    const knob = document.getElementById("stick-knob");
+    if (!zone || !base || !knob) return;
+    const R = 64, dead = 0.2;
+    let id = null, ox = 0, oy = 0;
+
+    const place = (x, y) => {
+      ox = x; oy = y;
+      base.style.left = x + "px"; base.style.top = y + "px";
+      base.classList.add("show");
     };
-    const start = (x, pid) => { id = pid; ox = x; move(x); };
-    const end = () => { id = null; js.steer = 0; if (knob) knob.style.left = "50%"; apply(); };
+    const move = (x, y) => {
+      let dx = x - ox, dy = y - oy;
+      const len = Math.hypot(dx, dy);
+      if (len > R) { dx = dx / len * R; dy = dy / len * R; }
+      knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      const mag = Math.min(1, len / R);
+      pad.active = mag > dead;
+      pad.x = dx; pad.y = dy; // screen-space vector (up = negative y)
+    };
+    const start = (x, y, pid) => { id = pid; place(x, y); move(x, y); };
+    const end = () => { id = null; pad.active = false; pad.x = pad.y = 0; base.classList.remove("show"); knob.style.transform = "translate(-50%,-50%)"; };
 
     if (window.PointerEvent) {
-      bar.addEventListener("pointerdown", (e) => { start(e.clientX, e.pointerId); try { bar.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });
-      bar.addEventListener("pointermove", (e) => { if (e.pointerId === id) { move(e.clientX); e.preventDefault(); } }, { passive: false });
-      bar.addEventListener("pointerup", (e) => { if (e.pointerId === id) { end(); e.preventDefault(); } });
-      bar.addEventListener("pointercancel", (e) => { if (e.pointerId === id) end(); });
+      zone.addEventListener("pointerdown", (e) => { start(e.clientX, e.clientY, e.pointerId); try { zone.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });
+      zone.addEventListener("pointermove", (e) => { if (e.pointerId === id) { move(e.clientX, e.clientY); e.preventDefault(); } }, { passive: false });
+      zone.addEventListener("pointerup", (e) => { if (e.pointerId === id) { end(); e.preventDefault(); } });
+      zone.addEventListener("pointercancel", (e) => { if (e.pointerId === id) end(); });
     } else {
-      bar.addEventListener("touchstart", (e) => { const t = e.changedTouches[0]; start(t.clientX, t.identifier); e.preventDefault(); }, { passive: false });
-      bar.addEventListener("touchmove", (e) => { for (const t of e.changedTouches) if (t.identifier === id) move(t.clientX); e.preventDefault(); }, { passive: false });
-      bar.addEventListener("touchend", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
-      bar.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
+      zone.addEventListener("touchstart", (e) => { const t = e.changedTouches[0]; start(t.clientX, t.clientY, t.identifier); e.preventDefault(); }, { passive: false });
+      zone.addEventListener("touchmove", (e) => { for (const t of e.changedTouches) if (t.identifier === id) move(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
+      zone.addEventListener("touchend", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
+      zone.addEventListener("touchcancel", (e) => { for (const t of e.changedTouches) if (t.identifier === id) end(); }, { passive: false });
     }
   }
 
   function bindButton(elId, setter) {
-    const btn = document.getElementById(elId);
-    if (!btn) return;
-    const on = (e) => { setter(true); btn.classList.add("pressed"); apply(); if (e && e.preventDefault) e.preventDefault(); if (e && e.pointerId != null && btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (_) {} } };
-    const off = () => { setter(false); btn.classList.remove("pressed"); apply(); };
+    const b = document.getElementById(elId);
+    if (!b) return;
+    const on = (e) => { setter(true); b.classList.add("pressed"); if (e && e.preventDefault) e.preventDefault(); if (e && e.pointerId != null && b.setPointerCapture) { try { b.setPointerCapture(e.pointerId); } catch (_) {} } };
+    const off = () => { setter(false); b.classList.remove("pressed"); };
     if (window.PointerEvent) {
-      btn.addEventListener("pointerdown", on); btn.addEventListener("pointerup", off);
-      btn.addEventListener("pointercancel", off); btn.addEventListener("pointerleave", off);
+      b.addEventListener("pointerdown", on); b.addEventListener("pointerup", off);
+      b.addEventListener("pointercancel", off); b.addEventListener("pointerleave", off);
     } else {
-      btn.addEventListener("touchstart", on, { passive: false }); btn.addEventListener("touchend", off);
-      btn.addEventListener("mousedown", on); btn.addEventListener("mouseup", off); btn.addEventListener("mouseleave", off);
+      b.addEventListener("touchstart", on, { passive: false }); b.addEventListener("touchend", off);
+      b.addEventListener("mousedown", on); b.addEventListener("mouseup", off); b.addEventListener("mouseleave", off);
     }
   }
 
@@ -1468,7 +1496,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       for (const car of this.cars) {
         if (car.finished) { this._integrateStopped(car, dt); continue; }
         let ctrl;
-        if (car.isPlayer) ctrl = this._playerControl();
+        if (car.isPlayer) ctrl = this._playerControl(car);
         else ctrl = this._aiControl(car);
         if (!racing) ctrl = { steer: 0, throttle: 0, brake: 0, nitro: false };
         this._drive(car, ctrl, dt);
@@ -1479,9 +1507,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this._emitHud();
     }
 
-    _playerControl() {
-      const i = window.Input;
-      return { steer: i.steer, throttle: i.throttle, brake: i.brake, nitro: i.nitro };
+    _playerControl(car) {
+      return window.Input.resolve(car.angle);
     }
 
     _aiControl(car) {
@@ -2172,7 +2199,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const racing = this.countdown <= 0;
 
       for (const car of this.cars) {
-        let ctrl = car.isPlayer ? this._playerControl() : this._aiControl(car);
+        let ctrl = car.isPlayer ? this._playerControl(car) : this._aiControl(car);
         if (!racing) ctrl = { steer: 0, throttle: 0, brake: 0, nitro: false };
         this._drive(car, ctrl, dt);
         this._trackLogic(car, dt, racing);
@@ -2192,9 +2219,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this._emitHud();
     }
 
-    _playerControl() {
-      const i = window.Input;
-      return { steer: i.steer, throttle: i.throttle, brake: i.brake, nitro: i.nitro };
+    _playerControl(car) {
+      return window.Input.resolve(car.angle);
     }
     _aiControl(car) {
       const look = 2.4 + car.speedApprox / 150;

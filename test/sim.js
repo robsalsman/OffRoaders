@@ -83,7 +83,8 @@ const race = new ctx.Race(canvas, {
 });
 race.countdown = 0; // skip countdown for the test
 
-// player drives via the shared analog Input (full throttle); AI drives itself
+// player drives via the shared analog Input (test override: set fields directly)
+ctx.Input.override = true;
 ctx.Input.throttle = 1;
 race._attachInput = () => {}; // don't bind real listeners
 race.stop = function () { this.running = false; }; // keep onFinish via setTimeout stub
