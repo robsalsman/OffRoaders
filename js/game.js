@@ -102,8 +102,8 @@
         const variance = isPlayer ? 1 : (0.985 + Math.random() * 0.03);
 
         const stats = {
-          maxSpeed: 375 * p.maxSpeed * variance,
-          accel: 270 * p.accel * variance,
+          maxSpeed: 325 * p.maxSpeed * variance,
+          accel: 245 * p.accel * variance,
           turn: 3.2 * p.turn,
           grip: clamp(0.86 + 0.03 * (p.grip - 1) * 10, 0.6, 0.97),
           offroad: clamp(0.5 + 0.06 * ((p.offroad || 1) - 1) * 10, 0.42, 0.92),
@@ -386,12 +386,17 @@
       const W = c.width, H = c.height;
       const p = this.player;
 
-      // camera: follow player, look a bit ahead, zoom out a touch with speed
-      const zoom = (Math.min(W, H) / 900) * 1.0;
-      const aheadX = p.x + Math.cos(p.angle) * 120;
-      const aheadY = p.y + Math.sin(p.angle) * 120;
-      this.camX = this.camX === undefined ? p.x : lerp(this.camX, aheadX, 0.08);
-      this.camY = this.camY === undefined ? p.y : lerp(this.camY, aheadY, 0.08);
+      // Static camera: the whole track is framed on one screen (Super Off Road
+      // style) — no panning or zooming, so it never disorients.
+      if (!this._bounds) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const q of this.pts) { minX = Math.min(minX, q.x); minY = Math.min(minY, q.y); maxX = Math.max(maxX, q.x); maxY = Math.max(maxY, q.y); }
+        const pad = this.track.width;
+        this._bounds = { w: (maxX - minX) + pad * 2, h: (maxY - minY) + pad * 2, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
+      }
+      const b = this._bounds;
+      const zoom = Math.min(W / (b.w * 1.05), H / (b.h * 1.05));
+      this.camX = b.cx; this.camY = b.cy;
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       // grass background
@@ -400,7 +405,7 @@
       this._grassTexture(ctx, W, H, zoom);
 
       ctx.save();
-      ctx.translate(W / 2, H / 2);
+      ctx.translate(W / 2, H * 0.43); // lift track above the controls
       ctx.scale(zoom, zoom);
       ctx.translate(-this.camX, -this.camY);
 

@@ -261,8 +261,8 @@
         const variance = isPlayer ? 1 : (0.985 + Math.random() * 0.03);
 
         const stats = {
-          maxSpeed: 385 * p.maxSpeed * variance,
-          accel: 280 * p.accel * variance,
+          maxSpeed: 335 * p.maxSpeed * variance,
+          accel: 250 * p.accel * variance,
           turn: 3.0 * p.turn,
           grip: clamp(0.88 - (p.grip - 1) * 0.16, 0.76, 0.91),
           offroad: clamp(0.5 + ((p.offroad || 1) - 1) * 0.6, 0.45, 0.9),
@@ -617,14 +617,15 @@
       const ctx = this.ctx, c = this.canvas;
       if (c.width !== Math.floor(c.clientWidth * this.dpr)) this._resize();
       const W = c.width, H = c.height, p = this.player;
-      const zoom = (Math.min(W, H) / 900) * (1.05 - 0.12 * clamp(p.speedApprox / 360, 0, 1));
-
-      const aheadX = p.x + Math.cos(p.angle) * 140;
-      const aheadY = p.y + Math.sin(p.angle) * 140;
-      this.camX = this.camX === undefined ? p.x : lerp(this.camX, aheadX, 0.09);
-      this.camY = this.camY === undefined ? p.y : lerp(this.camY, aheadY, 0.09);
-      const sx = this.shake ? rand(-this.shake, this.shake) : 0;
-      const sy = this.shake ? rand(-this.shake, this.shake) : 0;
+      // Static "set piece" camera: frame the ENTIRE track at once (Super Off Road
+      // style) so every truck stays on screen and the world never pans or zooms.
+      const b = this.bbox;
+      const zoom = Math.min(W / (b.w * 1.05), H / (b.h * 1.05));
+      this.camX = (b.minX + b.maxX) / 2;
+      this.camY = (b.minY + b.maxY) / 2;
+      const shk = this.shake * 0.3; // gentle — the whole track is in view
+      const sx = shk ? rand(-shk, shk) : 0;
+      const sy = shk ? rand(-shk, shk) : 0;
 
       const theme = this.track.theme || { ground: "#3f6b2e" };
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -633,7 +634,7 @@
       ctx.fillRect(0, 0, W, H);
 
       ctx.save();
-      ctx.translate(W / 2 + sx, H / 2 + sy);
+      ctx.translate(W / 2 + sx, H * 0.43 + sy); // lift track above the controls
       ctx.scale(zoom, zoom);
       ctx.translate(-this.camX, -this.camY);
 

@@ -292,7 +292,6 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         <button id="btn-nitro" class="drive-btn nitro">NITRO</button>
         <button id="btn-brake" class="drive-btn brake">BRAKE</button>
         <div id="stick" class="stick-zone">
-          <span class="stick-hint">push to steer ⛂</span>
           <div id="stick-base" class="stick-base"><div id="stick-knob" class="stick-knob"></div></div>
         </div>
       </div>
@@ -381,7 +380,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         <div class="howto">
           <p><strong>Goal:</strong> Finish each race as high as you can. Cash and championship points are awarded by finishing position.</p>
           <p><strong>Keyboard:</strong> <kbd>↑</kbd>/<kbd>W</kbd> gas, <kbd>↓</kbd>/<kbd>S</kbd> brake, <kbd>←</kbd><kbd>→</kbd>/<kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> nitro, <kbd>Esc</kbd> pause.</p>
-          <p><strong>Touch:</strong> Your truck <strong>accelerates automatically</strong>. Touch anywhere on the right and a <strong>steering pad</strong> appears — push it in the <strong>direction you want the truck to go</strong> (push down to head down the screen). <strong>NITRO</strong> and <strong>BRAKE</strong> are on the left.</p>
+          <p><strong>The whole track is on screen at once</strong> — no scrolling, so you can always see the pack and plan your line.</p>
+          <p><strong>Touch:</strong> Your truck <strong>accelerates automatically</strong>. Push the <strong>steering pad</strong> (bottom-right) in the <strong>direction you want the truck to go</strong> — push down to head down the screen. <strong>NITRO</strong> and <strong>BRAKE</strong> are on the left.</p>
           <p><strong>Drifting:</strong> In Enhanced mode the trucks turn normally — but hold <strong>NITRO</strong> while steering and the truck automatically drifts through the corner.</p>
           <p><strong>Jumps:</strong> Hit the ramps (chevrons) with speed to launch — you can't steer much in the air, so line it up before takeoff and brace for the landing.</p>
           <p><strong>Tips:</strong> The track has edge walls so you can't fly off into the grass — lean on them through corners. Save nitro for straights. Spend winnings in the Garage on Engine, Tires (grip), Shocks and Nitro. Switch between Enhanced (2.5D) and Classic graphics with the Garage button.</p>
@@ -1429,8 +1429,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         const variance = isPlayer ? 1 : (0.985 + Math.random() * 0.03);
 
         const stats = {
-          maxSpeed: 375 * p.maxSpeed * variance,
-          accel: 270 * p.accel * variance,
+          maxSpeed: 325 * p.maxSpeed * variance,
+          accel: 245 * p.accel * variance,
           turn: 3.2 * p.turn,
           grip: clamp(0.86 + 0.03 * (p.grip - 1) * 10, 0.6, 0.97),
           offroad: clamp(0.5 + 0.06 * ((p.offroad || 1) - 1) * 10, 0.42, 0.92),
@@ -1713,12 +1713,17 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const W = c.width, H = c.height;
       const p = this.player;
 
-      // camera: follow player, look a bit ahead, zoom out a touch with speed
-      const zoom = (Math.min(W, H) / 900) * 1.0;
-      const aheadX = p.x + Math.cos(p.angle) * 120;
-      const aheadY = p.y + Math.sin(p.angle) * 120;
-      this.camX = this.camX === undefined ? p.x : lerp(this.camX, aheadX, 0.08);
-      this.camY = this.camY === undefined ? p.y : lerp(this.camY, aheadY, 0.08);
+      // Static camera: the whole track is framed on one screen (Super Off Road
+      // style) — no panning or zooming, so it never disorients.
+      if (!this._bounds) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const q of this.pts) { minX = Math.min(minX, q.x); minY = Math.min(minY, q.y); maxX = Math.max(maxX, q.x); maxY = Math.max(maxY, q.y); }
+        const pad = this.track.width;
+        this._bounds = { w: (maxX - minX) + pad * 2, h: (maxY - minY) + pad * 2, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
+      }
+      const b = this._bounds;
+      const zoom = Math.min(W / (b.w * 1.05), H / (b.h * 1.05));
+      this.camX = b.cx; this.camY = b.cy;
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       // grass background
@@ -1727,7 +1732,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this._grassTexture(ctx, W, H, zoom);
 
       ctx.save();
-      ctx.translate(W / 2, H / 2);
+      ctx.translate(W / 2, H * 0.43); // lift track above the controls
       ctx.scale(zoom, zoom);
       ctx.translate(-this.camX, -this.camY);
 
@@ -2148,8 +2153,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         const variance = isPlayer ? 1 : (0.985 + Math.random() * 0.03);
 
         const stats = {
-          maxSpeed: 385 * p.maxSpeed * variance,
-          accel: 280 * p.accel * variance,
+          maxSpeed: 335 * p.maxSpeed * variance,
+          accel: 250 * p.accel * variance,
           turn: 3.0 * p.turn,
           grip: clamp(0.88 - (p.grip - 1) * 0.16, 0.76, 0.91),
           offroad: clamp(0.5 + ((p.offroad || 1) - 1) * 0.6, 0.45, 0.9),
@@ -2504,14 +2509,15 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const ctx = this.ctx, c = this.canvas;
       if (c.width !== Math.floor(c.clientWidth * this.dpr)) this._resize();
       const W = c.width, H = c.height, p = this.player;
-      const zoom = (Math.min(W, H) / 900) * (1.05 - 0.12 * clamp(p.speedApprox / 360, 0, 1));
-
-      const aheadX = p.x + Math.cos(p.angle) * 140;
-      const aheadY = p.y + Math.sin(p.angle) * 140;
-      this.camX = this.camX === undefined ? p.x : lerp(this.camX, aheadX, 0.09);
-      this.camY = this.camY === undefined ? p.y : lerp(this.camY, aheadY, 0.09);
-      const sx = this.shake ? rand(-this.shake, this.shake) : 0;
-      const sy = this.shake ? rand(-this.shake, this.shake) : 0;
+      // Static "set piece" camera: frame the ENTIRE track at once (Super Off Road
+      // style) so every truck stays on screen and the world never pans or zooms.
+      const b = this.bbox;
+      const zoom = Math.min(W / (b.w * 1.05), H / (b.h * 1.05));
+      this.camX = (b.minX + b.maxX) / 2;
+      this.camY = (b.minY + b.maxY) / 2;
+      const shk = this.shake * 0.3; // gentle — the whole track is in view
+      const sx = shk ? rand(-shk, shk) : 0;
+      const sy = shk ? rand(-shk, shk) : 0;
 
       const theme = this.track.theme || { ground: "#3f6b2e" };
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2520,7 +2526,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ctx.fillRect(0, 0, W, H);
 
       ctx.save();
-      ctx.translate(W / 2 + sx, H / 2 + sy);
+      ctx.translate(W / 2 + sx, H * 0.43 + sy); // lift track above the controls
       ctx.scale(zoom, zoom);
       ctx.translate(-this.camX, -this.camY);
 
