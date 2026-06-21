@@ -318,8 +318,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           </div>
 
           <div class="panel">
-            <h3>Upgrades</h3>
+            <h3>Truck</h3>
+            <div id="vehicle-profile" class="driver-profile"></div>
             <div id="upgrades" class="upgrades"></div>
+            <button id="btn-change-vehicle" class="big graphics-toggle">Change Truck</button>
           </div>
 
           <div class="panel">
@@ -370,6 +372,14 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           <p><strong>Tips:</strong> The track has edge walls so you can't fly off into the grass — lean on them through corners. Save nitro for straights. Spend winnings in the Garage on Engine, Tires (grip), Shocks and Nitro. Switch between Enhanced (2.5D) and Classic graphics with the Garage button.</p>
         </div>
         <button id="btn-howto-back" class="big">Back</button>
+      </section>
+
+      <!-- Truck select -->
+      <section id="screen-vehicle" class="screen hidden">
+        <h2>CHOOSE YOUR TRUCK</h2>
+        <div id="vehicle-grid" class="driver-grid"></div>
+        <div id="vehicle-detail" class="driver-detail"></div>
+        <button id="btn-vehicle-confirm" class="big primary">Confirm Truck ▶</button>
       </section>
 
       <!-- Driver select -->
@@ -455,6 +465,172 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
   window.TRACKS = TRACKS;
   window.getTrack = (id) => TRACKS.find((t) => t.id === id) || TRACKS[0];
+})();
+
+</script>
+  <script>
+/* vehicles.js — the 6 trucks: data, base stats, and distinct top-down sprites.
+ * Stats are innate ratings 1..5 in the four vehicle categories; per-truck
+ * upgrades add 0..5 more. Final performance = truck x driver.
+ */
+(function () {
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+  const VEHICLES = [
+    { id: "stocker", name: "Stocker", blurb: "Balanced all-rounder", color: "#ffcf33", body: "stock",
+      stats: { engine: 3, tires: 3, shocks: 3, nitro: 3 } },
+    { id: "buggy", name: "Sand Flea", blurb: "Light & razor-nimble", color: "#57d957", body: "buggy",
+      stats: { engine: 2, tires: 5, shocks: 4, nitro: 2 } },
+    { id: "monster", name: "Bigfoot", blurb: "Raw power, huge tires", color: "#e8482c", body: "monster",
+      stats: { engine: 5, tires: 2, shocks: 4, nitro: 2 } },
+    { id: "baja", name: "Baja Bandit", blurb: "Nitro specialist", color: "#ff8e2b", body: "baja",
+      stats: { engine: 3, tires: 3, shocks: 2, nitro: 5 } },
+    { id: "crawler", name: "Boulder", blurb: "Grip & suspension", color: "#3aa0ff", body: "crawler",
+      stats: { engine: 2, tires: 5, shocks: 5, nitro: 1 } },
+    { id: "sprinter", name: "Cheetah", blurb: "Top-speed missile", color: "#c46bff", body: "sprinter",
+      stats: { engine: 5, tires: 3, shocks: 3, nitro: 2 } },
+  ];
+
+  function shade(hex, f) {
+    const c = hex.replace("#", "");
+    let r = parseInt(c.substr(0, 2), 16), g = parseInt(c.substr(2, 2), 16), b = parseInt(c.substr(4, 2), 16);
+    r = clamp(Math.round(r * f), 0, 255); g = clamp(Math.round(g * f), 0, 255); b = clamp(Math.round(b * f), 0, 255);
+    return `rgb(${r},${g},${b})`;
+  }
+  function rr(g, x, y, w, h, r) {
+    g.beginPath(); g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+  function tyre(g, x, y, w, h) {
+    g.fillStyle = "#15110d"; rr(g, x, y, w, h, 2); g.fill();
+    g.fillStyle = "#2a241d";
+    for (let i = 0; i < Math.floor(w / 2.6); i++) g.fillRect(x + 1 + i * 2.6, y, 1.2, h);
+  }
+
+  // draw a top-down truck facing +x, centred at 0,0, in ~64x40 logical space
+  function drawTruck(g, vehicle, color, isPlayer) {
+    const body = vehicle ? vehicle.body : "stock";
+    const grad = (x0, y0, x1, y1) => { const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, shade(color, 1.35)); gr.addColorStop(0.5, color); gr.addColorStop(1, shade(color, 0.6)); return gr; };
+
+    function bodyPlate(L, T, W, H, r) {
+      g.fillStyle = "rgba(0,0,0,0.32)"; rr(g, L - 1, T + 2, W + 2, H, r); g.fill();
+      g.fillStyle = grad(0, T, 0, T + H); rr(g, L, T, W, H, r); g.fill();
+    }
+    function cab(L, T, W, H) {
+      g.fillStyle = "#10141c"; rr(g, L, T, W, H, 3); g.fill();
+      g.fillStyle = "rgba(150,200,255,0.35)"; rr(g, L + 1, T + 1, W * 0.4, H - 2, 2); g.fill();
+    }
+    function outline(L, T, W, H, r) {
+      g.strokeStyle = isPlayer ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.35)";
+      g.lineWidth = isPlayer ? 2 : 1.2; rr(g, L, T, W, H, r); g.stroke();
+    }
+
+    switch (body) {
+      case "buggy": { // light open-frame, big rear tyres
+        tyre(g, -16, -16, 9, 6); tyre(g, -16, 10, 9, 6);
+        tyre(g, 9, -17, 12, 7); tyre(g, 9, 10, 12, 7);
+        bodyPlate(-18, -10, 36, 20, 6);
+        g.strokeStyle = "rgba(230,230,230,0.7)"; g.lineWidth = 1.6; // roll cage
+        g.strokeRect(-8, -8, 18, 16); g.beginPath(); g.moveTo(-8, 0); g.lineTo(10, 0); g.stroke();
+        g.fillStyle = "#fff6c8"; g.beginPath(); g.arc(17, -6, 1.8, 0, 7); g.arc(17, 6, 1.8, 0, 7); g.fill();
+        outline(-18, -10, 36, 20, 6); break;
+      }
+      case "monster": { // tall body, oversized tyres beyond the body
+        tyre(g, -18, -19, 15, 9); tyre(g, -18, 10, 15, 9);
+        tyre(g, 6, -19, 15, 9); tyre(g, 6, 10, 15, 9);
+        bodyPlate(-18, -12, 40, 24, 6);
+        cab(-2, -9, 16, 18);
+        g.fillStyle = shade(color, 1.15); rr(g, 16, -8, 8, 16, 3); g.fill();
+        g.fillStyle = "#fff6c8"; g.beginPath(); g.arc(22, -5, 2, 0, 7); g.arc(22, 5, 2, 0, 7); g.fill();
+        outline(-18, -12, 40, 24, 6); break;
+      }
+      case "baja": { // long desert racer, light bar + spare tyre
+        tyre(g, -18, -15, 11, 6); tyre(g, -18, 9, 11, 6);
+        tyre(g, 9, -15, 11, 6); tyre(g, 9, 9, 11, 6);
+        bodyPlate(-24, -12, 48, 24, 7);
+        cab(-4, -8, 15, 16);
+        tyre(g, -24, -7, 6, 14); // spare on tail
+        g.fillStyle = "#ffe08a"; for (let i = -2; i <= 2; i++) g.fillRect(20 + 0, i * 4 - 1, 4, 2); // light bar
+        g.fillStyle = "rgba(255,255,255,0.85)"; g.fillRect(-2, -2, 8, 4);
+        outline(-24, -12, 48, 24, 7); break;
+      }
+      case "crawler": { // tall, knobby tyres, front winch bumper
+        tyre(g, -17, -18, 14, 9); tyre(g, -17, 9, 14, 9);
+        tyre(g, 6, -18, 14, 9); tyre(g, 6, 9, 14, 9);
+        bodyPlate(-18, -13, 40, 26, 6);
+        cab(-2, -9, 15, 18);
+        g.fillStyle = "#888"; rr(g, 20, -10, 5, 20, 2); g.fill(); // winch bumper
+        g.fillStyle = "#555"; g.beginPath(); g.arc(22, 0, 3, 0, 7); g.fill();
+        outline(-18, -13, 40, 26, 6); break;
+      }
+      case "sprinter": { // sleek, tapered nose, rear wing
+        tyre(g, -15, -14, 9, 5); tyre(g, -15, 9, 9, 5);
+        tyre(g, 9, -14, 9, 5); tyre(g, 9, 9, 9, 5);
+        g.fillStyle = "rgba(0,0,0,0.32)"; // taper body
+        g.beginPath(); g.moveTo(-20, -10); g.lineTo(14, -7); g.lineTo(24, 0); g.lineTo(14, 7); g.lineTo(-20, 10); g.closePath(); g.fill();
+        g.fillStyle = grad(0, -10, 0, 10);
+        g.beginPath(); g.moveTo(-21, -11); g.lineTo(13, -8); g.lineTo(23, 0); g.lineTo(13, 8); g.lineTo(-21, 11); g.closePath(); g.fill();
+        cab(-4, -6, 14, 12);
+        g.fillStyle = shade(color, 0.5); rr(g, -23, -12, 5, 24, 2); g.fill(); // rear wing
+        g.fillStyle = "rgba(255,255,255,0.8)"; g.fillRect(-12, -1.5, 22, 3);
+        g.strokeStyle = isPlayer ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.35)"; g.lineWidth = isPlayer ? 2 : 1.2;
+        g.beginPath(); g.moveTo(-21, -11); g.lineTo(13, -8); g.lineTo(23, 0); g.lineTo(13, 8); g.lineTo(-21, 11); g.closePath(); g.stroke();
+        break;
+      }
+      default: { // stocker pickup
+        tyre(g, -16, -15, 11, 6); tyre(g, -16, 9, 11, 6);
+        tyre(g, 9, -15, 11, 6); tyre(g, 9, 9, 11, 6);
+        bodyPlate(-22, -12, 44, 24, 6);
+        cab(-2, -8, 16, 16);
+        g.fillStyle = shade(color, 0.85); rr(g, -20, -9, 12, 18, 3); g.fill(); // bed
+        g.fillStyle = "#fff6c8"; g.beginPath(); g.arc(20, -5, 2, 0, 7); g.arc(20, 5, 2, 0, 7); g.fill();
+        g.fillStyle = "rgba(255,255,255,0.85)"; g.fillRect(0, -2, 8, 4);
+        outline(-22, -12, 44, 24, 6);
+      }
+    }
+  }
+
+  // cached top-down sprite for in-race rendering (facing +x)
+  const spriteCache = {};
+  function makeTruckSprite(vehicleId, color, isPlayer) {
+    const key = vehicleId + "|" + color + (isPlayer ? "|p" : "");
+    if (spriteCache[key]) return spriteCache[key];
+    const veh = VEHICLES.find((v) => v.id === vehicleId);
+    const S = 4, w = 64, h = 44;
+    const cv = document.createElement("canvas");
+    cv.width = w * S; cv.height = h * S;
+    const g = cv.getContext("2d");
+    g.scale(S, S); g.translate(w / 2, h / 2);
+    drawTruck(g, veh, color || (veh ? veh.color : "#ccc"), isPlayer);
+    spriteCache[key] = cv;
+    return cv;
+  }
+
+  // card portrait for the select / garage panels
+  function makeVehiclePortrait(id, px) {
+    const veh = VEHICLES.find((v) => v.id === id) || VEHICLES[0];
+    const S = 2;
+    const cv = document.createElement("canvas");
+    cv.width = px * S; cv.height = px * S;
+    cv.style.width = px + "px"; cv.style.height = px + "px";
+    const g = cv.getContext("2d");
+    const bg = g.createLinearGradient(0, 0, 0, px * S);
+    bg.addColorStop(0, shade(veh.color, 0.5)); bg.addColorStop(1, shade(veh.color, 0.25));
+    g.fillStyle = bg; g.fillRect(0, 0, px * S, px * S);
+    g.save();
+    g.translate(px * S / 2, px * S / 2);
+    const sc = (px * S) / 70; g.scale(sc, sc);
+    g.rotate(-Math.PI / 2); // point the truck "up" in the card
+    drawTruck(g, veh, veh.color, false);
+    g.restore();
+    return cv;
+  }
+
+  window.VEHICLES = VEHICLES;
+  window.getVehicle = (id) => VEHICLES.find((v) => v.id === id) || VEHICLES[0];
+  window.makeTruckSprite = makeTruckSprite;
+  window.makeVehiclePortrait = makeVehiclePortrait;
 })();
 
 </script>
@@ -692,12 +868,18 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     window.CHARACTERS.forEach((ch) => (t[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }));
     return t;
   }
+  function freshVehicleUpgrades() {
+    const u = {};
+    window.VEHICLES.forEach((v) => (u[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }));
+    return u;
+  }
 
   function freshState() {
     return {
-      version: 2,
+      version: 3,
       money: 800,
-      upgrades: { engine: 0, tires: 0, shocks: 0, nitro: 0 },
+      vehicle: window.VEHICLES[0].id,
+      vehicleUpgrades: freshVehicleUpgrades(),
       driver: window.CHARACTERS[0].id,
       training: freshTraining(),
       graphics: "enhanced",
@@ -720,12 +902,16 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           // migration / safety
           const s = this.state;
           if (!s.season || !s.season.order) s.season = freshSeason();
-          if (!s.upgrades) s.upgrades = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
           if (!s.graphics) s.graphics = "enhanced";
           if (!s.records) s.records = {};
           if (!s.driver) s.driver = window.CHARACTERS[0].id;
           if (!s.training) s.training = freshTraining();
           window.CHARACTERS.forEach((ch) => { if (!s.training[ch.id]) s.training[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }; });
+          if (!s.vehicle) s.vehicle = window.VEHICLES[0].id;
+          if (!s.vehicleUpgrades) s.vehicleUpgrades = freshVehicleUpgrades();
+          window.VEHICLES.forEach((v) => { if (!s.vehicleUpgrades[v.id]) s.vehicleUpgrades[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }; });
+          // migrate an old single upgrade set onto the starting truck
+          if (s.upgrades) { s.vehicleUpgrades[s.vehicle] = s.upgrades; delete s.upgrades; }
           if (!s.season.standings || !s.season.standings[0] || !s.season.standings[0].characterId)
             s.season.standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
           return this.state;
@@ -809,31 +995,44 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       if (beat) r.race = t; this.save(); return beat;
     },
 
-    // ---- vehicle upgrades ----
-    upgradeLevel(key) { return this.state.upgrades[key] || 0; },
-    upgradeCostFor(key) {
-      const lvl = this.upgradeLevel(key);
+    // ---- truck selection ----
+    vehicleId() { return this.state.vehicle; },
+    vehicle() { return window.getVehicle(this.state.vehicle); },
+    setVehicle(id) {
+      if (!window.getVehicle(id)) return;
+      this.state.vehicle = id;
+      if (!this.state.vehicleUpgrades[id]) this.state.vehicleUpgrades[id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
+      this.save();
+    },
+
+    // ---- per-truck upgrades ----
+    vehicleUpgrades(id) { return this.state.vehicleUpgrades[id] || { engine: 0, tires: 0, shocks: 0, nitro: 0 }; },
+    upgradeLevel(id, key) { return this.vehicleUpgrades(id)[key] || 0; },
+    upgradeCostFor(id, key) {
+      const lvl = this.upgradeLevel(id, key);
       return lvl >= MAX_LEVEL ? null : cost(lvl);
     },
-    canBuy(key) { const c = this.upgradeCostFor(key); return c !== null && this.state.money >= c; },
-    buy(key) {
-      if (!this.canBuy(key)) return false;
-      this.state.money -= this.upgradeCostFor(key);
-      this.state.upgrades[key]++;
+    canBuy(id, key) { const c = this.upgradeCostFor(id, key); return c !== null && this.state.money >= c; },
+    buy(id, key) {
+      if (!this.canBuy(id, key)) return false;
+      this.state.money -= this.upgradeCostFor(id, key);
+      this.state.vehicleUpgrades[id][key] = (this.state.vehicleUpgrades[id][key] || 0) + 1;
       this.save(); return true;
     },
 
-    // vehicle-only performance multipliers
-    performance() {
-      const u = this.state.upgrades;
+    // truck performance multipliers (innate stats + upgrades), 1..10 per category
+    performanceFor(truckId) {
+      const v = window.getVehicle(truckId);
+      const up = this.vehicleUpgrades(truckId);
+      const e = (k) => v.stats[k] + (up[k] || 0);
       return {
-        maxSpeed: 1 + 0.07 * u.engine,
-        turn: 1 + 0.08 * u.tires,
-        grip: 1 + 0.10 * u.tires,
-        accel: 1 + 0.09 * u.shocks,
-        offroad: 1 + 0.12 * u.shocks,
-        nitroPower: 1 + 0.10 * u.nitro,
-        nitroRefill: 1 + 0.18 * u.nitro,
+        maxSpeed: 1 + 0.02 * e("engine"),
+        turn: 1 + 0.018 * e("tires"),
+        grip: 1 + 0.022 * e("tires"),
+        accel: 1 + 0.022 * e("shocks"),
+        offroad: 1 + 0.03 * e("shocks"),
+        nitroPower: 1 + 0.02 * e("nitro"),
+        nitroRefill: 1 + 0.04 * e("nitro"),
       };
     },
 
@@ -858,27 +1057,30 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       return 0.93 + 0.022 * s.raceIndex + 0.025 * ((s.season || 1) - 1);
     },
 
-    // Build the 6-car grid: the player's driver + the other five as AI rivals.
+    // Build the 6-car grid: the player's driver+truck, plus the other five
+    // drivers each paired with one of the other trucks.
     buildRoster() {
-      const playerId = this.state.driver;
-      const ordered = [window.getCharacter(playerId)].concat(window.CHARACTERS.filter((c) => c.id !== playerId));
+      const playerDriver = this.state.driver, playerVeh = this.state.vehicle;
+      const drivers = [window.getCharacter(playerDriver)].concat(window.CHARACTERS.filter((c) => c.id !== playerDriver));
+      const trucks = [window.getVehicle(playerVeh)].concat(window.VEHICLES.filter((v) => v.id !== playerVeh));
       const aiS = this.aiStrength();
-      const v = this.performance();
-      return ordered.map((ch) => {
-        const isPlayer = ch.id === playerId;
+      return drivers.map((ch, i) => {
+        const truck = trucks[i] || trucks[0];
+        const isPlayer = ch.id === playerDriver;
+        const t = this.performanceFor(truck.id);
         const d = this.driverFactors(ch.id);
-        const perf = isPlayer ? {
-          maxSpeed: v.maxSpeed * d.maxSpeed, accel: v.accel * d.accel,
-          turn: v.turn * d.turn, grip: v.grip * d.grip, offroad: v.offroad,
-          nitroPower: v.nitroPower * d.nitroPower, nitroRefill: v.nitroRefill * d.nitroRefill,
-          drift: d.drift,
-        } : {
-          maxSpeed: d.maxSpeed * aiS, accel: d.accel * aiS,
-          turn: d.turn, grip: d.grip, offroad: 1,
-          nitroPower: d.nitroPower, nitroRefill: d.nitroRefill,
+        const sp = isPlayer ? 1 : aiS;
+        const perf = {
+          maxSpeed: t.maxSpeed * d.maxSpeed * sp,
+          accel: t.accel * d.accel * sp,
+          turn: t.turn * d.turn,
+          grip: t.grip * d.grip,
+          offroad: t.offroad,
+          nitroPower: t.nitroPower * d.nitroPower,
+          nitroRefill: t.nitroRefill * d.nitroRefill,
           drift: d.drift,
         };
-        return { characterId: ch.id, name: ch.name, color: ch.color, isPlayer, perf };
+        return { characterId: ch.id, name: ch.name, vehicleId: truck.id, color: truck.color, isPlayer, perf };
       });
     },
 
@@ -1145,6 +1347,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           isPlayer,
           characterId: R.characterId,
           name: R.name,
+          vehicleId: R.vehicleId,
           startProg: (along + this.N) % this.N,
           stats,
           aiAggro: 0.5 + Math.random() * 0.5,
@@ -1859,7 +2062,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           x: gp.x + Math.cos(normal) * lateral,
           y: gp.y + Math.sin(normal) * lateral,
           angle: tan, color: R.color,
-          isPlayer, characterId: R.characterId, name: R.name,
+          isPlayer, characterId: R.characterId, name: R.name, vehicleId: R.vehicleId,
           startProg: (along + this.N) % this.N,
           stats, aiAggro: 0.5 + Math.random() * 0.5,
         }));
@@ -2292,7 +2495,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     }
 
     _drawCar(ctx, car) {
-      const sprite = truckSprite(car.color, car.isPlayer);
+      const sprite = (window.makeTruckSprite || truckSprite)(car.vehicleId, car.color, car.isPlayer);
       const lift = car.z;
       const scale = 1 + car.z / 260; // grows when airborne (closer to "camera")
       // shadow on the ground (offset opposite to lift, lighter when high)
@@ -2390,6 +2593,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     champion: $("#screen-champion"),
     howto: $("#screen-howto"),
     driver: $("#screen-driver"),
+    vehicle: $("#screen-vehicle"),
     pause: $("#screen-pause"),
   };
   const overlay = $("#overlay");
@@ -2438,7 +2642,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   $("#btn-new").onclick = () => {
     if (Career.hasSave() && !confirm("Start a new career? This erases your saved progress.")) return;
     Career.newCareer();
-    openDriverSelect("garage"); // pick your driver to start the career
+    openDriverSelect("vehicle"); // pick driver, then truck, then garage
   };
   $("#btn-howto").onclick = () => show("howto");
   $("#btn-howto-back").onclick = () => show(Career.hasSave() ? "menu" : "menu");
@@ -2464,29 +2668,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       <div class="meta">${Career.raceLabel()} • ${track.laps} laps • Difficulty ${stars}</div>
       <div class="meta records">${recTxt}</div>`;
 
-    // upgrades
-    const wrap = $("#upgrades");
-    wrap.innerHTML = "";
-    Career.UPGRADE_DEFS.forEach((def) => {
-      const lvl = Career.upgradeLevel(def.key);
-      const cost = Career.upgradeCostFor(def.key);
-      const maxed = cost === null;
-      const pips = Array.from({ length: Career.MAX_LEVEL }, (_, i) =>
-        `<div class="pip ${i < lvl ? "on" : ""}"></div>`).join("");
-      const el = document.createElement("div");
-      el.className = "upg";
-      el.innerHTML = `
-        <div class="upg-top"><span class="upg-name">${def.name}</span><span class="upg-lvl">Lv ${lvl}/${Career.MAX_LEVEL}</span></div>
-        <div class="upg-desc">${def.desc}</div>
-        <div class="pips">${pips}</div>
-        <button ${maxed || !Career.canBuy(def.key) ? "disabled" : ""}>
-          ${maxed ? "MAXED" : "Upgrade — 💰 " + cost.toLocaleString()}
-        </button>`;
-      el.querySelector("button").onclick = () => {
-        if (Career.buy(def.key)) renderGarage();
-      };
-      wrap.appendChild(el);
-    });
+    renderVehiclePanel();
 
     // graphics toggle label
     const g = Career.graphics();
@@ -2502,6 +2684,39 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     let s = '<span class="skill-stars">';
     for (let i = 0; i < total; i++) s += `<span class="star ${i < filled ? "" : "off"}">★</span>`;
     return s + "</span>";
+  }
+
+  function renderVehiclePanel() {
+    const v = Career.vehicle();
+    const prof = $("#vehicle-profile");
+    prof.innerHTML = "";
+    prof.appendChild(window.makeVehiclePortrait(v.id, 76));
+    const info = document.createElement("div");
+    info.className = "dp-info";
+    info.innerHTML = `<div class="dp-name">${v.name}</div><div class="dp-tag">${v.blurb}</div>`;
+    prof.appendChild(info);
+
+    const wrap = $("#upgrades");
+    wrap.innerHTML = "";
+    Career.UPGRADE_DEFS.forEach((def) => {
+      const innate = v.stats[def.key];
+      const lvl = Career.upgradeLevel(v.id, def.key);
+      const cost = Career.upgradeCostFor(v.id, def.key);
+      const maxed = cost === null;
+      const pips = Array.from({ length: Career.MAX_LEVEL }, (_, i) =>
+        `<div class="pip ${i < lvl ? "on" : ""}"></div>`).join("");
+      const el = document.createElement("div");
+      el.className = "upg";
+      el.innerHTML = `
+        <div class="upg-top"><span class="upg-name">${def.name} ${starBar(innate, 5)}</span><span class="upg-lvl">+${lvl}</span></div>
+        <div class="upg-desc">${def.desc}</div>
+        <div class="pips">${pips}</div>
+        <button ${maxed || !Career.canBuy(v.id, def.key) ? "disabled" : ""}>
+          ${maxed ? "MAXED" : "Upgrade — 💰 " + cost.toLocaleString()}
+        </button>`;
+      el.querySelector("button").onclick = () => { if (Career.buy(v.id, def.key)) renderGarage(); };
+      wrap.appendChild(el);
+    });
   }
 
   function renderDriverPanel() {
@@ -2600,9 +2815,44 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
   $("#btn-driver-confirm").onclick = () => {
     Career.setDriver(driverPick);
-    if (driverReturnTo === "garage") openGarage();
-    else show(driverReturnTo);
+    if (driverReturnTo === "vehicle") openVehicleSelect("garage");
+    else openGarage();
   };
+
+  // ---------------- Truck select ----------------
+  let vehiclePick = null;
+
+  function openVehicleSelect() {
+    vehiclePick = Career.vehicleId();
+    const grid = $("#vehicle-grid");
+    grid.innerHTML = "";
+    window.VEHICLES.forEach((v) => {
+      const card = document.createElement("div");
+      card.className = "dcard" + (v.id === vehiclePick ? " sel" : "");
+      card.dataset.id = v.id;
+      card.appendChild(window.makeVehiclePortrait(v.id, 96));
+      const nm = document.createElement("div"); nm.className = "dc-name"; nm.textContent = v.name;
+      const tg = document.createElement("div"); tg.className = "dc-tag"; tg.textContent = v.blurb;
+      card.appendChild(nm); card.appendChild(tg);
+      card.onclick = () => selectVehicleCard(v.id);
+      grid.appendChild(card);
+    });
+    renderVehicleDetail();
+    show("vehicle");
+  }
+  function selectVehicleCard(id) {
+    vehiclePick = id;
+    $$("#vehicle-grid .dcard").forEach((c) => c.classList.toggle("sel", c.dataset.id === id));
+    renderVehicleDetail();
+  }
+  function renderVehicleDetail() {
+    const v = window.getVehicle(vehiclePick);
+    const stats = Career.UPGRADE_DEFS
+      .map((d) => `${d.name} ${starBar(v.stats[d.key], 5)}`).join(" &nbsp; ");
+    $("#vehicle-detail").innerHTML = `<div class="dd-bio">${v.blurb}</div><div style="margin-top:8px">${stats}</div>`;
+  }
+  $("#btn-vehicle-confirm").onclick = () => { Career.setVehicle(vehiclePick); openGarage(); };
+  $("#btn-change-vehicle").onclick = () => openVehicleSelect();
 
   // ---------------- Race ----------------
   function startRace() {

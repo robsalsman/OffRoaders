@@ -28,12 +28,18 @@
     window.CHARACTERS.forEach((ch) => (t[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }));
     return t;
   }
+  function freshVehicleUpgrades() {
+    const u = {};
+    window.VEHICLES.forEach((v) => (u[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }));
+    return u;
+  }
 
   function freshState() {
     return {
-      version: 2,
+      version: 3,
       money: 800,
-      upgrades: { engine: 0, tires: 0, shocks: 0, nitro: 0 },
+      vehicle: window.VEHICLES[0].id,
+      vehicleUpgrades: freshVehicleUpgrades(),
       driver: window.CHARACTERS[0].id,
       training: freshTraining(),
       graphics: "enhanced",
@@ -56,12 +62,16 @@
           // migration / safety
           const s = this.state;
           if (!s.season || !s.season.order) s.season = freshSeason();
-          if (!s.upgrades) s.upgrades = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
           if (!s.graphics) s.graphics = "enhanced";
           if (!s.records) s.records = {};
           if (!s.driver) s.driver = window.CHARACTERS[0].id;
           if (!s.training) s.training = freshTraining();
           window.CHARACTERS.forEach((ch) => { if (!s.training[ch.id]) s.training[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }; });
+          if (!s.vehicle) s.vehicle = window.VEHICLES[0].id;
+          if (!s.vehicleUpgrades) s.vehicleUpgrades = freshVehicleUpgrades();
+          window.VEHICLES.forEach((v) => { if (!s.vehicleUpgrades[v.id]) s.vehicleUpgrades[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }; });
+          // migrate an old single upgrade set onto the starting truck
+          if (s.upgrades) { s.vehicleUpgrades[s.vehicle] = s.upgrades; delete s.upgrades; }
           if (!s.season.standings || !s.season.standings[0] || !s.season.standings[0].characterId)
             s.season.standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
           return this.state;
@@ -145,31 +155,44 @@
       if (beat) r.race = t; this.save(); return beat;
     },
 
-    // ---- vehicle upgrades ----
-    upgradeLevel(key) { return this.state.upgrades[key] || 0; },
-    upgradeCostFor(key) {
-      const lvl = this.upgradeLevel(key);
+    // ---- truck selection ----
+    vehicleId() { return this.state.vehicle; },
+    vehicle() { return window.getVehicle(this.state.vehicle); },
+    setVehicle(id) {
+      if (!window.getVehicle(id)) return;
+      this.state.vehicle = id;
+      if (!this.state.vehicleUpgrades[id]) this.state.vehicleUpgrades[id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
+      this.save();
+    },
+
+    // ---- per-truck upgrades ----
+    vehicleUpgrades(id) { return this.state.vehicleUpgrades[id] || { engine: 0, tires: 0, shocks: 0, nitro: 0 }; },
+    upgradeLevel(id, key) { return this.vehicleUpgrades(id)[key] || 0; },
+    upgradeCostFor(id, key) {
+      const lvl = this.upgradeLevel(id, key);
       return lvl >= MAX_LEVEL ? null : cost(lvl);
     },
-    canBuy(key) { const c = this.upgradeCostFor(key); return c !== null && this.state.money >= c; },
-    buy(key) {
-      if (!this.canBuy(key)) return false;
-      this.state.money -= this.upgradeCostFor(key);
-      this.state.upgrades[key]++;
+    canBuy(id, key) { const c = this.upgradeCostFor(id, key); return c !== null && this.state.money >= c; },
+    buy(id, key) {
+      if (!this.canBuy(id, key)) return false;
+      this.state.money -= this.upgradeCostFor(id, key);
+      this.state.vehicleUpgrades[id][key] = (this.state.vehicleUpgrades[id][key] || 0) + 1;
       this.save(); return true;
     },
 
-    // vehicle-only performance multipliers
-    performance() {
-      const u = this.state.upgrades;
+    // truck performance multipliers (innate stats + upgrades), 1..10 per category
+    performanceFor(truckId) {
+      const v = window.getVehicle(truckId);
+      const up = this.vehicleUpgrades(truckId);
+      const e = (k) => v.stats[k] + (up[k] || 0);
       return {
-        maxSpeed: 1 + 0.07 * u.engine,
-        turn: 1 + 0.08 * u.tires,
-        grip: 1 + 0.10 * u.tires,
-        accel: 1 + 0.09 * u.shocks,
-        offroad: 1 + 0.12 * u.shocks,
-        nitroPower: 1 + 0.10 * u.nitro,
-        nitroRefill: 1 + 0.18 * u.nitro,
+        maxSpeed: 1 + 0.02 * e("engine"),
+        turn: 1 + 0.018 * e("tires"),
+        grip: 1 + 0.022 * e("tires"),
+        accel: 1 + 0.022 * e("shocks"),
+        offroad: 1 + 0.03 * e("shocks"),
+        nitroPower: 1 + 0.02 * e("nitro"),
+        nitroRefill: 1 + 0.04 * e("nitro"),
       };
     },
 
@@ -194,27 +217,30 @@
       return 0.93 + 0.022 * s.raceIndex + 0.025 * ((s.season || 1) - 1);
     },
 
-    // Build the 6-car grid: the player's driver + the other five as AI rivals.
+    // Build the 6-car grid: the player's driver+truck, plus the other five
+    // drivers each paired with one of the other trucks.
     buildRoster() {
-      const playerId = this.state.driver;
-      const ordered = [window.getCharacter(playerId)].concat(window.CHARACTERS.filter((c) => c.id !== playerId));
+      const playerDriver = this.state.driver, playerVeh = this.state.vehicle;
+      const drivers = [window.getCharacter(playerDriver)].concat(window.CHARACTERS.filter((c) => c.id !== playerDriver));
+      const trucks = [window.getVehicle(playerVeh)].concat(window.VEHICLES.filter((v) => v.id !== playerVeh));
       const aiS = this.aiStrength();
-      const v = this.performance();
-      return ordered.map((ch) => {
-        const isPlayer = ch.id === playerId;
+      return drivers.map((ch, i) => {
+        const truck = trucks[i] || trucks[0];
+        const isPlayer = ch.id === playerDriver;
+        const t = this.performanceFor(truck.id);
         const d = this.driverFactors(ch.id);
-        const perf = isPlayer ? {
-          maxSpeed: v.maxSpeed * d.maxSpeed, accel: v.accel * d.accel,
-          turn: v.turn * d.turn, grip: v.grip * d.grip, offroad: v.offroad,
-          nitroPower: v.nitroPower * d.nitroPower, nitroRefill: v.nitroRefill * d.nitroRefill,
-          drift: d.drift,
-        } : {
-          maxSpeed: d.maxSpeed * aiS, accel: d.accel * aiS,
-          turn: d.turn, grip: d.grip, offroad: 1,
-          nitroPower: d.nitroPower, nitroRefill: d.nitroRefill,
+        const sp = isPlayer ? 1 : aiS;
+        const perf = {
+          maxSpeed: t.maxSpeed * d.maxSpeed * sp,
+          accel: t.accel * d.accel * sp,
+          turn: t.turn * d.turn,
+          grip: t.grip * d.grip,
+          offroad: t.offroad,
+          nitroPower: t.nitroPower * d.nitroPower,
+          nitroRefill: t.nitroRefill * d.nitroRefill,
           drift: d.drift,
         };
-        return { characterId: ch.id, name: ch.name, color: ch.color, isPlayer, perf };
+        return { characterId: ch.id, name: ch.name, vehicleId: truck.id, color: truck.color, isPlayer, perf };
       });
     },
 

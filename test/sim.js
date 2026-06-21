@@ -37,7 +37,7 @@ function loadFile(rel) {
   vm.runInContext(code, ctx, { filename: rel });
 }
 
-["js/tracks.js", "js/characters.js", "js/career.js", "js/input.js", "js/game.js"].forEach(loadFile);
+["js/tracks.js", "js/vehicles.js", "js/characters.js", "js/career.js", "js/input.js", "js/game.js"].forEach(loadFile);
 
 let failures = 0;
 function assert(cond, msg) {
@@ -55,10 +55,19 @@ console.log("Career:");
 const C = ctx.Career;
 C.newCareer();
 assert(C.state.money === 800, "starts with 800 cash");
-const cost = C.upgradeCostFor("engine");
-assert(C.buy("engine"), "can buy first engine upgrade");
+const vid = C.vehicleId();
+const cost = C.upgradeCostFor(vid, "engine");
+assert(C.buy(vid, "engine"), "can buy first engine upgrade on the truck");
 assert(C.state.money === 800 - cost, "cash deducted after buy");
-assert(C.upgradeLevel("engine") === 1, "engine level is 1");
+assert(C.upgradeLevel(vid, "engine") === 1, "engine upgrade level is 1");
+// driver training & roster
+C.state.money = 5000;
+assert(C.train(C.driverId(), "handling") === true, "can train the driver");
+const roster = C.buildRoster();
+assert(roster.length === 6, "roster has 6 racers");
+assert(roster[0].isPlayer && roster.filter(r => !r.isPlayer).length === 5, "1 player + 5 rivals");
+assert(new Set(roster.map(r => r.vehicleId)).size === 6, "all 6 trucks are unique on the grid");
+assert(new Set(roster.map(r => r.characterId)).size === 6, "all 6 drivers are unique on the grid");
 
 // ---- 3. simulate a full race ----
 console.log("Race simulation:");

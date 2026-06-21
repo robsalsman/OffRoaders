@@ -10,6 +10,7 @@
     champion: $("#screen-champion"),
     howto: $("#screen-howto"),
     driver: $("#screen-driver"),
+    vehicle: $("#screen-vehicle"),
     pause: $("#screen-pause"),
   };
   const overlay = $("#overlay");
@@ -58,7 +59,7 @@
   $("#btn-new").onclick = () => {
     if (Career.hasSave() && !confirm("Start a new career? This erases your saved progress.")) return;
     Career.newCareer();
-    openDriverSelect("garage"); // pick your driver to start the career
+    openDriverSelect("vehicle"); // pick driver, then truck, then garage
   };
   $("#btn-howto").onclick = () => show("howto");
   $("#btn-howto-back").onclick = () => show(Career.hasSave() ? "menu" : "menu");
@@ -84,29 +85,7 @@
       <div class="meta">${Career.raceLabel()} • ${track.laps} laps • Difficulty ${stars}</div>
       <div class="meta records">${recTxt}</div>`;
 
-    // upgrades
-    const wrap = $("#upgrades");
-    wrap.innerHTML = "";
-    Career.UPGRADE_DEFS.forEach((def) => {
-      const lvl = Career.upgradeLevel(def.key);
-      const cost = Career.upgradeCostFor(def.key);
-      const maxed = cost === null;
-      const pips = Array.from({ length: Career.MAX_LEVEL }, (_, i) =>
-        `<div class="pip ${i < lvl ? "on" : ""}"></div>`).join("");
-      const el = document.createElement("div");
-      el.className = "upg";
-      el.innerHTML = `
-        <div class="upg-top"><span class="upg-name">${def.name}</span><span class="upg-lvl">Lv ${lvl}/${Career.MAX_LEVEL}</span></div>
-        <div class="upg-desc">${def.desc}</div>
-        <div class="pips">${pips}</div>
-        <button ${maxed || !Career.canBuy(def.key) ? "disabled" : ""}>
-          ${maxed ? "MAXED" : "Upgrade — 💰 " + cost.toLocaleString()}
-        </button>`;
-      el.querySelector("button").onclick = () => {
-        if (Career.buy(def.key)) renderGarage();
-      };
-      wrap.appendChild(el);
-    });
+    renderVehiclePanel();
 
     // graphics toggle label
     const g = Career.graphics();
@@ -122,6 +101,39 @@
     let s = '<span class="skill-stars">';
     for (let i = 0; i < total; i++) s += `<span class="star ${i < filled ? "" : "off"}">★</span>`;
     return s + "</span>";
+  }
+
+  function renderVehiclePanel() {
+    const v = Career.vehicle();
+    const prof = $("#vehicle-profile");
+    prof.innerHTML = "";
+    prof.appendChild(window.makeVehiclePortrait(v.id, 76));
+    const info = document.createElement("div");
+    info.className = "dp-info";
+    info.innerHTML = `<div class="dp-name">${v.name}</div><div class="dp-tag">${v.blurb}</div>`;
+    prof.appendChild(info);
+
+    const wrap = $("#upgrades");
+    wrap.innerHTML = "";
+    Career.UPGRADE_DEFS.forEach((def) => {
+      const innate = v.stats[def.key];
+      const lvl = Career.upgradeLevel(v.id, def.key);
+      const cost = Career.upgradeCostFor(v.id, def.key);
+      const maxed = cost === null;
+      const pips = Array.from({ length: Career.MAX_LEVEL }, (_, i) =>
+        `<div class="pip ${i < lvl ? "on" : ""}"></div>`).join("");
+      const el = document.createElement("div");
+      el.className = "upg";
+      el.innerHTML = `
+        <div class="upg-top"><span class="upg-name">${def.name} ${starBar(innate, 5)}</span><span class="upg-lvl">+${lvl}</span></div>
+        <div class="upg-desc">${def.desc}</div>
+        <div class="pips">${pips}</div>
+        <button ${maxed || !Career.canBuy(v.id, def.key) ? "disabled" : ""}>
+          ${maxed ? "MAXED" : "Upgrade — 💰 " + cost.toLocaleString()}
+        </button>`;
+      el.querySelector("button").onclick = () => { if (Career.buy(v.id, def.key)) renderGarage(); };
+      wrap.appendChild(el);
+    });
   }
 
   function renderDriverPanel() {
@@ -220,9 +232,44 @@
 
   $("#btn-driver-confirm").onclick = () => {
     Career.setDriver(driverPick);
-    if (driverReturnTo === "garage") openGarage();
-    else show(driverReturnTo);
+    if (driverReturnTo === "vehicle") openVehicleSelect("garage");
+    else openGarage();
   };
+
+  // ---------------- Truck select ----------------
+  let vehiclePick = null;
+
+  function openVehicleSelect() {
+    vehiclePick = Career.vehicleId();
+    const grid = $("#vehicle-grid");
+    grid.innerHTML = "";
+    window.VEHICLES.forEach((v) => {
+      const card = document.createElement("div");
+      card.className = "dcard" + (v.id === vehiclePick ? " sel" : "");
+      card.dataset.id = v.id;
+      card.appendChild(window.makeVehiclePortrait(v.id, 96));
+      const nm = document.createElement("div"); nm.className = "dc-name"; nm.textContent = v.name;
+      const tg = document.createElement("div"); tg.className = "dc-tag"; tg.textContent = v.blurb;
+      card.appendChild(nm); card.appendChild(tg);
+      card.onclick = () => selectVehicleCard(v.id);
+      grid.appendChild(card);
+    });
+    renderVehicleDetail();
+    show("vehicle");
+  }
+  function selectVehicleCard(id) {
+    vehiclePick = id;
+    $$("#vehicle-grid .dcard").forEach((c) => c.classList.toggle("sel", c.dataset.id === id));
+    renderVehicleDetail();
+  }
+  function renderVehicleDetail() {
+    const v = window.getVehicle(vehiclePick);
+    const stats = Career.UPGRADE_DEFS
+      .map((d) => `${d.name} ${starBar(v.stats[d.key], 5)}`).join(" &nbsp; ");
+    $("#vehicle-detail").innerHTML = `<div class="dd-bio">${v.blurb}</div><div style="margin-top:8px">${stats}</div>`;
+  }
+  $("#btn-vehicle-confirm").onclick = () => { Career.setVehicle(vehiclePick); openGarage(); };
+  $("#btn-change-vehicle").onclick = () => openVehicleSelect();
 
   // ---------------- Race ----------------
   function startRace() {

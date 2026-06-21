@@ -274,7 +274,7 @@
           x: gp.x + Math.cos(normal) * lateral,
           y: gp.y + Math.sin(normal) * lateral,
           angle: tan, color: R.color,
-          isPlayer, characterId: R.characterId, name: R.name,
+          isPlayer, characterId: R.characterId, name: R.name, vehicleId: R.vehicleId,
           startProg: (along + this.N) % this.N,
           stats, aiAggro: 0.5 + Math.random() * 0.5,
         }));
@@ -707,7 +707,7 @@
     }
 
     _drawCar(ctx, car) {
-      const sprite = truckSprite(car.color, car.isPlayer);
+      const sprite = (window.makeTruckSprite || truckSprite)(car.vehicleId, car.color, car.isPlayer);
       const lift = car.z;
       const scale = 1 + car.z / 260; // grows when airborne (closer to "camera")
       // shadow on the ground (offset opposite to lift, lighter when high)

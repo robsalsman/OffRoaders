@@ -119,6 +119,7 @@
           isPlayer,
           characterId: R.characterId,
           name: R.name,
+          vehicleId: R.vehicleId,
           startProg: (along + this.N) % this.N,
           stats,
           aiAggro: 0.5 + Math.random() * 0.5,

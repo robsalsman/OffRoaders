@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#1b1410" />
   <title>OffRoaders — Arcade Off-Road Racing</title>
-  <link rel="stylesheet" href="css/style.css?v=9" />
+  <link rel="stylesheet" href="css/style.css?v=10" />
 </head>
 <body>
   <div id="app">
@@ -79,8 +79,10 @@
           </div>
 
           <div class="panel">
-            <h3>Upgrades</h3>
+            <h3>Truck</h3>
+            <div id="vehicle-profile" class="driver-profile"></div>
             <div id="upgrades" class="upgrades"></div>
+            <button id="btn-change-vehicle" class="big graphics-toggle">Change Truck</button>
           </div>
 
           <div class="panel">
@@ -133,6 +135,14 @@
         <button id="btn-howto-back" class="big">Back</button>
       </section>
 
+      <!-- Truck select -->
+      <section id="screen-vehicle" class="screen hidden">
+        <h2>CHOOSE YOUR TRUCK</h2>
+        <div id="vehicle-grid" class="driver-grid"></div>
+        <div id="vehicle-detail" class="driver-detail"></div>
+        <button id="btn-vehicle-confirm" class="big primary">Confirm Truck ▶</button>
+      </section>
+
       <!-- Driver select -->
       <section id="screen-driver" class="screen hidden">
         <h2>CHOOSE YOUR DRIVER</h2>
@@ -154,12 +164,13 @@
     </div>
   </div>
 
-  <script src="js/tracks.js?v=9"></script>
-  <script src="js/characters.js?v=9"></script>
-  <script src="js/career.js?v=9"></script>
-  <script src="js/input.js?v=9"></script>
-  <script src="js/game.js?v=9"></script>
-  <script src="js/gamepro.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/tracks.js?v=10"></script>
+  <script src="js/vehicles.js?v=10"></script>
+  <script src="js/characters.js?v=10"></script>
+  <script src="js/career.js?v=10"></script>
+  <script src="js/input.js?v=10"></script>
+  <script src="js/game.js?v=10"></script>
+  <script src="js/gamepro.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
 </body>
 </html>
