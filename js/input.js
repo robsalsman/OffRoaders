@@ -50,9 +50,7 @@
     pad.x = pad.y = 0; pad.active = false;
     btn.brake = btn.nitro = false;
     for (const k in kb) kb[k] = false;
-    const base = document.getElementById("stick-base");
     const knob = document.getElementById("stick-knob");
-    if (base) base.classList.remove("show");
     if (knob) knob.style.transform = "translate(-50%,-50%)";
   };
 
@@ -71,7 +69,7 @@
     bindButton("btn-brake", (v) => { btn.brake = v; });
   };
 
-  // floating directional joystick: the base appears where your thumb lands
+  // permanent directional joystick: origin is the centre of the fixed pad
   function bindPad() {
     const zone = document.getElementById("stick");
     const base = document.getElementById("stick-base");
@@ -80,11 +78,7 @@
     const R = 64, dead = 0.2;
     let id = null, ox = 0, oy = 0;
 
-    const place = (x, y) => {
-      ox = x; oy = y;
-      base.style.left = x + "px"; base.style.top = y + "px";
-      base.classList.add("show");
-    };
+    const setOrigin = () => { const r = base.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; };
     const move = (x, y) => {
       let dx = x - ox, dy = y - oy;
       const len = Math.hypot(dx, dy);
@@ -94,8 +88,8 @@
       pad.active = mag > dead;
       pad.x = dx; pad.y = dy; // screen-space vector (up = negative y)
     };
-    const start = (x, y, pid) => { id = pid; place(x, y); move(x, y); };
-    const end = () => { id = null; pad.active = false; pad.x = pad.y = 0; base.classList.remove("show"); knob.style.transform = "translate(-50%,-50%)"; };
+    const start = (x, y, pid) => { id = pid; setOrigin(); move(x, y); };
+    const end = () => { id = null; pad.active = false; pad.x = pad.y = 0; knob.style.transform = "translate(-50%,-50%)"; };
 
     if (window.PointerEvent) {
       zone.addEventListener("pointerdown", (e) => { start(e.clientX, e.clientY, e.pointerId); try { zone.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });

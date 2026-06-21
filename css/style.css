@@ -94,20 +94,26 @@ html, body {
   pointer-events: auto; touch-action: none;
 }
 .stick-hint {
-  position: absolute; right: 28px; bottom: 200px;
+  position: absolute; right: 56px; bottom: 250px;
   color: rgba(255,255,255,.4); font-size: 13px; font-weight: bold; letter-spacing: 1px;
   pointer-events: none;
 }
-/* floating base: positioned in JS where the thumb lands */
+/* permanent, always-visible d-pad anchored bottom-right */
 .stick-base {
-  position: fixed; left: -999px; top: 0; transform: translate(-50%,-50%);
-  width: 150px; height: 150px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.3);
-  background: radial-gradient(circle, rgba(20,14,10,.4), rgba(20,14,10,.62));
+  position: fixed; right: 70px; bottom: 96px;
+  width: 156px; height: 156px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.32);
+  background: radial-gradient(circle, rgba(20,14,10,.42), rgba(20,14,10,.62));
   box-shadow: 0 4px 16px rgba(0,0,0,.35);
-  pointer-events: none; opacity: 0; transition: opacity .12s;
+  pointer-events: none;
 }
-.stick-base.show { opacity: 1; }
+/* directional arrow hints inside the pad */
+.stick-base::before, .stick-base::after {
+  content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+}
+.stick-base::before { top: 9px; border-bottom: 9px solid rgba(255,255,255,.3); }
+.stick-base::after { bottom: 9px; border-top: 9px solid rgba(255,255,255,.3); }
 .stick-knob {
   position: absolute; left: 50%; top: 50%;
   width: 74px; height: 74px; border-radius: 50%;

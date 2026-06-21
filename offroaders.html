@@ -102,20 +102,26 @@ html, body {
   pointer-events: auto; touch-action: none;
 }
 .stick-hint {
-  position: absolute; right: 28px; bottom: 200px;
+  position: absolute; right: 56px; bottom: 250px;
   color: rgba(255,255,255,.4); font-size: 13px; font-weight: bold; letter-spacing: 1px;
   pointer-events: none;
 }
-/* floating base: positioned in JS where the thumb lands */
+/* permanent, always-visible d-pad anchored bottom-right */
 .stick-base {
-  position: fixed; left: -999px; top: 0; transform: translate(-50%,-50%);
-  width: 150px; height: 150px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.3);
-  background: radial-gradient(circle, rgba(20,14,10,.4), rgba(20,14,10,.62));
+  position: fixed; right: 70px; bottom: 96px;
+  width: 156px; height: 156px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.32);
+  background: radial-gradient(circle, rgba(20,14,10,.42), rgba(20,14,10,.62));
   box-shadow: 0 4px 16px rgba(0,0,0,.35);
-  pointer-events: none; opacity: 0; transition: opacity .12s;
+  pointer-events: none;
 }
-.stick-base.show { opacity: 1; }
+/* directional arrow hints inside the pad */
+.stick-base::before, .stick-base::after {
+  content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+}
+.stick-base::before { top: 9px; border-bottom: 9px solid rgba(255,255,255,.3); }
+.stick-base::after { bottom: 9px; border-top: 9px solid rgba(255,255,255,.3); }
 .stick-knob {
   position: absolute; left: 50%; top: 50%;
   width: 74px; height: 74px; border-radius: 50%;
@@ -1246,9 +1252,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     pad.x = pad.y = 0; pad.active = false;
     btn.brake = btn.nitro = false;
     for (const k in kb) kb[k] = false;
-    const base = document.getElementById("stick-base");
     const knob = document.getElementById("stick-knob");
-    if (base) base.classList.remove("show");
     if (knob) knob.style.transform = "translate(-50%,-50%)";
   };
 
@@ -1267,7 +1271,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     bindButton("btn-brake", (v) => { btn.brake = v; });
   };
 
-  // floating directional joystick: the base appears where your thumb lands
+  // permanent directional joystick: origin is the centre of the fixed pad
   function bindPad() {
     const zone = document.getElementById("stick");
     const base = document.getElementById("stick-base");
@@ -1276,11 +1280,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     const R = 64, dead = 0.2;
     let id = null, ox = 0, oy = 0;
 
-    const place = (x, y) => {
-      ox = x; oy = y;
-      base.style.left = x + "px"; base.style.top = y + "px";
-      base.classList.add("show");
-    };
+    const setOrigin = () => { const r = base.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; };
     const move = (x, y) => {
       let dx = x - ox, dy = y - oy;
       const len = Math.hypot(dx, dy);
@@ -1290,8 +1290,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       pad.active = mag > dead;
       pad.x = dx; pad.y = dy; // screen-space vector (up = negative y)
     };
-    const start = (x, y, pid) => { id = pid; place(x, y); move(x, y); };
-    const end = () => { id = null; pad.active = false; pad.x = pad.y = 0; base.classList.remove("show"); knob.style.transform = "translate(-50%,-50%)"; };
+    const start = (x, y, pid) => { id = pid; setOrigin(); move(x, y); };
+    const end = () => { id = null; pad.active = false; pad.x = pad.y = 0; knob.style.transform = "translate(-50%,-50%)"; };
 
     if (window.PointerEvent) {
       zone.addEventListener("pointerdown", (e) => { start(e.clientX, e.clientY, e.pointerId); try { zone.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); }, { passive: false });
