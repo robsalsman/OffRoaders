@@ -178,6 +178,33 @@ button.ghost.danger { color: var(--bad); border-color: rgba(255,91,91,.4); }
   background: var(--accent); color: #2a1606; }
 .upg button:disabled { background: rgba(255,255,255,.12); color: var(--muted); cursor: default; }
 
+/* ---------- Driver profile / training / select ---------- */
+.driver-profile { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.driver-profile canvas { border-radius: 10px; border: 2px solid rgba(255,255,255,.15); flex: 0 0 auto; }
+.driver-profile .dp-info { min-width: 0; }
+.driver-profile .dp-name { font-size: 18px; font-weight: bold; }
+.driver-profile .dp-tag { color: var(--accent); font-size: 12px; font-weight: bold; }
+.driver-profile .dp-bio { color: var(--muted); font-size: 12px; line-height: 1.4; margin-top: 4px; }
+
+.skill-stars { display: inline-flex; gap: 1px; vertical-align: middle; }
+.star { color: var(--accent); font-size: 12px; }
+.star.off { color: rgba(255,255,255,.18); }
+
+.driver-grid {
+  display: grid; gap: 12px; width: min(900px, 96vw);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin: 10px 0;
+}
+.dcard {
+  background: var(--panel); border: 2px solid rgba(255,255,255,.1); border-radius: 14px;
+  padding: 10px; cursor: pointer; text-align: center; transition: transform .1s, border-color .1s;
+}
+.dcard canvas { border-radius: 10px; width: 96px; height: 96px; }
+.dcard .dc-name { font-weight: bold; margin-top: 6px; }
+.dcard .dc-tag { color: var(--muted); font-size: 11px; }
+.dcard.sel { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+.driver-detail { width: min(560px, 92vw); text-align: center; color: var(--muted); font-size: 14px; line-height: 1.5; margin: 4px 0 14px; min-height: 40px; }
+.driver-detail .dd-bio { color: var(--text); }
+
 .standings { width: 100%; border-collapse: collapse; font-size: 14px; }
 .standings td { padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,.07); }
 .standings tr.you { color: var(--accent); font-weight: bold; }

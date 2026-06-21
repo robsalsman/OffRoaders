@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#1b1410" />
   <title>OffRoaders — Arcade Off-Road Racing</title>
-  <link rel="stylesheet" href="css/style.css?v=8" />
+  <link rel="stylesheet" href="css/style.css?v=9" />
 </head>
 <body>
   <div id="app">
@@ -84,6 +84,13 @@
           </div>
 
           <div class="panel">
+            <h3>Driver</h3>
+            <div id="driver-profile" class="driver-profile"></div>
+            <div id="driver-training" class="upgrades"></div>
+            <button id="btn-change-driver" class="big graphics-toggle">Change Driver</button>
+          </div>
+
+          <div class="panel">
             <h3>Championship Standings</h3>
             <table id="standings" class="standings"></table>
           </div>
@@ -126,6 +133,14 @@
         <button id="btn-howto-back" class="big">Back</button>
       </section>
 
+      <!-- Driver select -->
+      <section id="screen-driver" class="screen hidden">
+        <h2>CHOOSE YOUR DRIVER</h2>
+        <div id="driver-grid" class="driver-grid"></div>
+        <div id="driver-detail" class="driver-detail"></div>
+        <button id="btn-driver-confirm" class="big primary">Confirm Driver ▶</button>
+      </section>
+
       <!-- Pause -->
       <section id="screen-pause" class="screen hidden">
         <h2>PAUSED</h2>
@@ -139,11 +154,12 @@
     </div>
   </div>
 
-  <script src="js/tracks.js?v=8"></script>
-  <script src="js/career.js?v=8"></script>
-  <script src="js/input.js?v=8"></script>
-  <script src="js/game.js?v=8"></script>
-  <script src="js/gamepro.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <script src="js/tracks.js?v=9"></script>
+  <script src="js/characters.js?v=9"></script>
+  <script src="js/career.js?v=9"></script>
+  <script src="js/input.js?v=9"></script>
+  <script src="js/game.js?v=9"></script>
+  <script src="js/gamepro.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>

@@ -37,7 +37,7 @@ function loadFile(rel) {
   vm.runInContext(code, ctx, { filename: rel });
 }
 
-["js/tracks.js", "js/career.js", "js/input.js", "js/game.js"].forEach(loadFile);
+["js/tracks.js", "js/characters.js", "js/career.js", "js/input.js", "js/game.js"].forEach(loadFile);
 
 let failures = 0;
 function assert(cond, msg) {
@@ -66,8 +66,7 @@ const track = C.currentTrack();
 let finished = null;
 const race = new ctx.Race(canvas, {
   track,
-  perf: C.performance(),
-  aiStrength: C.aiStrength(),
+  roster: C.buildRoster(),
   onUpdate: () => {},
   onFinish: (order) => { finished = order; },
 });

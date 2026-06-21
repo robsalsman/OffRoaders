@@ -248,45 +248,38 @@
       const startProg = 0.15;
       const tan = tangentAtProgress(this.pts, startProg);
       const normal = tan + Math.PI / 2;
-      const perf = this.cfg.perf;
-      for (let i = 0; i < 6; i++) {
-        const isPlayer = i === 0;
+      const roster = this.cfg.roster || [];
+      for (let i = 0; i < roster.length; i++) {
+        const R = roster[i];
+        const isPlayer = R.isPlayer;
+        const p = R.perf;
         const lane = (i % 3) - 1, row = Math.floor(i / 3);
         const along = startProg - row * 0.5;
-        const p = pointAtProgress(this.pts, (along + this.N) % this.N);
+        const gp = pointAtProgress(this.pts, (along + this.N) % this.N);
         const lateral = lane * (this.track.width * 0.26);
-        const rivalBias = [0.05, 0.025, 0.0, -0.02, -0.045];
-        const bias = isPlayer ? 0 : (rivalBias[i - 1] || 0);
-        const aiSkill = isPlayer ? 1 : this.cfg.aiStrength * (1 + bias) * (0.985 + Math.random() * 0.03);
+        const variance = isPlayer ? 1 : (0.985 + Math.random() * 0.03);
 
-        const stats = isPlayer ? {
-          maxSpeed: 385 * perf.maxSpeed,
-          accel: 280 * perf.accel,
-          turn: 3.0 * perf.turn,
-          grip: clamp(0.88 - (perf.grip - 1) * 0.16, 0.78, 0.91),
-          offroad: clamp(0.5 + (perf.offroad - 1) * 0.6, 0.45, 0.9),
-          nitroPower: 1.5 * perf.nitroPower,
-          nitroRefill: 13 * perf.nitroRefill,
-        } : {
-          maxSpeed: 385 * aiSkill,
-          accel: 278 * aiSkill,
-          turn: 3.0,
-          grip: 0.875,
-          offroad: 0.6,
-          nitroPower: 1.5,
-          nitroRefill: 12,
+        const stats = {
+          maxSpeed: 385 * p.maxSpeed * variance,
+          accel: 280 * p.accel * variance,
+          turn: 3.0 * p.turn,
+          grip: clamp(0.88 - (p.grip - 1) * 0.16, 0.76, 0.91),
+          offroad: clamp(0.5 + ((p.offroad || 1) - 1) * 0.6, 0.45, 0.9),
+          nitroPower: 1.5 * p.nitroPower,
+          nitroRefill: 13 * p.nitroRefill,
+          drift: p.drift || 1,
         };
 
         this.cars.push(new Car({
-          x: p.x + Math.cos(normal) * lateral,
-          y: p.y + Math.sin(normal) * lateral,
-          angle: tan, color: CAR_COLORS[i % CAR_COLORS.length],
-          isPlayer, rivalIndex: isPlayer ? -1 : i - 1,
+          x: gp.x + Math.cos(normal) * lateral,
+          y: gp.y + Math.sin(normal) * lateral,
+          angle: tan, color: R.color,
+          isPlayer, characterId: R.characterId, name: R.name,
           startProg: (along + this.N) % this.N,
-          stats, aiSkill, aiAggro: 0.5 + Math.random() * 0.5,
+          stats, aiAggro: 0.5 + Math.random() * 0.5,
         }));
       }
-      this.player = this.cars[0];
+      this.player = this.cars.find((c) => c.isPlayer) || this.cars[0];
     }
 
     // ---- lifecycle (mirror classic Race) ----
@@ -414,7 +407,7 @@
       if (autoDrift) {
         // slip = angle of travel relative to where the nose points
         const slip = angWrap(Math.atan2(car.vy, car.vx) - car.angle);
-        const slipMax = 0.62; // ~35° sustained drift angle
+        const slipMax = 0.5 + ((s.drift || 1) - 1) * 0.5; // drift skill widens the controllable angle
         // strong turn-in while there's slip room; fades to 0 at slipMax so the
         // car settles into a held drift rather than rotating forever
         const room = clamp((slipMax - Math.abs(slip)) / slipMax, 0, 1);
@@ -545,7 +538,7 @@
         const remaining = this.cars.filter((c) => !this.finishOrder.includes(c)).sort((a, b) => b.lapProg - a.lapProg);
         remaining.forEach((c) => this.finishOrder.push(c));
         this.stop();
-        const order = this.finishOrder.map((c) => ({ isPlayer: c.isPlayer, rivalIndex: c.rivalIndex, color: c.color }));
+        const order = this.finishOrder.map((c) => ({ isPlayer: c.isPlayer, characterId: c.characterId, name: c.name, color: c.color }));
         setTimeout(() => this.cfg.onFinish(order), 350);
       }
     }

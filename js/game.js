@@ -88,59 +88,43 @@
       const startProg = 0.15;
       const tan = tangentAtProgress(this.pts, startProg);
       const normal = tan + Math.PI / 2;
-      const base = pointAtProgress(this.pts, startProg);
-      const total = 6; // player + 5 AI
-      const perf = this.cfg.perf;
+      const roster = this.cfg.roster || [];
 
-      for (let i = 0; i < total; i++) {
-        const isPlayer = i === 0;
-        // stagger across track width and slightly along track
+      for (let i = 0; i < roster.length; i++) {
+        const R = roster[i];
+        const isPlayer = R.isPlayer;
+        const p = R.perf;
         const lane = (i % 3) - 1;       // -1,0,1
         const row = Math.floor(i / 3);  // 0,1
         const along = startProg - row * 0.45;
-        const p = pointAtProgress(this.pts, (along + this.N) % this.N);
+        const gp = pointAtProgress(this.pts, (along + this.N) % this.N);
         const lateral = lane * (this.track.width * 0.26);
+        const variance = isPlayer ? 1 : (0.985 + Math.random() * 0.03);
 
-        // Each rival has a stable skill bias (so standings are believable),
-        // plus a little race-to-race variance.
-        const rivalBias = [0.05, 0.025, 0.0, -0.02, -0.045];
-        const bias = isPlayer ? 0 : (rivalBias[i - 1] || 0);
-        const aiSkill = isPlayer ? 1 : this.cfg.aiStrength * (1 + bias) * (0.985 + Math.random() * 0.03);
-
-        // base stats (player modified by upgrades, AI by difficulty)
-        const stats = isPlayer ? {
-          maxSpeed: 375 * perf.maxSpeed,
-          accel: 270 * perf.accel,
-          turn: 3.2 * perf.turn,
-          grip: 0.86 + 0.03 * (perf.grip - 1) * 10,
-          offroad: 0.5 + 0.06 * (perf.offroad - 1) * 10, // off-track speed factor (higher=better)
-          nitroPower: 1.55 * perf.nitroPower,
-          nitroRefill: 9 * perf.nitroRefill,
-        } : {
-          maxSpeed: 375 * aiSkill,
-          accel: 270 * aiSkill,
-          turn: 3.15,
-          grip: 0.87,
-          offroad: 0.55,
-          nitroPower: 1.5,
-          nitroRefill: 8,
+        const stats = {
+          maxSpeed: 375 * p.maxSpeed * variance,
+          accel: 270 * p.accel * variance,
+          turn: 3.2 * p.turn,
+          grip: clamp(0.86 + 0.03 * (p.grip - 1) * 10, 0.6, 0.97),
+          offroad: clamp(0.5 + 0.06 * ((p.offroad || 1) - 1) * 10, 0.42, 0.92),
+          nitroPower: 1.55 * p.nitroPower,
+          nitroRefill: 9 * p.nitroRefill,
         };
-        stats.offroad = clamp(stats.offroad, 0.42, 0.92);
 
         this.cars.push(new Car({
-          x: p.x + Math.cos(normal) * lateral,
-          y: p.y + Math.sin(normal) * lateral,
+          x: gp.x + Math.cos(normal) * lateral,
+          y: gp.y + Math.sin(normal) * lateral,
           angle: tan,
-          color: CAR_COLORS[i % CAR_COLORS.length],
+          color: R.color,
           isPlayer,
-          rivalIndex: isPlayer ? -1 : i - 1,
+          characterId: R.characterId,
+          name: R.name,
           startProg: (along + this.N) % this.N,
           stats,
-          aiSkill,
           aiAggro: 0.5 + Math.random() * 0.5,
         }));
       }
-      this.player = this.cars[0];
+      this.player = this.cars.find((c) => c.isPlayer) || this.cars[0];
     }
 
     // ---------- lifecycle ----------
@@ -366,7 +350,7 @@
           .sort((a, b) => b.lapProg - a.lapProg);
         remaining.forEach((c) => this.finishOrder.push(c));
         this.stop();
-        const order = this.finishOrder.map((c) => ({ isPlayer: c.isPlayer, rivalIndex: c.rivalIndex, color: c.color }));
+        const order = this.finishOrder.map((c) => ({ isPlayer: c.isPlayer, characterId: c.characterId, name: c.name, color: c.color }));
         setTimeout(() => this.cfg.onFinish(order), 350);
       }
     }

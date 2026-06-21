@@ -186,6 +186,33 @@ button.ghost.danger { color: var(--bad); border-color: rgba(255,91,91,.4); }
   background: var(--accent); color: #2a1606; }
 .upg button:disabled { background: rgba(255,255,255,.12); color: var(--muted); cursor: default; }
 
+/* ---------- Driver profile / training / select ---------- */
+.driver-profile { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.driver-profile canvas { border-radius: 10px; border: 2px solid rgba(255,255,255,.15); flex: 0 0 auto; }
+.driver-profile .dp-info { min-width: 0; }
+.driver-profile .dp-name { font-size: 18px; font-weight: bold; }
+.driver-profile .dp-tag { color: var(--accent); font-size: 12px; font-weight: bold; }
+.driver-profile .dp-bio { color: var(--muted); font-size: 12px; line-height: 1.4; margin-top: 4px; }
+
+.skill-stars { display: inline-flex; gap: 1px; vertical-align: middle; }
+.star { color: var(--accent); font-size: 12px; }
+.star.off { color: rgba(255,255,255,.18); }
+
+.driver-grid {
+  display: grid; gap: 12px; width: min(900px, 96vw);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin: 10px 0;
+}
+.dcard {
+  background: var(--panel); border: 2px solid rgba(255,255,255,.1); border-radius: 14px;
+  padding: 10px; cursor: pointer; text-align: center; transition: transform .1s, border-color .1s;
+}
+.dcard canvas { border-radius: 10px; width: 96px; height: 96px; }
+.dcard .dc-name { font-weight: bold; margin-top: 6px; }
+.dcard .dc-tag { color: var(--muted); font-size: 11px; }
+.dcard.sel { border-color: var(--accent); transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+.driver-detail { width: min(560px, 92vw); text-align: center; color: var(--muted); font-size: 14px; line-height: 1.5; margin: 4px 0 14px; min-height: 40px; }
+.driver-detail .dd-bio { color: var(--text); }
+
 .standings { width: 100%; border-collapse: collapse; font-size: 14px; }
 .standings td { padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,.07); }
 .standings tr.you { color: var(--accent); font-weight: bold; }
@@ -296,6 +323,13 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           </div>
 
           <div class="panel">
+            <h3>Driver</h3>
+            <div id="driver-profile" class="driver-profile"></div>
+            <div id="driver-training" class="upgrades"></div>
+            <button id="btn-change-driver" class="big graphics-toggle">Change Driver</button>
+          </div>
+
+          <div class="panel">
             <h3>Championship Standings</h3>
             <table id="standings" class="standings"></table>
           </div>
@@ -336,6 +370,14 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           <p><strong>Tips:</strong> The track has edge walls so you can't fly off into the grass — lean on them through corners. Save nitro for straights. Spend winnings in the Garage on Engine, Tires (grip), Shocks and Nitro. Switch between Enhanced (2.5D) and Classic graphics with the Garage button.</p>
         </div>
         <button id="btn-howto-back" class="big">Back</button>
+      </section>
+
+      <!-- Driver select -->
+      <section id="screen-driver" class="screen hidden">
+        <h2>CHOOSE YOUR DRIVER</h2>
+        <div id="driver-grid" class="driver-grid"></div>
+        <div id="driver-detail" class="driver-detail"></div>
+        <button id="btn-driver-confirm" class="big primary">Confirm Driver ▶</button>
       </section>
 
       <!-- Pause -->
@@ -417,12 +459,215 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
 </script>
   <script>
-/* career.js — persistent career: money, upgrades, championship season.
- * Saved to localStorage so progress continues across sessions & devices(local).
+/* characters.js — the 6 playable drivers: data, bios, innate skills, and
+ * procedurally-drawn N64-style portraits (window.makeDriverPortrait).
+ * Skills are innate ratings 1..5 (personality); training adds 0..5 more.
+ */
+(function () {
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+  const CHARACTERS = [
+    {
+      id: "hotrod", name: "Hot Rod", color: "#e8482c",
+      tagline: "Reckless speed demon",
+      bio: "A flat-out hotshot who never lifts. Blistering launches and fearless dives, but finesse? That's for the pit crew. If there's a gap, Hot Rod's already through it.",
+      skills: { launch: 5, handling: 2, drift: 4, nitro: 3 },
+      look: { skin: "#e8b48c", hair: "#3a2a18", hat: "helmet", hatColor: "#e8482c", accent: "#ffcf33" },
+    },
+    {
+      id: "rob", name: "Rockin' Rob", color: "#c46bff",
+      tagline: "Showboat with a beat",
+      bio: "Rolls into every round to his own soundtrack. Lives for the slide — the bigger and louder the drift, the better. Style first, trophies somehow follow.",
+      skills: { launch: 3, handling: 3, drift: 5, nitro: 4 },
+      look: { skin: "#d9a06e", hair: "#7a2bd6", hat: "mohawk", hatColor: "#c46bff", accent: "#2fd0ff" },
+    },
+    {
+      id: "west", name: "Wild West", color: "#ff8e2b",
+      tagline: "Master of the rough",
+      bio: "Raised on dust and gravel. Where others spin out, Wild West just digs in and hauls. Unflappable hands and the best grip in the desert.",
+      skills: { launch: 3, handling: 5, drift: 3, nitro: 2 },
+      look: { skin: "#c98a5a", hair: "#5a3a1a", hat: "cowboy", hatColor: "#9c6b3a", accent: "#b03030" },
+    },
+    {
+      id: "atrain", name: "A-Train", color: "#3aa0ff",
+      tagline: "Unstoppable momentum",
+      bio: "Big, blue, and built like a freight engine. Once A-Train gets rolling and the nitro lights up, good luck slowing it down. Pure horsepower.",
+      skills: { launch: 4, handling: 3, drift: 2, nitro: 5 },
+      look: { skin: "#a8754c", hair: "#1a1a1a", hat: "cap", hatColor: "#3aa0ff", accent: "#ffffff" },
+    },
+    {
+      id: "olddog", name: "Old Dog", color: "#ffcf33",
+      tagline: "Smooth and cunning",
+      bio: "Forgot more about racing than the rookies will ever learn. No wasted motion, never rattled, always on the fast line. Old tricks still win races.",
+      skills: { launch: 2, handling: 5, drift: 4, nitro: 3 },
+      look: { skin: "#d8b48c", hair: "#cccccc", hat: "trucker", hatColor: "#c9a23a", accent: "#6b4a29" },
+    },
+    {
+      id: "drg", name: "Dr. G", color: "#57d957",
+      tagline: "Calculated precision",
+      bio: "Treats every corner as an equation and every nitro charge as a controlled experiment. Cold, methodical, and devastatingly efficient with a boost.",
+      skills: { launch: 3, handling: 4, drift: 3, nitro: 5 },
+      look: { skin: "#cfa978", hair: "#2a2a2a", hat: "goggles", hatColor: "#57d957", accent: "#eaffea" },
+    },
+  ];
+
+  const SKILLS = [
+    { key: "launch", name: "Launch", desc: "Off-the-line acceleration" },
+    { key: "handling", name: "Handling", desc: "Cornering grip & control" },
+    { key: "drift", name: "Drift", desc: "Drift control & exit speed" },
+    { key: "nitro", name: "Nitro", desc: "Boost power & refill rate" },
+  ];
+
+  // ---- portrait drawing (logical 100x100 space) ----
+  function rr(g, x, y, w, h, r) {
+    g.beginPath(); g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+  function shade(hex, f) {
+    const c = hex.replace("#", "");
+    let r = parseInt(c.substr(0, 2), 16), gg = parseInt(c.substr(2, 2), 16), b = parseInt(c.substr(4, 2), 16);
+    r = clamp(Math.round(r * f), 0, 255); gg = clamp(Math.round(gg * f), 0, 255); b = clamp(Math.round(b * f), 0, 255);
+    return `rgb(${r},${gg},${b})`;
+  }
+
+  function drawFace(g, ch) {
+    const L = ch.look;
+    // background
+    const bg = g.createLinearGradient(0, 0, 0, 100);
+    bg.addColorStop(0, shade(ch.color, 0.55)); bg.addColorStop(1, shade(ch.color, 0.28));
+    g.fillStyle = bg; g.fillRect(0, 0, 100, 100);
+    // shoulders / jersey
+    g.fillStyle = shade(ch.color, 0.9);
+    g.beginPath(); g.ellipse(50, 108, 42, 30, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = ch.color;
+    g.beginPath(); g.ellipse(50, 112, 34, 26, 0, 0, Math.PI * 2); g.fill();
+    // collar
+    g.fillStyle = L.accent;
+    g.beginPath(); g.moveTo(38, 90); g.lineTo(50, 100); g.lineTo(62, 90); g.lineTo(56, 86); g.lineTo(44, 86); g.closePath(); g.fill();
+
+    // neck
+    g.fillStyle = shade(L.skin, 0.85);
+    g.fillRect(43, 74, 14, 14);
+    // head
+    g.fillStyle = L.skin;
+    g.beginPath(); g.ellipse(50, 50, 22, 26, 0, 0, Math.PI * 2); g.fill();
+    // ears
+    g.beginPath(); g.ellipse(28, 52, 4, 6, 0, 0, Math.PI * 2); g.ellipse(72, 52, 4, 6, 0, 0, Math.PI * 2); g.fill();
+    // cheek shading
+    g.fillStyle = shade(L.skin, 0.92);
+    g.beginPath(); g.ellipse(50, 58, 18, 16, 0, 0, Math.PI * 2); g.fill();
+
+    // eyes
+    g.fillStyle = "#fff";
+    g.beginPath(); g.ellipse(42, 48, 5, 4, 0, 0, Math.PI * 2); g.ellipse(58, 48, 5, 4, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#1a1a1a";
+    g.beginPath(); g.arc(43, 48, 2.1, 0, 7); g.arc(59, 48, 2.1, 0, 7); g.fill();
+    // brows
+    g.strokeStyle = L.hair; g.lineWidth = 2.2; g.lineCap = "round";
+    g.beginPath(); g.moveTo(37, 41); g.lineTo(47, 42); g.moveTo(53, 42); g.lineTo(63, 41); g.stroke();
+    // nose
+    g.strokeStyle = shade(L.skin, 0.7); g.lineWidth = 2;
+    g.beginPath(); g.moveTo(50, 50); g.lineTo(50, 58); g.lineTo(53, 60); g.stroke();
+    // mouth
+    g.strokeStyle = "#7a3b2b"; g.lineWidth = 2.4;
+    g.beginPath(); g.arc(50, 63, 7, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+
+    // persona-specific details
+    drawPersona(g, ch);
+  }
+
+  function drawPersona(g, ch) {
+    const L = ch.look;
+    switch (L.hat) {
+      case "helmet": { // Hot Rod — racing helmet + flame + shades
+        g.fillStyle = L.hatColor;
+        g.beginPath(); g.arc(50, 42, 26, Math.PI, 2 * Math.PI); g.fill();
+        g.fillRect(24, 40, 52, 8);
+        g.fillStyle = L.accent; // flame stripe
+        g.beginPath(); g.moveTo(30, 30); g.lineTo(45, 26); g.lineTo(40, 34); g.lineTo(55, 28); g.lineTo(50, 36); g.lineTo(66, 31); g.lineTo(58, 40); g.lineTo(30, 40); g.closePath(); g.fill();
+        g.fillStyle = "rgba(0,0,0,0.8)"; // shades
+        rr(g, 36, 45, 12, 6, 2); g.fill(); rr(g, 52, 45, 12, 6, 2); g.fill();
+        g.fillRect(48, 47, 4, 2);
+        break;
+      }
+      case "mohawk": { // Rockin' Rob — mohawk + shades + stubble
+        g.fillStyle = L.hatColor;
+        for (let i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(50 + i * 4, 30); g.lineTo(50 + i * 4 - 2, 14 - Math.abs(i)); g.lineTo(50 + i * 4 + 3, 30); g.closePath(); g.fill(); }
+        g.fillStyle = shade(L.hair, 0.8); g.fillRect(30, 28, 40, 8);
+        g.fillStyle = "rgba(0,0,0,0.55)"; // shading stubble
+        g.beginPath(); g.ellipse(50, 66, 14, 8, 0, 0, Math.PI); g.fill();
+        g.fillStyle = "rgba(20,20,20,0.85)"; // shades
+        rr(g, 35, 44, 13, 7, 3); g.fill(); rr(g, 52, 44, 13, 7, 3); g.fill();
+        break;
+      }
+      case "cowboy": { // Wild West — hat + mustache + bandana
+        g.fillStyle = L.accent; // bandana
+        g.beginPath(); g.moveTo(34, 70); g.lineTo(66, 70); g.lineTo(50, 84); g.closePath(); g.fill();
+        g.strokeStyle = "#5a3a1a"; g.lineWidth = 3; // mustache
+        g.beginPath(); g.moveTo(42, 62); g.quadraticCurveTo(50, 68, 58, 62); g.stroke();
+        g.fillStyle = L.hatColor; // hat
+        g.beginPath(); g.ellipse(50, 34, 36, 8, 0, 0, Math.PI * 2); g.fill();
+        rr(g, 34, 16, 32, 20, 6); g.fill();
+        g.fillStyle = shade(L.hatColor, 0.7); g.fillRect(34, 30, 32, 5);
+        break;
+      }
+      case "cap": { // A-Train — engineer cap, strong jaw
+        g.fillStyle = shade(L.skin, 0.8); g.fillRect(40, 70, 20, 10); // jaw
+        g.fillStyle = L.hatColor;
+        g.beginPath(); g.arc(50, 36, 24, Math.PI, 2 * Math.PI); g.fill();
+        g.fillRect(26, 34, 48, 6);
+        g.fillStyle = shade(L.hatColor, 0.7); g.fillRect(24, 38, 36, 5); // brim
+        g.fillStyle = L.accent; g.fillRect(46, 24, 8, 8); // badge
+        break;
+      }
+      case "trucker": { // Old Dog — grey hair + beard + cap
+        g.fillStyle = L.hair; // hair sides
+        g.beginPath(); g.ellipse(30, 50, 6, 12, 0, 0, Math.PI * 2); g.ellipse(70, 50, 6, 12, 0, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.ellipse(50, 70, 20, 14, 0, 0.05 * Math.PI, Math.PI); g.fill(); // beard
+        g.fillStyle = L.hatColor;
+        g.beginPath(); g.arc(50, 38, 24, Math.PI, 2 * Math.PI); g.fill();
+        g.fillRect(26, 36, 48, 6);
+        g.fillStyle = shade(L.hatColor, 0.75); g.fillRect(22, 40, 40, 5);
+        break;
+      }
+      case "goggles": { // Dr. G — short hair, goggles on forehead, goatee
+        g.fillStyle = L.hair; g.beginPath(); g.arc(50, 34, 23, Math.PI, 2 * Math.PI); g.fill(); g.fillRect(27, 32, 46, 5);
+        g.strokeStyle = "#222"; g.lineWidth = 3; g.fillStyle = L.hatColor; // goggles
+        rr(g, 33, 30, 13, 9, 3); g.fill(); g.stroke(); rr(g, 54, 30, 13, 9, 3); g.fill(); g.stroke();
+        g.beginPath(); g.moveTo(46, 34); g.lineTo(54, 34); g.stroke();
+        g.fillStyle = L.hair; g.beginPath(); g.ellipse(50, 68, 6, 7, 0, 0, Math.PI * 2); g.fill(); // goatee
+        break;
+      }
+    }
+  }
+
+  function makeDriverPortrait(id, px) {
+    const ch = CHARACTERS.find((c) => c.id === id) || CHARACTERS[0];
+    const S = 2; // supersample
+    const cv = document.createElement("canvas");
+    cv.width = px * S; cv.height = px * S;
+    cv.style.width = px + "px"; cv.style.height = px + "px";
+    const g = cv.getContext("2d");
+    g.scale((px * S) / 100, (px * S) / 100);
+    drawFace(g, ch);
+    return cv;
+  }
+
+  window.CHARACTERS = CHARACTERS;
+  window.DRIVER_SKILLS = SKILLS;
+  window.getCharacter = (id) => CHARACTERS.find((c) => c.id === id) || CHARACTERS[0];
+  window.makeDriverPortrait = makeDriverPortrait;
+})();
+
+</script>
+  <script>
+/* career.js — persistent career: money, vehicle upgrades, driver + driver
+ * training, championship season. The 6 characters fill the race grid; you play
+ * one and the other five are your AI rivals. Saved to localStorage.
  */
 (function () {
   const KEY = "offroaders_career_v1";
-  const RIVALS = ["Vasquez", "Dakota", "Brago", "Kira", "Mongoose"];
   const POINTS = [10, 8, 6, 5, 4, 3, 2, 1]; // championship points by finish position
   const PRIZE = [1200, 800, 550, 400, 300, 200, 150, 120]; // cash by finish position
   const MAX_LEVEL = 5;
@@ -434,64 +679,66 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     { key: "nitro", name: "Nitro", desc: "Bigger boost & faster refill" },
   ];
 
-  function upgradeCost(level) {
-    // 0->1 costs 500, then 800, 1100, 1400, 1700
-    return 500 + level * 300;
-  }
+  const cost = (level) => 500 + level * 300; // shared by vehicle upgrades & driver training
 
   function freshSeason() {
     const order = window.TRACKS.map((t) => t.id);
-    const standings = [{ name: "You", points: 0, you: true }];
-    RIVALS.forEach((n) => standings.push({ name: n, points: 0, you: false }));
+    const standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
     return { raceIndex: 0, order, standings, done: false, season: 1 };
+  }
+
+  function freshTraining() {
+    const t = {};
+    window.CHARACTERS.forEach((ch) => (t[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }));
+    return t;
   }
 
   function freshState() {
     return {
-      version: 1,
-      money: 800, // a little starting cash for a first upgrade
+      version: 2,
+      money: 800,
       upgrades: { engine: 0, tires: 0, shocks: 0, nitro: 0 },
-      graphics: "enhanced", // "enhanced" (2.5D) or "classic" (original 2D)
-      records: {}, // { trackId: { lap: seconds|null, race: seconds|null } }
+      driver: window.CHARACTERS[0].id,
+      training: freshTraining(),
+      graphics: "enhanced",
+      records: {},
       season: freshSeason(),
     };
   }
 
   const Career = {
     state: null,
-    RIVALS, POINTS, PRIZE, MAX_LEVEL, UPGRADE_DEFS,
+    POINTS, PRIZE, MAX_LEVEL, UPGRADE_DEFS,
 
-    hasSave() {
-      try { return !!localStorage.getItem(KEY); } catch (e) { return false; }
-    },
+    hasSave() { try { return !!localStorage.getItem(KEY); } catch (e) { return false; } },
 
     load() {
       try {
         const raw = localStorage.getItem(KEY);
         if (raw) {
           this.state = JSON.parse(raw);
-          // light migration / safety
-          if (!this.state.season || !this.state.season.order) this.state.season = freshSeason();
-          if (!this.state.upgrades) this.state.upgrades = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
-          if (!this.state.graphics) this.state.graphics = "enhanced";
-          if (!this.state.records) this.state.records = {};
+          // migration / safety
+          const s = this.state;
+          if (!s.season || !s.season.order) s.season = freshSeason();
+          if (!s.upgrades) s.upgrades = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
+          if (!s.graphics) s.graphics = "enhanced";
+          if (!s.records) s.records = {};
+          if (!s.driver) s.driver = window.CHARACTERS[0].id;
+          if (!s.training) s.training = freshTraining();
+          window.CHARACTERS.forEach((ch) => { if (!s.training[ch.id]) s.training[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }; });
+          if (!s.season.standings || !s.season.standings[0] || !s.season.standings[0].characterId)
+            s.season.standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
           return this.state;
         }
-      } catch (e) { /* corrupt save — start fresh */ }
+      } catch (e) { /* corrupt — start fresh */ }
       this.state = freshState();
       this.save();
       return this.state;
     },
 
-    save() {
-      try { localStorage.setItem(KEY, JSON.stringify(this.state)); } catch (e) {}
-    },
+    save() { try { localStorage.setItem(KEY, JSON.stringify(this.state)); } catch (e) {} },
 
-    newCareer() {
-      this.state = freshState();
-      this.save();
-      return this.state;
-    },
+    newCareer() { this.state = freshState(); this.save(); return this.state; },
 
     newSeason() {
       const next = (this.state.season.season || 1) + 1;
@@ -502,21 +749,47 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     currentTrack() {
       const s = this.state.season;
-      const id = s.order[Math.min(s.raceIndex, s.order.length - 1)];
-      return window.getTrack(id);
+      return window.getTrack(s.order[Math.min(s.raceIndex, s.order.length - 1)]);
     },
-
     raceLabel() {
       const s = this.state.season;
       return `Race ${s.raceIndex + 1} / ${s.order.length}`;
     },
 
-    // ---- graphics mode ----
+    // ---- graphics ----
     graphics() { return this.state.graphics || "enhanced"; },
     toggleGraphics() {
       this.state.graphics = this.graphics() === "enhanced" ? "classic" : "enhanced";
+      this.save(); return this.state.graphics;
+    },
+
+    // ---- driver selection ----
+    driverId() { return this.state.driver; },
+    driver() { return window.getCharacter(this.state.driver); },
+    setDriver(id) {
+      if (!window.getCharacter(id)) return;
+      this.state.driver = id;
+      if (!this.state.training[id]) this.state.training[id] = { launch: 0, handling: 0, drift: 0, nitro: 0 };
       this.save();
-      return this.state.graphics;
+    },
+
+    // ---- driver training (per character) ----
+    trainedSkills(id) { return this.state.training[id] || { launch: 0, handling: 0, drift: 0, nitro: 0 }; },
+    trainLevel(id, skill) { return this.trainedSkills(id)[skill] || 0; },
+    trainCostFor(id, skill) {
+      const lvl = this.trainLevel(id, skill);
+      return lvl >= MAX_LEVEL ? null : cost(lvl);
+    },
+    canTrain(id, skill) {
+      const c = this.trainCostFor(id, skill);
+      return c !== null && this.state.money >= c;
+    },
+    train(id, skill) {
+      if (!this.canTrain(id, skill)) return false;
+      this.state.money -= this.trainCostFor(id, skill);
+      this.state.training[id][skill] = (this.state.training[id][skill] || 0) + 1;
+      this.save();
+      return true;
     },
 
     // ---- lap & track records ----
@@ -527,40 +800,30 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     },
     submitLap(trackId, t) {
       if (!t || t <= 0) return false;
-      const rec = this._rec(trackId);
-      const beat = rec.lap == null || t < rec.lap;
-      if (beat) rec.lap = t;
-      this.save();
-      return beat;
+      const r = this._rec(trackId); const beat = r.lap == null || t < r.lap;
+      if (beat) r.lap = t; this.save(); return beat;
     },
     submitRace(trackId, t) {
       if (!t || t <= 0) return false;
-      const rec = this._rec(trackId);
-      const beat = rec.race == null || t < rec.race;
-      if (beat) rec.race = t;
-      this.save();
-      return beat;
+      const r = this._rec(trackId); const beat = r.race == null || t < r.race;
+      if (beat) r.race = t; this.save(); return beat;
     },
 
-    // ---- upgrades ----
+    // ---- vehicle upgrades ----
     upgradeLevel(key) { return this.state.upgrades[key] || 0; },
     upgradeCostFor(key) {
       const lvl = this.upgradeLevel(key);
-      return lvl >= MAX_LEVEL ? null : upgradeCost(lvl);
+      return lvl >= MAX_LEVEL ? null : cost(lvl);
     },
-    canBuy(key) {
-      const cost = this.upgradeCostFor(key);
-      return cost !== null && this.state.money >= cost;
-    },
+    canBuy(key) { const c = this.upgradeCostFor(key); return c !== null && this.state.money >= c; },
     buy(key) {
       if (!this.canBuy(key)) return false;
       this.state.money -= this.upgradeCostFor(key);
       this.state.upgrades[key]++;
-      this.save();
-      return true;
+      this.save(); return true;
     },
 
-    // Numeric performance multipliers derived from upgrade levels.
+    // vehicle-only performance multipliers
     performance() {
       const u = this.state.upgrades;
       return {
@@ -568,37 +831,66 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         turn: 1 + 0.08 * u.tires,
         grip: 1 + 0.10 * u.tires,
         accel: 1 + 0.09 * u.shocks,
-        offroad: 1 + 0.12 * u.shocks, // reduces off-track penalty
+        offroad: 1 + 0.12 * u.shocks,
         nitroPower: 1 + 0.10 * u.nitro,
         nitroRefill: 1 + 0.18 * u.nitro,
       };
     },
 
-    // Difficulty scales with how far into the season we are (and across seasons).
+    // driver-skill performance multipliers (innate + trained), 1..10 per skill
+    driverFactors(id) {
+      const ch = window.getCharacter(id);
+      const tr = this.trainedSkills(id);
+      const e = (k) => ch.skills[k] + (tr[k] || 0);
+      return {
+        maxSpeed: 1 + 0.012 * e("launch"),
+        accel: 1 + 0.02 * e("launch"),
+        turn: 1 + 0.015 * e("handling"),
+        grip: 1 + 0.02 * e("handling"),
+        drift: 1 + 0.03 * e("drift"),
+        nitroPower: 1 + 0.015 * e("nitro"),
+        nitroRefill: 1 + 0.03 * e("nitro"),
+      };
+    },
+
     aiStrength() {
       const s = this.state.season;
       return 0.93 + 0.022 * s.raceIndex + 0.025 * ((s.season || 1) - 1);
     },
 
-    /* Record the result of a race.
-     * finishOrder: array of car objects in finishing order, each {isPlayer, rivalIndex}
-     * Returns { playerPos, prize } */
+    // Build the 6-car grid: the player's driver + the other five as AI rivals.
+    buildRoster() {
+      const playerId = this.state.driver;
+      const ordered = [window.getCharacter(playerId)].concat(window.CHARACTERS.filter((c) => c.id !== playerId));
+      const aiS = this.aiStrength();
+      const v = this.performance();
+      return ordered.map((ch) => {
+        const isPlayer = ch.id === playerId;
+        const d = this.driverFactors(ch.id);
+        const perf = isPlayer ? {
+          maxSpeed: v.maxSpeed * d.maxSpeed, accel: v.accel * d.accel,
+          turn: v.turn * d.turn, grip: v.grip * d.grip, offroad: v.offroad,
+          nitroPower: v.nitroPower * d.nitroPower, nitroRefill: v.nitroRefill * d.nitroRefill,
+          drift: d.drift,
+        } : {
+          maxSpeed: d.maxSpeed * aiS, accel: d.accel * aiS,
+          turn: d.turn, grip: d.grip, offroad: 1,
+          nitroPower: d.nitroPower, nitroRefill: d.nitroRefill,
+          drift: d.drift,
+        };
+        return { characterId: ch.id, name: ch.name, color: ch.color, isPlayer, perf };
+      });
+    },
+
+    // finishOrder: array of {isPlayer, characterId} in finishing order
     recordResult(finishOrder) {
       const s = this.state.season;
       let playerPos = finishOrder.findIndex((c) => c.isPlayer);
       if (playerPos < 0) playerPos = finishOrder.length - 1;
-
-      // Award championship points using each car's persistent identity.
       finishOrder.forEach((car, idx) => {
-        const pts = POINTS[idx] || 0;
-        if (car.isPlayer) {
-          this.state.season.standings[0].points += pts;
-        } else {
-          const rivalStanding = this.state.season.standings[1 + car.rivalIndex];
-          if (rivalStanding) rivalStanding.points += pts;
-        }
+        const st = s.standings.find((x) => x.characterId === car.characterId);
+        if (st) st.points += POINTS[idx] || 0;
       });
-
       const prize = PRIZE[playerPos] || 100;
       this.state.money += prize;
       s.raceIndex++;
@@ -608,7 +900,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     },
 
     sortedStandings() {
-      return [...this.state.season.standings].sort((a, b) => b.points - a.points);
+      const drv = this.state.driver;
+      return this.state.season.standings
+        .map((x) => ({ characterId: x.characterId, name: x.name, points: x.points, you: x.characterId === drv }))
+        .sort((a, b) => b.points - a.points);
     },
 
     seasonDone() { return this.state.season.done; },
@@ -819,59 +1114,43 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const startProg = 0.15;
       const tan = tangentAtProgress(this.pts, startProg);
       const normal = tan + Math.PI / 2;
-      const base = pointAtProgress(this.pts, startProg);
-      const total = 6; // player + 5 AI
-      const perf = this.cfg.perf;
+      const roster = this.cfg.roster || [];
 
-      for (let i = 0; i < total; i++) {
-        const isPlayer = i === 0;
-        // stagger across track width and slightly along track
+      for (let i = 0; i < roster.length; i++) {
+        const R = roster[i];
+        const isPlayer = R.isPlayer;
+        const p = R.perf;
         const lane = (i % 3) - 1;       // -1,0,1
         const row = Math.floor(i / 3);  // 0,1
         const along = startProg - row * 0.45;
-        const p = pointAtProgress(this.pts, (along + this.N) % this.N);
+        const gp = pointAtProgress(this.pts, (along + this.N) % this.N);
         const lateral = lane * (this.track.width * 0.26);
+        const variance = isPlayer ? 1 : (0.985 + Math.random() * 0.03);
 
-        // Each rival has a stable skill bias (so standings are believable),
-        // plus a little race-to-race variance.
-        const rivalBias = [0.05, 0.025, 0.0, -0.02, -0.045];
-        const bias = isPlayer ? 0 : (rivalBias[i - 1] || 0);
-        const aiSkill = isPlayer ? 1 : this.cfg.aiStrength * (1 + bias) * (0.985 + Math.random() * 0.03);
-
-        // base stats (player modified by upgrades, AI by difficulty)
-        const stats = isPlayer ? {
-          maxSpeed: 375 * perf.maxSpeed,
-          accel: 270 * perf.accel,
-          turn: 3.2 * perf.turn,
-          grip: 0.86 + 0.03 * (perf.grip - 1) * 10,
-          offroad: 0.5 + 0.06 * (perf.offroad - 1) * 10, // off-track speed factor (higher=better)
-          nitroPower: 1.55 * perf.nitroPower,
-          nitroRefill: 9 * perf.nitroRefill,
-        } : {
-          maxSpeed: 375 * aiSkill,
-          accel: 270 * aiSkill,
-          turn: 3.15,
-          grip: 0.87,
-          offroad: 0.55,
-          nitroPower: 1.5,
-          nitroRefill: 8,
+        const stats = {
+          maxSpeed: 375 * p.maxSpeed * variance,
+          accel: 270 * p.accel * variance,
+          turn: 3.2 * p.turn,
+          grip: clamp(0.86 + 0.03 * (p.grip - 1) * 10, 0.6, 0.97),
+          offroad: clamp(0.5 + 0.06 * ((p.offroad || 1) - 1) * 10, 0.42, 0.92),
+          nitroPower: 1.55 * p.nitroPower,
+          nitroRefill: 9 * p.nitroRefill,
         };
-        stats.offroad = clamp(stats.offroad, 0.42, 0.92);
 
         this.cars.push(new Car({
-          x: p.x + Math.cos(normal) * lateral,
-          y: p.y + Math.sin(normal) * lateral,
+          x: gp.x + Math.cos(normal) * lateral,
+          y: gp.y + Math.sin(normal) * lateral,
           angle: tan,
-          color: CAR_COLORS[i % CAR_COLORS.length],
+          color: R.color,
           isPlayer,
-          rivalIndex: isPlayer ? -1 : i - 1,
+          characterId: R.characterId,
+          name: R.name,
           startProg: (along + this.N) % this.N,
           stats,
-          aiSkill,
           aiAggro: 0.5 + Math.random() * 0.5,
         }));
       }
-      this.player = this.cars[0];
+      this.player = this.cars.find((c) => c.isPlayer) || this.cars[0];
     }
 
     // ---------- lifecycle ----------
@@ -1097,7 +1376,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           .sort((a, b) => b.lapProg - a.lapProg);
         remaining.forEach((c) => this.finishOrder.push(c));
         this.stop();
-        const order = this.finishOrder.map((c) => ({ isPlayer: c.isPlayer, rivalIndex: c.rivalIndex, color: c.color }));
+        const order = this.finishOrder.map((c) => ({ isPlayer: c.isPlayer, characterId: c.characterId, name: c.name, color: c.color }));
         setTimeout(() => this.cfg.onFinish(order), 350);
       }
     }
@@ -1554,45 +1833,38 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const startProg = 0.15;
       const tan = tangentAtProgress(this.pts, startProg);
       const normal = tan + Math.PI / 2;
-      const perf = this.cfg.perf;
-      for (let i = 0; i < 6; i++) {
-        const isPlayer = i === 0;
+      const roster = this.cfg.roster || [];
+      for (let i = 0; i < roster.length; i++) {
+        const R = roster[i];
+        const isPlayer = R.isPlayer;
+        const p = R.perf;
         const lane = (i % 3) - 1, row = Math.floor(i / 3);
         const along = startProg - row * 0.5;
-        const p = pointAtProgress(this.pts, (along + this.N) % this.N);
+        const gp = pointAtProgress(this.pts, (along + this.N) % this.N);
         const lateral = lane * (this.track.width * 0.26);
-        const rivalBias = [0.05, 0.025, 0.0, -0.02, -0.045];
-        const bias = isPlayer ? 0 : (rivalBias[i - 1] || 0);
-        const aiSkill = isPlayer ? 1 : this.cfg.aiStrength * (1 + bias) * (0.985 + Math.random() * 0.03);
+        const variance = isPlayer ? 1 : (0.985 + Math.random() * 0.03);
 
-        const stats = isPlayer ? {
-          maxSpeed: 385 * perf.maxSpeed,
-          accel: 280 * perf.accel,
-          turn: 3.0 * perf.turn,
-          grip: clamp(0.88 - (perf.grip - 1) * 0.16, 0.78, 0.91),
-          offroad: clamp(0.5 + (perf.offroad - 1) * 0.6, 0.45, 0.9),
-          nitroPower: 1.5 * perf.nitroPower,
-          nitroRefill: 13 * perf.nitroRefill,
-        } : {
-          maxSpeed: 385 * aiSkill,
-          accel: 278 * aiSkill,
-          turn: 3.0,
-          grip: 0.875,
-          offroad: 0.6,
-          nitroPower: 1.5,
-          nitroRefill: 12,
+        const stats = {
+          maxSpeed: 385 * p.maxSpeed * variance,
+          accel: 280 * p.accel * variance,
+          turn: 3.0 * p.turn,
+          grip: clamp(0.88 - (p.grip - 1) * 0.16, 0.76, 0.91),
+          offroad: clamp(0.5 + ((p.offroad || 1) - 1) * 0.6, 0.45, 0.9),
+          nitroPower: 1.5 * p.nitroPower,
+          nitroRefill: 13 * p.nitroRefill,
+          drift: p.drift || 1,
         };
 
         this.cars.push(new Car({
-          x: p.x + Math.cos(normal) * lateral,
-          y: p.y + Math.sin(normal) * lateral,
-          angle: tan, color: CAR_COLORS[i % CAR_COLORS.length],
-          isPlayer, rivalIndex: isPlayer ? -1 : i - 1,
+          x: gp.x + Math.cos(normal) * lateral,
+          y: gp.y + Math.sin(normal) * lateral,
+          angle: tan, color: R.color,
+          isPlayer, characterId: R.characterId, name: R.name,
           startProg: (along + this.N) % this.N,
-          stats, aiSkill, aiAggro: 0.5 + Math.random() * 0.5,
+          stats, aiAggro: 0.5 + Math.random() * 0.5,
         }));
       }
-      this.player = this.cars[0];
+      this.player = this.cars.find((c) => c.isPlayer) || this.cars[0];
     }
 
     // ---- lifecycle (mirror classic Race) ----
@@ -1720,7 +1992,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       if (autoDrift) {
         // slip = angle of travel relative to where the nose points
         const slip = angWrap(Math.atan2(car.vy, car.vx) - car.angle);
-        const slipMax = 0.62; // ~35° sustained drift angle
+        const slipMax = 0.5 + ((s.drift || 1) - 1) * 0.5; // drift skill widens the controllable angle
         // strong turn-in while there's slip room; fades to 0 at slipMax so the
         // car settles into a held drift rather than rotating forever
         const room = clamp((slipMax - Math.abs(slip)) / slipMax, 0, 1);
@@ -1851,7 +2123,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         const remaining = this.cars.filter((c) => !this.finishOrder.includes(c)).sort((a, b) => b.lapProg - a.lapProg);
         remaining.forEach((c) => this.finishOrder.push(c));
         this.stop();
-        const order = this.finishOrder.map((c) => ({ isPlayer: c.isPlayer, rivalIndex: c.rivalIndex, color: c.color }));
+        const order = this.finishOrder.map((c) => ({ isPlayer: c.isPlayer, characterId: c.characterId, name: c.name, color: c.color }));
         setTimeout(() => this.cfg.onFinish(order), 350);
       }
     }
@@ -2117,6 +2389,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     results: $("#screen-results"),
     champion: $("#screen-champion"),
     howto: $("#screen-howto"),
+    driver: $("#screen-driver"),
     pause: $("#screen-pause"),
   };
   const overlay = $("#overlay");
@@ -2165,7 +2438,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   $("#btn-new").onclick = () => {
     if (Career.hasSave() && !confirm("Start a new career? This erases your saved progress.")) return;
     Career.newCareer();
-    openGarage();
+    openDriverSelect("garage"); // pick your driver to start the career
   };
   $("#btn-howto").onclick = () => show("howto");
   $("#btn-howto-back").onclick = () => show(Career.hasSave() ? "menu" : "menu");
@@ -2219,8 +2492,52 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     const g = Career.graphics();
     $("#btn-graphics").textContent = "Graphics: " + (g === "enhanced" ? "Enhanced ✨" : "Classic");
 
+    renderDriverPanel();
+
     // standings
     renderStandings($("#standings"), Career.sortedStandings());
+  }
+
+  function starBar(filled, total) {
+    let s = '<span class="skill-stars">';
+    for (let i = 0; i < total; i++) s += `<span class="star ${i < filled ? "" : "off"}">★</span>`;
+    return s + "</span>";
+  }
+
+  function renderDriverPanel() {
+    const ch = Career.driver();
+    const prof = $("#driver-profile");
+    prof.innerHTML = "";
+    prof.appendChild(window.makeDriverPortrait(ch.id, 76));
+    const info = document.createElement("div");
+    info.className = "dp-info";
+    info.innerHTML = `<div class="dp-name">${ch.name}</div>
+      <div class="dp-tag">${ch.tagline}</div>
+      <div class="dp-bio">${ch.bio}</div>`;
+    prof.appendChild(info);
+
+    // training (per-skill): innate stars + trained pips + train button
+    const tr = $("#driver-training");
+    tr.innerHTML = "";
+    window.DRIVER_SKILLS.forEach((def) => {
+      const innate = ch.skills[def.key];
+      const lvl = Career.trainLevel(ch.id, def.key);
+      const cost = Career.trainCostFor(ch.id, def.key);
+      const maxed = cost === null;
+      const pips = Array.from({ length: Career.MAX_LEVEL }, (_, i) =>
+        `<div class="pip ${i < lvl ? "on" : ""}"></div>`).join("");
+      const el = document.createElement("div");
+      el.className = "upg";
+      el.innerHTML = `
+        <div class="upg-top"><span class="upg-name">${def.name} ${starBar(innate, 5)}</span><span class="upg-lvl">+${lvl}</span></div>
+        <div class="upg-desc">${def.desc}</div>
+        <div class="pips">${pips}</div>
+        <button ${maxed || !Career.canTrain(ch.id, def.key) ? "disabled" : ""}>
+          ${maxed ? "MAXED" : "Train — 💰 " + cost.toLocaleString()}
+        </button>`;
+      el.querySelector("button").onclick = () => { if (Career.train(ch.id, def.key)) renderGarage(); };
+      tr.appendChild(el);
+    });
   }
 
   function renderStandings(table, rows) {
@@ -2242,6 +2559,50 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   };
   $("#btn-race").onclick = startRace;
   $("#btn-graphics").onclick = () => { Career.toggleGraphics(); renderGarage(); };
+  $("#btn-change-driver").onclick = () => openDriverSelect("garage");
+
+  // ---------------- Driver select ----------------
+  let driverPick = null;
+  let driverReturnTo = "garage";
+
+  function openDriverSelect(returnTo) {
+    driverReturnTo = returnTo || "garage";
+    driverPick = Career.driverId();
+    const grid = $("#driver-grid");
+    grid.innerHTML = "";
+    window.CHARACTERS.forEach((ch) => {
+      const card = document.createElement("div");
+      card.className = "dcard" + (ch.id === driverPick ? " sel" : "");
+      card.dataset.id = ch.id;
+      card.appendChild(window.makeDriverPortrait(ch.id, 96));
+      const nm = document.createElement("div"); nm.className = "dc-name"; nm.textContent = ch.name;
+      const tg = document.createElement("div"); tg.className = "dc-tag"; tg.textContent = ch.tagline;
+      card.appendChild(nm); card.appendChild(tg);
+      card.onclick = () => selectDriverCard(ch.id);
+      grid.appendChild(card);
+    });
+    renderDriverDetail();
+    show("driver");
+  }
+
+  function selectDriverCard(id) {
+    driverPick = id;
+    $$("#driver-grid .dcard").forEach((c) => c.classList.toggle("sel", c.dataset.id === id));
+    renderDriverDetail();
+  }
+
+  function renderDriverDetail() {
+    const ch = window.getCharacter(driverPick);
+    const skills = window.DRIVER_SKILLS
+      .map((d) => `${d.name} ${starBar(ch.skills[d.key], 5)}`).join(" &nbsp; ");
+    $("#driver-detail").innerHTML = `<div class="dd-bio">${ch.bio}</div><div style="margin-top:8px">${skills}</div>`;
+  }
+
+  $("#btn-driver-confirm").onclick = () => {
+    Career.setDriver(driverPick);
+    if (driverReturnTo === "garage") openGarage();
+    else show(driverReturnTo);
+  };
 
   // ---------------- Race ----------------
   function startRace() {
@@ -2260,8 +2621,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
     race = new Engine(canvas, {
       track,
-      perf: Career.performance(),
-      aiStrength: Career.aiStrength(),
+      roster: Career.buildRoster(),
       onUpdate: updateHud,
       onFinish: onRaceFinish,
     });
@@ -2322,11 +2682,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
   // ---------------- Results ----------------
   function showResults(order, track) {
-    const rivals = Career.RIVALS;
     const table = $("#results-table");
     table.innerHTML = "";
     order.forEach((car, idx) => {
-      const name = car.isPlayer ? "You" : (rivals[car.rivalIndex] || "Rival");
+      const name = (car.name || "Rival") + (car.isPlayer ? " (You)" : "");
       const tr = document.createElement("tr");
       if (car.isPlayer) tr.className = "you";
       tr.innerHTML = `<td class="pos">${ordinal(idx + 1)}</td>

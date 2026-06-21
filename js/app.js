@@ -9,6 +9,7 @@
     results: $("#screen-results"),
     champion: $("#screen-champion"),
     howto: $("#screen-howto"),
+    driver: $("#screen-driver"),
     pause: $("#screen-pause"),
   };
   const overlay = $("#overlay");
@@ -57,7 +58,7 @@
   $("#btn-new").onclick = () => {
     if (Career.hasSave() && !confirm("Start a new career? This erases your saved progress.")) return;
     Career.newCareer();
-    openGarage();
+    openDriverSelect("garage"); // pick your driver to start the career
   };
   $("#btn-howto").onclick = () => show("howto");
   $("#btn-howto-back").onclick = () => show(Career.hasSave() ? "menu" : "menu");
@@ -111,8 +112,52 @@
     const g = Career.graphics();
     $("#btn-graphics").textContent = "Graphics: " + (g === "enhanced" ? "Enhanced ✨" : "Classic");
 
+    renderDriverPanel();
+
     // standings
     renderStandings($("#standings"), Career.sortedStandings());
+  }
+
+  function starBar(filled, total) {
+    let s = '<span class="skill-stars">';
+    for (let i = 0; i < total; i++) s += `<span class="star ${i < filled ? "" : "off"}">★</span>`;
+    return s + "</span>";
+  }
+
+  function renderDriverPanel() {
+    const ch = Career.driver();
+    const prof = $("#driver-profile");
+    prof.innerHTML = "";
+    prof.appendChild(window.makeDriverPortrait(ch.id, 76));
+    const info = document.createElement("div");
+    info.className = "dp-info";
+    info.innerHTML = `<div class="dp-name">${ch.name}</div>
+      <div class="dp-tag">${ch.tagline}</div>
+      <div class="dp-bio">${ch.bio}</div>`;
+    prof.appendChild(info);
+
+    // training (per-skill): innate stars + trained pips + train button
+    const tr = $("#driver-training");
+    tr.innerHTML = "";
+    window.DRIVER_SKILLS.forEach((def) => {
+      const innate = ch.skills[def.key];
+      const lvl = Career.trainLevel(ch.id, def.key);
+      const cost = Career.trainCostFor(ch.id, def.key);
+      const maxed = cost === null;
+      const pips = Array.from({ length: Career.MAX_LEVEL }, (_, i) =>
+        `<div class="pip ${i < lvl ? "on" : ""}"></div>`).join("");
+      const el = document.createElement("div");
+      el.className = "upg";
+      el.innerHTML = `
+        <div class="upg-top"><span class="upg-name">${def.name} ${starBar(innate, 5)}</span><span class="upg-lvl">+${lvl}</span></div>
+        <div class="upg-desc">${def.desc}</div>
+        <div class="pips">${pips}</div>
+        <button ${maxed || !Career.canTrain(ch.id, def.key) ? "disabled" : ""}>
+          ${maxed ? "MAXED" : "Train — 💰 " + cost.toLocaleString()}
+        </button>`;
+      el.querySelector("button").onclick = () => { if (Career.train(ch.id, def.key)) renderGarage(); };
+      tr.appendChild(el);
+    });
   }
 
   function renderStandings(table, rows) {
@@ -134,6 +179,50 @@
   };
   $("#btn-race").onclick = startRace;
   $("#btn-graphics").onclick = () => { Career.toggleGraphics(); renderGarage(); };
+  $("#btn-change-driver").onclick = () => openDriverSelect("garage");
+
+  // ---------------- Driver select ----------------
+  let driverPick = null;
+  let driverReturnTo = "garage";
+
+  function openDriverSelect(returnTo) {
+    driverReturnTo = returnTo || "garage";
+    driverPick = Career.driverId();
+    const grid = $("#driver-grid");
+    grid.innerHTML = "";
+    window.CHARACTERS.forEach((ch) => {
+      const card = document.createElement("div");
+      card.className = "dcard" + (ch.id === driverPick ? " sel" : "");
+      card.dataset.id = ch.id;
+      card.appendChild(window.makeDriverPortrait(ch.id, 96));
+      const nm = document.createElement("div"); nm.className = "dc-name"; nm.textContent = ch.name;
+      const tg = document.createElement("div"); tg.className = "dc-tag"; tg.textContent = ch.tagline;
+      card.appendChild(nm); card.appendChild(tg);
+      card.onclick = () => selectDriverCard(ch.id);
+      grid.appendChild(card);
+    });
+    renderDriverDetail();
+    show("driver");
+  }
+
+  function selectDriverCard(id) {
+    driverPick = id;
+    $$("#driver-grid .dcard").forEach((c) => c.classList.toggle("sel", c.dataset.id === id));
+    renderDriverDetail();
+  }
+
+  function renderDriverDetail() {
+    const ch = window.getCharacter(driverPick);
+    const skills = window.DRIVER_SKILLS
+      .map((d) => `${d.name} ${starBar(ch.skills[d.key], 5)}`).join(" &nbsp; ");
+    $("#driver-detail").innerHTML = `<div class="dd-bio">${ch.bio}</div><div style="margin-top:8px">${skills}</div>`;
+  }
+
+  $("#btn-driver-confirm").onclick = () => {
+    Career.setDriver(driverPick);
+    if (driverReturnTo === "garage") openGarage();
+    else show(driverReturnTo);
+  };
 
   // ---------------- Race ----------------
   function startRace() {
@@ -152,8 +241,7 @@
     const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
     race = new Engine(canvas, {
       track,
-      perf: Career.performance(),
-      aiStrength: Career.aiStrength(),
+      roster: Career.buildRoster(),
       onUpdate: updateHud,
       onFinish: onRaceFinish,
     });
@@ -214,11 +302,10 @@
 
   // ---------------- Results ----------------
   function showResults(order, track) {
-    const rivals = Career.RIVALS;
     const table = $("#results-table");
     table.innerHTML = "";
     order.forEach((car, idx) => {
-      const name = car.isPlayer ? "You" : (rivals[car.rivalIndex] || "Rival");
+      const name = (car.name || "Rival") + (car.isPlayer ? " (You)" : "");
       const tr = document.createElement("tr");
       if (car.isPlayer) tr.className = "you";
       tr.innerHTML = `<td class="pos">${ordinal(idx + 1)}</td>
