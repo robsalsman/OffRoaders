@@ -138,36 +138,32 @@
     return `rgb(${r},${gg},${b})`;
   }
 
-  // ---- tileable dirt texture ----
-  let dirtTile = null;
-  function getDirtTile() {
-    if (dirtTile) return dirtTile;
-    const s = 128;
-    const cv = document.createElement("canvas"); cv.width = cv.height = s;
+  // ---- tileable textures (cached per colour so each track theme differs) ----
+  const dirtTiles = {}, grassTiles = {};
+  function getDirtTile(color) {
+    if (dirtTiles[color]) return dirtTiles[color];
+    const s = 128, cv = document.createElement("canvas"); cv.width = cv.height = s;
     const g = cv.getContext("2d");
-    g.fillStyle = "#b07a45"; g.fillRect(0, 0, s, s);
+    g.fillStyle = color; g.fillRect(0, 0, s, s);
     for (let i = 0; i < 900; i++) {
       const x = Math.random() * s, y = Math.random() * s;
-      const v = Math.random();
-      g.fillStyle = v < 0.5 ? "rgba(90,60,30," + (0.04 + Math.random() * 0.1) + ")"
-                            : "rgba(210,170,120," + (0.04 + Math.random() * 0.1) + ")";
+      g.fillStyle = Math.random() < 0.5 ? "rgba(0,0,0," + (0.04 + Math.random() * 0.1) + ")"
+                                        : "rgba(255,255,255," + (0.03 + Math.random() * 0.07) + ")";
       g.fillRect(x, y, 1 + Math.random() * 2, 1 + Math.random() * 2);
     }
-    dirtTile = cv; return cv;
+    dirtTiles[color] = cv; return cv;
   }
-  let grassTile = null;
-  function getGrassTile() {
-    if (grassTile) return grassTile;
-    const s = 128;
-    const cv = document.createElement("canvas"); cv.width = cv.height = s;
+  function getGrassTile(color) {
+    if (grassTiles[color]) return grassTiles[color];
+    const s = 128, cv = document.createElement("canvas"); cv.width = cv.height = s;
     const g = cv.getContext("2d");
-    g.fillStyle = "#3f6b2e"; g.fillRect(0, 0, s, s);
+    g.fillStyle = color; g.fillRect(0, 0, s, s);
     for (let i = 0; i < 700; i++) {
       const x = Math.random() * s, y = Math.random() * s;
-      g.fillStyle = Math.random() < 0.5 ? "rgba(40,70,25,0.5)" : "rgba(90,140,60,0.4)";
+      g.fillStyle = Math.random() < 0.5 ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.10)";
       g.fillRect(x, y, 1, 2 + Math.random() * 3);
     }
-    grassTile = cv; return cv;
+    grassTiles[color] = cv; return cv;
   }
 
   class Car {
@@ -241,6 +237,11 @@
         const p = pointAtProgress(this.pts, prog);
         const tan = tangentAtProgress(this.pts, prog);
         return { prog, x: p.x, y: p.y, tan, half: this.track.width * 0.5 };
+      });
+      // mud / rough patches that slow you down
+      this.mud = (this.track.mud || []).map((frac) => {
+        const p = pointAtProgress(this.pts, frac * this.N);
+        return { x: p.x, y: p.y, r: this.track.width * 0.42 };
       });
     }
 
@@ -369,6 +370,14 @@
       }
       const offFactor = car._offTrack && onGround ? s.offroad : 1;
       maxSpeed *= offFactor;
+
+      // mud / rough patches slow everyone down
+      car._inMud = false;
+      if (this.mud) for (const m of this.mud) {
+        const dx = car.x - m.x, dy = car.y - m.y;
+        if (dx * dx + dy * dy < m.r * m.r) { car._inMud = true; break; }
+      }
+      if (car._inMud && onGround) maxSpeed *= 0.6;
 
       if (onGround) {
         const th = ctrl.throttle || 0; // analog: stick position sets target speed
@@ -618,9 +627,10 @@
       const sx = this.shake ? rand(-this.shake, this.shake) : 0;
       const sy = this.shake ? rand(-this.shake, this.shake) : 0;
 
+      const theme = this.track.theme || { ground: "#3f6b2e" };
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      // grass
-      ctx.fillStyle = ctx.createPattern ? ctx.createPattern(getGrassTile(), "repeat") : "#3f6b2e";
+      // off-track ground (themed)
+      ctx.fillStyle = ctx.createPattern ? ctx.createPattern(getGrassTile(theme.ground), "repeat") : theme.ground;
       ctx.fillRect(0, 0, W, H);
 
       ctx.save();
@@ -632,6 +642,7 @@
       // skid decals
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(this.decal, this.bbox.minX, this.bbox.minY, this.bbox.w, this.bbox.h);
+      this._drawMud(ctx);
       this._drawRamps(ctx);
       this._drawStartLine(ctx);
       this._drawParticles(ctx, false); // ground dust under cars
@@ -652,20 +663,32 @@
       path.moveTo(pts[0].x, pts[0].y);
       for (let i = 1; i < pts.length; i++) path.lineTo(pts[i].x, pts[i].y);
       path.closePath();
+      const th = this.track.theme || { dirt: "#b07a45", dirtDark: "#5a3c20", rut: "#6b4a29" };
       ctx.lineJoin = "round"; ctx.lineCap = "round";
       // berm / shadow
-      ctx.strokeStyle = "rgba(40,26,12,0.9)";
+      ctx.strokeStyle = "rgba(0,0,0,0.45)";
       ctx.lineWidth = this.track.width + 22; ctx.stroke(path);
-      // light dirt rim
-      ctx.strokeStyle = "#7a5230";
+      // dark dirt rim
+      ctx.strokeStyle = th.dirtDark;
       ctx.lineWidth = this.track.width + 6; ctx.stroke(path);
-      // dirt surface (textured)
-      const pat = ctx.createPattern(getDirtTile(), "repeat");
-      ctx.strokeStyle = pat || "#b07a45";
+      // dirt surface (textured, themed)
+      const pat = ctx.createPattern(getDirtTile(th.dirt), "repeat");
+      ctx.strokeStyle = pat || th.dirt;
       ctx.lineWidth = this.track.width; ctx.stroke(path);
       // centre ruts
-      ctx.strokeStyle = "rgba(90,60,30,0.55)";
+      ctx.strokeStyle = th.rut;
+      ctx.globalAlpha = 0.5;
       ctx.lineWidth = 5; ctx.setLineDash([22, 30]); ctx.stroke(path); ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+
+    _drawMud(ctx) {
+      for (const m of (this.mud || [])) {
+        ctx.fillStyle = "rgba(35,22,10,0.55)";
+        ctx.beginPath(); ctx.ellipse(m.x, m.y, m.r, m.r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(70,50,25,0.5)";
+        ctx.beginPath(); ctx.ellipse(m.x, m.y, m.r * 0.7, m.r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+      }
     }
 
     _drawRamps(ctx) {

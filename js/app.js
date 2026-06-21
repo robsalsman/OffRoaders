@@ -11,6 +11,7 @@
     howto: $("#screen-howto"),
     driver: $("#screen-driver"),
     vehicle: $("#screen-vehicle"),
+    track: $("#screen-track"),
     pause: $("#screen-pause"),
   };
   const overlay = $("#overlay");
@@ -80,10 +81,17 @@
     const recTxt = (rec.lap != null || rec.race != null)
       ? `🏁 Best lap ${fmtLap(rec.lap)} &nbsp;•&nbsp; 🏆 Best race ${fmtTime(rec.race)}`
       : "No records yet — set one!";
-    $("#next-race").innerHTML = `
-      <div class="rname">${track.name}</div>
-      <div class="meta">${Career.raceLabel()} • ${track.laps} laps • Difficulty ${stars}</div>
+    const homeCh = window.getCharacter(track.home);
+    const nr = $("#next-race");
+    nr.innerHTML = "";
+    nr.appendChild(window.makeTrackPreview(track.id, 84));
+    const meta = document.createElement("div");
+    meta.className = "nr-meta";
+    meta.innerHTML = `<div class="rname">${track.name}</div>
+      <div class="meta">${Career.raceLabel()} • ${track.laps} laps • ${stars}</div>
+      <div class="meta">⚑ ${track.feature} • 🏠 ${homeCh.name}'s home</div>
       <div class="meta records">${recTxt}</div>`;
+    nr.appendChild(meta);
 
     renderVehiclePanel();
 
@@ -173,11 +181,21 @@
   }
 
   function renderStandings(table, rows) {
+    // current driver->truck pairing, so each driver shows the truck they race
+    const pairing = {};
+    Career.buildRoster(Career.currentTrack().id).forEach((r) => (pairing[r.characterId] = r.vehicleId));
     table.innerHTML = "";
     rows.forEach((r, i) => {
       const tr = document.createElement("tr");
       if (r.you) tr.className = "you";
-      tr.innerHTML = `<td>${i + 1}</td><td>${r.name}</td><td>${r.points} pts</td>`;
+      const td0 = document.createElement("td"); td0.textContent = i + 1;
+      const td1 = document.createElement("td"); td1.className = "name-cell";
+      const vid = pairing[r.characterId];
+      if (vid) td1.appendChild(window.makeVehiclePortrait(vid, 22));
+      const nm = document.createElement("span"); nm.textContent = r.name + (r.you ? " (You)" : "");
+      td1.appendChild(nm);
+      const td2 = document.createElement("td"); td2.textContent = r.points + " pts";
+      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
       table.appendChild(tr);
     });
   }
@@ -271,6 +289,45 @@
   $("#btn-vehicle-confirm").onclick = () => { Career.setVehicle(vehiclePick); openGarage(); };
   $("#btn-change-vehicle").onclick = () => openVehicleSelect();
 
+  // ---------------- Track select ----------------
+  let trackPick = null;
+
+  function openTrackSelect() {
+    trackPick = Career.currentTrack().id;
+    const grid = $("#track-grid");
+    grid.innerHTML = "";
+    Career.trackList().forEach(({ track, completed }) => {
+      const card = document.createElement("div");
+      card.className = "dcard" + (track.id === trackPick ? " sel" : "") + (completed ? " done" : "");
+      card.dataset.id = track.id;
+      card.appendChild(window.makeTrackPreview(track.id, 96));
+      const nm = document.createElement("div"); nm.className = "dc-name"; nm.textContent = track.name;
+      const tg = document.createElement("div"); tg.className = "dc-tag";
+      tg.textContent = completed ? "✓ Completed" : track.feature;
+      card.appendChild(nm); card.appendChild(tg);
+      if (!completed) card.onclick = () => selectTrackCard(track.id);
+      grid.appendChild(card);
+    });
+    renderTrackDetail();
+    show("track");
+  }
+  function selectTrackCard(id) {
+    trackPick = id;
+    $$("#track-grid .dcard").forEach((c) => c.classList.toggle("sel", c.dataset.id === id));
+    renderTrackDetail();
+  }
+  function renderTrackDetail() {
+    const t = window.getTrack(trackPick);
+    const home = window.getCharacter(t.home);
+    const stars = "★".repeat(t.difficulty) + "☆".repeat(5 - t.difficulty);
+    $("#track-detail").innerHTML =
+      `<div class="dd-bio">${t.name} — ${t.feature}</div>
+       <div style="margin-top:6px">${t.laps} laps • Difficulty ${stars} • 🏠 ${home.name}'s home track</div>`;
+  }
+  $("#btn-choose-track").onclick = openTrackSelect;
+  $("#btn-track-confirm").onclick = () => { Career.selectTrack(trackPick); openGarage(); };
+  $("#btn-track-back").onclick = openGarage;
+
   // ---------------- Race ----------------
   function startRace() {
     const track = Career.currentTrack();
@@ -285,10 +342,15 @@
     $("#hud-laptime").textContent = "0:00.0";
     $("#lapflash").classList.add("hidden");
 
+    // player's truck icon on the HUD
+    const ic = $("#hud-truck");
+    ic.innerHTML = "";
+    ic.appendChild(window.makeVehiclePortrait(Career.vehicleId(), 34));
+
     const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
     race = new Engine(canvas, {
       track,
-      roster: Career.buildRoster(),
+      roster: Career.buildRoster(track.id),
       onUpdate: updateHud,
       onFinish: onRaceFinish,
     });
@@ -355,9 +417,13 @@
       const name = (car.name || "Rival") + (car.isPlayer ? " (You)" : "");
       const tr = document.createElement("tr");
       if (car.isPlayer) tr.className = "you";
-      tr.innerHTML = `<td class="pos">${ordinal(idx + 1)}</td>
-        <td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${car.color};margin-right:8px;vertical-align:middle"></span>${name}</td>
-        <td style="text-align:right">${Career.POINTS[idx] || 0} pts</td>`;
+      const td0 = document.createElement("td"); td0.className = "pos"; td0.textContent = ordinal(idx + 1);
+      const td1 = document.createElement("td"); td1.className = "name-cell";
+      if (car.vehicleId) td1.appendChild(window.makeVehiclePortrait(car.vehicleId, 24));
+      const nm = document.createElement("span"); nm.textContent = name;
+      td1.appendChild(nm);
+      const td2 = document.createElement("td"); td2.style.textAlign = "right"; td2.textContent = (Career.POINTS[idx] || 0) + " pts";
+      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
       table.appendChild(tr);
     });
 

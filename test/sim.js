@@ -47,8 +47,10 @@ function assert(cond, msg) {
 
 // ---- 1. tracks ----
 console.log("Tracks:");
-assert(ctx.TRACKS.length === 5, "5 tracks defined");
+assert(ctx.TRACKS.length === 6, "6 tracks defined");
 assert(ctx.TRACKS.every((t) => t.points.length > 20), "all tracks have point loops");
+assert(ctx.TRACKS.every((t) => ctx.getCharacter(t.home)), "every track has a valid home driver");
+assert(new Set(ctx.TRACKS.map((t) => t.home)).size === 6, "each driver owns one home track");
 
 // ---- 2. career ----
 console.log("Career:");
@@ -63,7 +65,7 @@ assert(C.upgradeLevel(vid, "engine") === 1, "engine upgrade level is 1");
 // driver training & roster
 C.state.money = 5000;
 assert(C.train(C.driverId(), "handling") === true, "can train the driver");
-const roster = C.buildRoster();
+const roster = C.buildRoster(C.currentTrack().id);
 assert(roster.length === 6, "roster has 6 racers");
 assert(roster[0].isPlayer && roster.filter(r => !r.isPlayer).length === 5, "1 player + 5 rivals");
 assert(new Set(roster.map(r => r.vehicleId)).size === 6, "all 6 trucks are unique on the grid");
@@ -75,7 +77,7 @@ const track = C.currentTrack();
 let finished = null;
 const race = new ctx.Race(canvas, {
   track,
-  roster: C.buildRoster(),
+  roster: C.buildRoster(track.id),
   onUpdate: () => {},
   onFinish: (order) => { finished = order; },
 });
@@ -128,7 +130,7 @@ if (finished) {
   // record result into career
   const res = C.recordResult(finished);
   assert(typeof res.prize === "number" && res.prize > 0, "prize awarded: " + res.prize);
-  assert(C.state.season.raceIndex === 1, "season advanced to next race");
+  assert(C.state.season.completed.length === 1, "season recorded the completed race");
   const total = C.sortedStandings().reduce((a, r) => a + r.points, 0);
   assert(total > 0, "championship points distributed");
 }

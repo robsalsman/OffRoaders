@@ -20,7 +20,7 @@
   function freshSeason() {
     const order = window.TRACKS.map((t) => t.id);
     const standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
-    return { raceIndex: 0, order, standings, done: false, season: 1 };
+    return { order, completed: [], selected: order[0], standings, done: false, season: 1 };
   }
 
   function freshTraining() {
@@ -62,6 +62,8 @@
           // migration / safety
           const s = this.state;
           if (!s.season || !s.season.order) s.season = freshSeason();
+          if (!s.season.completed) s.season.completed = [];
+          if (!s.season.selected) s.season.selected = s.season.order.find((id) => !s.season.completed.includes(id)) || s.season.order[0];
           if (!s.graphics) s.graphics = "enhanced";
           if (!s.records) s.records = {};
           if (!s.driver) s.driver = window.CHARACTERS[0].id;
@@ -95,11 +97,27 @@
 
     currentTrack() {
       const s = this.state.season;
-      return window.getTrack(s.order[Math.min(s.raceIndex, s.order.length - 1)]);
+      const id = s.selected || s.order.find((t) => !s.completed.includes(t)) || s.order[0];
+      return window.getTrack(id);
     },
     raceLabel() {
       const s = this.state.season;
-      return `Race ${s.raceIndex + 1} / ${s.order.length}`;
+      return `Race ${s.completed.length + 1} / ${s.order.length}`;
+    },
+
+    // ---- track selection ----
+    trackList() {
+      const s = this.state.season;
+      return s.order.map((id) => ({
+        track: window.getTrack(id),
+        completed: s.completed.includes(id),
+        selected: id === s.selected,
+      }));
+    },
+    selectTrack(id) {
+      const s = this.state.season;
+      if (!s.order.includes(id) || s.completed.includes(id)) return false;
+      s.selected = id; this.save(); return true;
     },
 
     // ---- graphics ----
@@ -214,27 +232,30 @@
 
     aiStrength() {
       const s = this.state.season;
-      return 0.93 + 0.022 * s.raceIndex + 0.025 * ((s.season || 1) - 1);
+      return 0.93 + 0.022 * (s.completed ? s.completed.length : 0) + 0.025 * ((s.season || 1) - 1);
     },
 
     // Build the 6-car grid: the player's driver+truck, plus the other five
-    // drivers each paired with one of the other trucks.
-    buildRoster() {
+    // drivers each paired with one of the other trucks. The track's home driver
+    // gets a small boost on their home turf.
+    buildRoster(trackId) {
       const playerDriver = this.state.driver, playerVeh = this.state.vehicle;
       const drivers = [window.getCharacter(playerDriver)].concat(window.CHARACTERS.filter((c) => c.id !== playerDriver));
       const trucks = [window.getVehicle(playerVeh)].concat(window.VEHICLES.filter((v) => v.id !== playerVeh));
       const aiS = this.aiStrength();
+      const home = trackId ? (window.getTrack(trackId).home) : null;
       return drivers.map((ch, i) => {
         const truck = trucks[i] || trucks[0];
         const isPlayer = ch.id === playerDriver;
         const t = this.performanceFor(truck.id);
         const d = this.driverFactors(ch.id);
         const sp = isPlayer ? 1 : aiS;
+        const homeBoost = ch.id === home ? 1.06 : 1; // home-track advantage
         const perf = {
-          maxSpeed: t.maxSpeed * d.maxSpeed * sp,
-          accel: t.accel * d.accel * sp,
+          maxSpeed: t.maxSpeed * d.maxSpeed * sp * homeBoost,
+          accel: t.accel * d.accel * sp * homeBoost,
           turn: t.turn * d.turn,
-          grip: t.grip * d.grip,
+          grip: t.grip * d.grip * (ch.id === home ? 1.04 : 1),
           offroad: t.offroad,
           nitroPower: t.nitroPower * d.nitroPower,
           nitroRefill: t.nitroRefill * d.nitroRefill,
@@ -255,8 +276,9 @@
       });
       const prize = PRIZE[playerPos] || 100;
       this.state.money += prize;
-      s.raceIndex++;
-      if (s.raceIndex >= s.order.length) s.done = true;
+      if (!s.completed.includes(s.selected)) s.completed.push(s.selected);
+      s.selected = s.order.find((id) => !s.completed.includes(id)) || null;
+      if (s.completed.length >= s.order.length) s.done = true;
       this.save();
       return { playerPos, prize };
     },

@@ -78,6 +78,14 @@ html, body {
 .meter-fill { height: 100%; width: 50%; background: linear-gradient(90deg,#2fd0ff,#0a8); transition: width .08s linear; }
 .meter-fill.speed { background: linear-gradient(90deg,var(--accent),var(--accent-2)); }
 
+.hud-truck { position: absolute; left: 12px; top: 150px; }
+.hud-truck canvas { border-radius: 8px; border: 1px solid rgba(255,255,255,.25); box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+
+.name-cell { display: flex; align-items: center; gap: 8px; }
+.name-cell canvas { border-radius: 5px; flex: 0 0 auto; }
+.dcard.done { opacity: .55; cursor: default; }
+.dcard.done .dc-tag { color: var(--good); }
+
 #pauseBtn {
   position: absolute; top: env(safe-area-inset-top, 10px); right: 10px;
   pointer-events: auto; background: rgba(20,14,10,.62);
@@ -263,6 +271,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         <span class="laprow-best">BEST <span id="hud-bestlap">—</span></span>
       </div>
       <div id="lapflash" class="lapflash hidden"></div>
+      <div id="hud-truck" class="hud-truck"></div>
       <div class="hud-bottom">
         <div class="meter">
           <span class="hud-label">NITRO</span>
@@ -314,6 +323,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
             <h3>Next Race</h3>
             <div id="next-race" class="next-race"></div>
             <button id="btn-race" class="big primary">Start Race ▶</button>
+            <button id="btn-choose-track" class="big graphics-toggle">Choose Track</button>
             <button id="btn-graphics" class="big graphics-toggle">Graphics: Enhanced</button>
           </div>
 
@@ -374,6 +384,15 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         <button id="btn-howto-back" class="big">Back</button>
       </section>
 
+      <!-- Track select -->
+      <section id="screen-track" class="screen hidden">
+        <h2>CHOOSE TRACK</h2>
+        <div id="track-grid" class="driver-grid"></div>
+        <div id="track-detail" class="driver-detail"></div>
+        <button id="btn-track-confirm" class="big primary">Race Here ▶</button>
+        <button id="btn-track-back" class="ghost">← Back to Garage</button>
+      </section>
+
       <!-- Truck select -->
       <section id="screen-vehicle" class="screen hidden">
         <h2>CHOOSE YOUR TRUCK</h2>
@@ -404,67 +423,97 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   </div>
 
   <script>
-/* tracks.js — course definitions for OffRoaders
- * Each track is a closed loop of centreline points (world units ~= pixels).
- * Tracks are generated parametrically so the loops are always smooth & closed.
- * `ramps` are progress fractions (0..1 around the loop) where the Enhanced
- * engine places jump ramps. The Classic engine ignores them.
+/* tracks.js — 6 courses, one home track per driver. Each has a distinct
+ * theme (colours), shape, ramps and signature feature. `home` is the driver id
+ * whose home track it is (that driver gets a boost there).
+ * `ramps` and `mud` are progress fractions (0..1) around the loop.
  */
 (function () {
-  // Build a closed loop by sampling a radius function around a centre.
   function loop(opts) {
-    const {
-      samples = 56, base = 700, sx = 1, sy = 1,
-      cx = 0, cy = 0, rot = 0, radiusFn = () => 1,
-    } = opts;
+    const { samples = 56, base = 700, sx = 1, sy = 1, cx = 0, cy = 0, rot = 0, radiusFn = () => 1 } = opts;
     const pts = [];
     for (let i = 0; i < samples; i++) {
       const t = (i / samples) * Math.PI * 2;
       const r = base * radiusFn(t);
-      let x = Math.cos(t) * r * sx;
-      let y = Math.sin(t) * r * sy;
-      const rx = x * Math.cos(rot) - y * Math.sin(rot);
-      const ry = x * Math.sin(rot) + y * Math.cos(rot);
-      pts.push({ x: rx + cx, y: ry + cy });
+      const x = Math.cos(t) * r * sx, y = Math.sin(t) * r * sy;
+      pts.push({ x: x * Math.cos(rot) - y * Math.sin(rot) + cx, y: x * Math.sin(rot) + y * Math.cos(rot) + cy });
     }
     return pts;
   }
 
   const TRACKS = [
     {
-      id: "sidewinder", name: "Sidewinder", laps: 4, width: 210, difficulty: 1,
-      ramps: [0.30, 0.78],
-      points: loop({ samples: 50, base: 620, sx: 1.45, sy: 0.85,
-        radiusFn: (t) => 1 + 0.05 * Math.sin(t * 2) }),
+      id: "mesa", name: "Blazing Mesa", home: "hotrod",
+      laps: 4, width: 205, difficulty: 2, feature: "Jump-heavy & fast",
+      theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
+      ramps: [0.16, 0.4, 0.62, 0.85], mud: [],
+      points: loop({ samples: 52, base: 660, sx: 1.4, sy: 0.85, radiusFn: (t) => 1 + 0.06 * Math.sin(t * 2) }),
     },
     {
-      id: "dustbowl", name: "Dust Bowl", laps: 4, width: 195, difficulty: 2,
-      ramps: [0.20, 0.55, 0.85],
-      points: loop({ samples: 60, base: 560, sx: 1.5, sy: 1.0,
-        radiusFn: (t) => 1 + 0.32 * Math.cos(t * 2) }),
+      id: "neon", name: "Neon City", home: "rob",
+      laps: 4, width: 220, difficulty: 3, feature: "Long drift sweepers",
+      theme: { ground: "#201f38", groundDark: "#15132233", dirt: "#4b475f", dirtDark: "#211d2e", rut: "#5a5570" },
+      ramps: [0.5], mud: [],
+      points: loop({ samples: 58, base: 720, sx: 1.3, sy: 1.0, rot: 0.2, radiusFn: (t) => 1 + 0.16 * Math.sin(t) }),
     },
     {
-      id: "canyon", name: "Canyon Run", laps: 4, width: 185, difficulty: 3,
-      ramps: [0.18, 0.5, 0.82],
-      points: loop({ samples: 64, base: 640, sx: 1.1, sy: 1.1, rot: 0.3,
-        radiusFn: (t) => 1 + 0.18 * Math.sin(t * 3) }),
+      id: "canyon", name: "Dust Canyon", home: "west",
+      laps: 4, width: 165, difficulty: 4, feature: "Tight & technical",
+      theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
+      ramps: [0.3, 0.7], mud: [0.18, 0.55],
+      points: loop({ samples: 70, base: 600, sx: 1.05, sy: 1.1, rot: 0.4, radiusFn: (t) => 1 + 0.2 * Math.sin(t * 4) + 0.07 * Math.cos(t * 2) }),
     },
     {
-      id: "mudpit", name: "Mud Pit", laps: 5, width: 170, difficulty: 4,
-      ramps: [0.25, 0.6],
-      points: loop({ samples: 70, base: 540, sx: 1.25, sy: 1.05, rot: 0.6,
-        radiusFn: (t) => 1 + 0.22 * Math.sin(t * 4) + 0.08 * Math.cos(t * 2) }),
+      id: "thunder", name: "Thunder Valley", home: "atrain",
+      laps: 5, width: 215, difficulty: 3, feature: "Big track, long straights",
+      theme: { ground: "#2e6b46", groundDark: "#24563a", dirt: "#b9925e", dirtDark: "#6e4a28", rut: "#8a6838" },
+      ramps: [0.22, 0.74], mud: [],
+      points: loop({ samples: 76, base: 820, sx: 1.4, sy: 0.95, rot: 0.1, radiusFn: (t) => 1 + 0.07 * Math.sin(t * 3) }),
     },
     {
-      id: "thunder", name: "Thunder Ridge", laps: 5, width: 200, difficulty: 5,
-      ramps: [0.15, 0.45, 0.72, 0.9],
-      points: loop({ samples: 72, base: 780, sx: 1.35, sy: 0.95, rot: 0.15,
-        radiusFn: (t) => 1 + 0.12 * Math.sin(t * 5) + 0.06 * Math.cos(t * 3) }),
+      id: "gravel", name: "Gravel Pit", home: "olddog",
+      laps: 5, width: 170, difficulty: 4, feature: "Twisty old-school",
+      theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
+      ramps: [0.6], mud: [0.28, 0.66, 0.9],
+      points: loop({ samples: 74, base: 560, sx: 1.25, sy: 1.05, rot: 0.6, radiusFn: (t) => 1 + 0.22 * Math.sin(t * 5) + 0.08 * Math.cos(t * 3) }),
+    },
+    {
+      id: "lab", name: "Test Loop", home: "drg",
+      laps: 4, width: 185, difficulty: 5, feature: "Precision chicanes",
+      theme: { ground: "#2e6b3a", groundDark: "#24562f", dirt: "#8f9a8a", dirtDark: "#4a544a", rut: "#6a746a" },
+      ramps: [0.45, 0.9], mud: [],
+      points: loop({ samples: 80, base: 700, sx: 1.2, sy: 1.0, rot: 0.15, radiusFn: (t) => 1 + 0.14 * Math.sin(t * 6) + 0.05 * Math.cos(t * 2) }),
     },
   ];
 
+  // small top-down preview for the track-select cards
+  function makeTrackPreview(id, px) {
+    const t = TRACKS.find((x) => x.id === id) || TRACKS[0];
+    const S = 2, cv = document.createElement("canvas");
+    cv.width = px * S; cv.height = px * S;
+    cv.style.width = px + "px"; cv.style.height = px + "px";
+    const g = cv.getContext("2d");
+    g.fillStyle = t.theme.ground; g.fillRect(0, 0, px * S, px * S);
+    // fit the loop into the canvas
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of t.points) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }
+    const pad = t.width, bw = maxX - minX + pad * 2, bh = maxY - minY + pad * 2;
+    const sc = Math.min((px * S) / bw, (px * S) / bh);
+    g.translate((px * S - bw * sc) / 2 - (minX - pad) * sc, (px * S - bh * sc) / 2 - (minY - pad) * sc);
+    g.scale(sc, sc);
+    const path = new Path2D();
+    path.moveTo(t.points[0].x, t.points[0].y);
+    for (let i = 1; i < t.points.length; i++) path.lineTo(t.points[i].x, t.points[i].y);
+    path.closePath();
+    g.lineJoin = g.lineCap = "round";
+    g.strokeStyle = t.theme.dirtDark; g.lineWidth = t.width + 14; g.stroke(path);
+    g.strokeStyle = t.theme.dirt; g.lineWidth = t.width; g.stroke(path);
+    return cv;
+  }
+
   window.TRACKS = TRACKS;
   window.getTrack = (id) => TRACKS.find((t) => t.id === id) || TRACKS[0];
+  window.makeTrackPreview = makeTrackPreview;
 })();
 
 </script>
@@ -860,7 +909,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   function freshSeason() {
     const order = window.TRACKS.map((t) => t.id);
     const standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
-    return { raceIndex: 0, order, standings, done: false, season: 1 };
+    return { order, completed: [], selected: order[0], standings, done: false, season: 1 };
   }
 
   function freshTraining() {
@@ -902,6 +951,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           // migration / safety
           const s = this.state;
           if (!s.season || !s.season.order) s.season = freshSeason();
+          if (!s.season.completed) s.season.completed = [];
+          if (!s.season.selected) s.season.selected = s.season.order.find((id) => !s.season.completed.includes(id)) || s.season.order[0];
           if (!s.graphics) s.graphics = "enhanced";
           if (!s.records) s.records = {};
           if (!s.driver) s.driver = window.CHARACTERS[0].id;
@@ -935,11 +986,27 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     currentTrack() {
       const s = this.state.season;
-      return window.getTrack(s.order[Math.min(s.raceIndex, s.order.length - 1)]);
+      const id = s.selected || s.order.find((t) => !s.completed.includes(t)) || s.order[0];
+      return window.getTrack(id);
     },
     raceLabel() {
       const s = this.state.season;
-      return `Race ${s.raceIndex + 1} / ${s.order.length}`;
+      return `Race ${s.completed.length + 1} / ${s.order.length}`;
+    },
+
+    // ---- track selection ----
+    trackList() {
+      const s = this.state.season;
+      return s.order.map((id) => ({
+        track: window.getTrack(id),
+        completed: s.completed.includes(id),
+        selected: id === s.selected,
+      }));
+    },
+    selectTrack(id) {
+      const s = this.state.season;
+      if (!s.order.includes(id) || s.completed.includes(id)) return false;
+      s.selected = id; this.save(); return true;
     },
 
     // ---- graphics ----
@@ -1054,27 +1121,30 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     aiStrength() {
       const s = this.state.season;
-      return 0.93 + 0.022 * s.raceIndex + 0.025 * ((s.season || 1) - 1);
+      return 0.93 + 0.022 * (s.completed ? s.completed.length : 0) + 0.025 * ((s.season || 1) - 1);
     },
 
     // Build the 6-car grid: the player's driver+truck, plus the other five
-    // drivers each paired with one of the other trucks.
-    buildRoster() {
+    // drivers each paired with one of the other trucks. The track's home driver
+    // gets a small boost on their home turf.
+    buildRoster(trackId) {
       const playerDriver = this.state.driver, playerVeh = this.state.vehicle;
       const drivers = [window.getCharacter(playerDriver)].concat(window.CHARACTERS.filter((c) => c.id !== playerDriver));
       const trucks = [window.getVehicle(playerVeh)].concat(window.VEHICLES.filter((v) => v.id !== playerVeh));
       const aiS = this.aiStrength();
+      const home = trackId ? (window.getTrack(trackId).home) : null;
       return drivers.map((ch, i) => {
         const truck = trucks[i] || trucks[0];
         const isPlayer = ch.id === playerDriver;
         const t = this.performanceFor(truck.id);
         const d = this.driverFactors(ch.id);
         const sp = isPlayer ? 1 : aiS;
+        const homeBoost = ch.id === home ? 1.06 : 1; // home-track advantage
         const perf = {
-          maxSpeed: t.maxSpeed * d.maxSpeed * sp,
-          accel: t.accel * d.accel * sp,
+          maxSpeed: t.maxSpeed * d.maxSpeed * sp * homeBoost,
+          accel: t.accel * d.accel * sp * homeBoost,
           turn: t.turn * d.turn,
-          grip: t.grip * d.grip,
+          grip: t.grip * d.grip * (ch.id === home ? 1.04 : 1),
           offroad: t.offroad,
           nitroPower: t.nitroPower * d.nitroPower,
           nitroRefill: t.nitroRefill * d.nitroRefill,
@@ -1095,8 +1165,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       });
       const prize = PRIZE[playerPos] || 100;
       this.state.money += prize;
-      s.raceIndex++;
-      if (s.raceIndex >= s.order.length) s.done = true;
+      if (!s.completed.includes(s.selected)) s.completed.push(s.selected);
+      s.selected = s.order.find((id) => !s.completed.includes(id)) || null;
+      if (s.completed.length >= s.order.length) s.done = true;
       this.save();
       return { playerPos, prize };
     },
@@ -1624,7 +1695,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       // grass background
-      ctx.fillStyle = "#3f6b2e";
+      ctx.fillStyle = (this.track.theme && this.track.theme.ground) || "#3f6b2e";
       ctx.fillRect(0, 0, W, H);
       this._grassTexture(ctx, W, H, zoom);
 
@@ -1665,18 +1736,19 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       for (let i = 1; i < pts.length; i++) path.lineTo(pts[i].x, pts[i].y);
       path.closePath();
 
+      const th = this.track.theme || { dirt: "#b07a45", dirtDark: "#5a3c20", rut: "rgba(107,74,41,0.5)" };
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       // dark edge
-      ctx.strokeStyle = "#5a3c20";
+      ctx.strokeStyle = th.dirtDark;
       ctx.lineWidth = this.track.width + 16;
       ctx.stroke(path);
       // dirt
-      ctx.strokeStyle = "#b07a45";
+      ctx.strokeStyle = th.dirt;
       ctx.lineWidth = this.track.width;
       ctx.stroke(path);
       // centre rut hint
-      ctx.strokeStyle = "rgba(107,74,41,0.5)";
+      ctx.strokeStyle = th.rut;
       ctx.lineWidth = 6;
       ctx.setLineDash([18, 26]);
       ctx.stroke(path);
@@ -1926,36 +1998,32 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     return `rgb(${r},${gg},${b})`;
   }
 
-  // ---- tileable dirt texture ----
-  let dirtTile = null;
-  function getDirtTile() {
-    if (dirtTile) return dirtTile;
-    const s = 128;
-    const cv = document.createElement("canvas"); cv.width = cv.height = s;
+  // ---- tileable textures (cached per colour so each track theme differs) ----
+  const dirtTiles = {}, grassTiles = {};
+  function getDirtTile(color) {
+    if (dirtTiles[color]) return dirtTiles[color];
+    const s = 128, cv = document.createElement("canvas"); cv.width = cv.height = s;
     const g = cv.getContext("2d");
-    g.fillStyle = "#b07a45"; g.fillRect(0, 0, s, s);
+    g.fillStyle = color; g.fillRect(0, 0, s, s);
     for (let i = 0; i < 900; i++) {
       const x = Math.random() * s, y = Math.random() * s;
-      const v = Math.random();
-      g.fillStyle = v < 0.5 ? "rgba(90,60,30," + (0.04 + Math.random() * 0.1) + ")"
-                            : "rgba(210,170,120," + (0.04 + Math.random() * 0.1) + ")";
+      g.fillStyle = Math.random() < 0.5 ? "rgba(0,0,0," + (0.04 + Math.random() * 0.1) + ")"
+                                        : "rgba(255,255,255," + (0.03 + Math.random() * 0.07) + ")";
       g.fillRect(x, y, 1 + Math.random() * 2, 1 + Math.random() * 2);
     }
-    dirtTile = cv; return cv;
+    dirtTiles[color] = cv; return cv;
   }
-  let grassTile = null;
-  function getGrassTile() {
-    if (grassTile) return grassTile;
-    const s = 128;
-    const cv = document.createElement("canvas"); cv.width = cv.height = s;
+  function getGrassTile(color) {
+    if (grassTiles[color]) return grassTiles[color];
+    const s = 128, cv = document.createElement("canvas"); cv.width = cv.height = s;
     const g = cv.getContext("2d");
-    g.fillStyle = "#3f6b2e"; g.fillRect(0, 0, s, s);
+    g.fillStyle = color; g.fillRect(0, 0, s, s);
     for (let i = 0; i < 700; i++) {
       const x = Math.random() * s, y = Math.random() * s;
-      g.fillStyle = Math.random() < 0.5 ? "rgba(40,70,25,0.5)" : "rgba(90,140,60,0.4)";
+      g.fillStyle = Math.random() < 0.5 ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.10)";
       g.fillRect(x, y, 1, 2 + Math.random() * 3);
     }
-    grassTile = cv; return cv;
+    grassTiles[color] = cv; return cv;
   }
 
   class Car {
@@ -2029,6 +2097,11 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         const p = pointAtProgress(this.pts, prog);
         const tan = tangentAtProgress(this.pts, prog);
         return { prog, x: p.x, y: p.y, tan, half: this.track.width * 0.5 };
+      });
+      // mud / rough patches that slow you down
+      this.mud = (this.track.mud || []).map((frac) => {
+        const p = pointAtProgress(this.pts, frac * this.N);
+        return { x: p.x, y: p.y, r: this.track.width * 0.42 };
       });
     }
 
@@ -2157,6 +2230,14 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       }
       const offFactor = car._offTrack && onGround ? s.offroad : 1;
       maxSpeed *= offFactor;
+
+      // mud / rough patches slow everyone down
+      car._inMud = false;
+      if (this.mud) for (const m of this.mud) {
+        const dx = car.x - m.x, dy = car.y - m.y;
+        if (dx * dx + dy * dy < m.r * m.r) { car._inMud = true; break; }
+      }
+      if (car._inMud && onGround) maxSpeed *= 0.6;
 
       if (onGround) {
         const th = ctrl.throttle || 0; // analog: stick position sets target speed
@@ -2406,9 +2487,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const sx = this.shake ? rand(-this.shake, this.shake) : 0;
       const sy = this.shake ? rand(-this.shake, this.shake) : 0;
 
+      const theme = this.track.theme || { ground: "#3f6b2e" };
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      // grass
-      ctx.fillStyle = ctx.createPattern ? ctx.createPattern(getGrassTile(), "repeat") : "#3f6b2e";
+      // off-track ground (themed)
+      ctx.fillStyle = ctx.createPattern ? ctx.createPattern(getGrassTile(theme.ground), "repeat") : theme.ground;
       ctx.fillRect(0, 0, W, H);
 
       ctx.save();
@@ -2420,6 +2502,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       // skid decals
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(this.decal, this.bbox.minX, this.bbox.minY, this.bbox.w, this.bbox.h);
+      this._drawMud(ctx);
       this._drawRamps(ctx);
       this._drawStartLine(ctx);
       this._drawParticles(ctx, false); // ground dust under cars
@@ -2440,20 +2523,32 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       path.moveTo(pts[0].x, pts[0].y);
       for (let i = 1; i < pts.length; i++) path.lineTo(pts[i].x, pts[i].y);
       path.closePath();
+      const th = this.track.theme || { dirt: "#b07a45", dirtDark: "#5a3c20", rut: "#6b4a29" };
       ctx.lineJoin = "round"; ctx.lineCap = "round";
       // berm / shadow
-      ctx.strokeStyle = "rgba(40,26,12,0.9)";
+      ctx.strokeStyle = "rgba(0,0,0,0.45)";
       ctx.lineWidth = this.track.width + 22; ctx.stroke(path);
-      // light dirt rim
-      ctx.strokeStyle = "#7a5230";
+      // dark dirt rim
+      ctx.strokeStyle = th.dirtDark;
       ctx.lineWidth = this.track.width + 6; ctx.stroke(path);
-      // dirt surface (textured)
-      const pat = ctx.createPattern(getDirtTile(), "repeat");
-      ctx.strokeStyle = pat || "#b07a45";
+      // dirt surface (textured, themed)
+      const pat = ctx.createPattern(getDirtTile(th.dirt), "repeat");
+      ctx.strokeStyle = pat || th.dirt;
       ctx.lineWidth = this.track.width; ctx.stroke(path);
       // centre ruts
-      ctx.strokeStyle = "rgba(90,60,30,0.55)";
+      ctx.strokeStyle = th.rut;
+      ctx.globalAlpha = 0.5;
       ctx.lineWidth = 5; ctx.setLineDash([22, 30]); ctx.stroke(path); ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+
+    _drawMud(ctx) {
+      for (const m of (this.mud || [])) {
+        ctx.fillStyle = "rgba(35,22,10,0.55)";
+        ctx.beginPath(); ctx.ellipse(m.x, m.y, m.r, m.r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(70,50,25,0.5)";
+        ctx.beginPath(); ctx.ellipse(m.x, m.y, m.r * 0.7, m.r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+      }
     }
 
     _drawRamps(ctx) {
@@ -2594,6 +2689,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     howto: $("#screen-howto"),
     driver: $("#screen-driver"),
     vehicle: $("#screen-vehicle"),
+    track: $("#screen-track"),
     pause: $("#screen-pause"),
   };
   const overlay = $("#overlay");
@@ -2663,10 +2759,17 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     const recTxt = (rec.lap != null || rec.race != null)
       ? `🏁 Best lap ${fmtLap(rec.lap)} &nbsp;•&nbsp; 🏆 Best race ${fmtTime(rec.race)}`
       : "No records yet — set one!";
-    $("#next-race").innerHTML = `
-      <div class="rname">${track.name}</div>
-      <div class="meta">${Career.raceLabel()} • ${track.laps} laps • Difficulty ${stars}</div>
+    const homeCh = window.getCharacter(track.home);
+    const nr = $("#next-race");
+    nr.innerHTML = "";
+    nr.appendChild(window.makeTrackPreview(track.id, 84));
+    const meta = document.createElement("div");
+    meta.className = "nr-meta";
+    meta.innerHTML = `<div class="rname">${track.name}</div>
+      <div class="meta">${Career.raceLabel()} • ${track.laps} laps • ${stars}</div>
+      <div class="meta">⚑ ${track.feature} • 🏠 ${homeCh.name}'s home</div>
       <div class="meta records">${recTxt}</div>`;
+    nr.appendChild(meta);
 
     renderVehiclePanel();
 
@@ -2756,11 +2859,21 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   }
 
   function renderStandings(table, rows) {
+    // current driver->truck pairing, so each driver shows the truck they race
+    const pairing = {};
+    Career.buildRoster(Career.currentTrack().id).forEach((r) => (pairing[r.characterId] = r.vehicleId));
     table.innerHTML = "";
     rows.forEach((r, i) => {
       const tr = document.createElement("tr");
       if (r.you) tr.className = "you";
-      tr.innerHTML = `<td>${i + 1}</td><td>${r.name}</td><td>${r.points} pts</td>`;
+      const td0 = document.createElement("td"); td0.textContent = i + 1;
+      const td1 = document.createElement("td"); td1.className = "name-cell";
+      const vid = pairing[r.characterId];
+      if (vid) td1.appendChild(window.makeVehiclePortrait(vid, 22));
+      const nm = document.createElement("span"); nm.textContent = r.name + (r.you ? " (You)" : "");
+      td1.appendChild(nm);
+      const td2 = document.createElement("td"); td2.textContent = r.points + " pts";
+      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
       table.appendChild(tr);
     });
   }
@@ -2854,6 +2967,45 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   $("#btn-vehicle-confirm").onclick = () => { Career.setVehicle(vehiclePick); openGarage(); };
   $("#btn-change-vehicle").onclick = () => openVehicleSelect();
 
+  // ---------------- Track select ----------------
+  let trackPick = null;
+
+  function openTrackSelect() {
+    trackPick = Career.currentTrack().id;
+    const grid = $("#track-grid");
+    grid.innerHTML = "";
+    Career.trackList().forEach(({ track, completed }) => {
+      const card = document.createElement("div");
+      card.className = "dcard" + (track.id === trackPick ? " sel" : "") + (completed ? " done" : "");
+      card.dataset.id = track.id;
+      card.appendChild(window.makeTrackPreview(track.id, 96));
+      const nm = document.createElement("div"); nm.className = "dc-name"; nm.textContent = track.name;
+      const tg = document.createElement("div"); tg.className = "dc-tag";
+      tg.textContent = completed ? "✓ Completed" : track.feature;
+      card.appendChild(nm); card.appendChild(tg);
+      if (!completed) card.onclick = () => selectTrackCard(track.id);
+      grid.appendChild(card);
+    });
+    renderTrackDetail();
+    show("track");
+  }
+  function selectTrackCard(id) {
+    trackPick = id;
+    $$("#track-grid .dcard").forEach((c) => c.classList.toggle("sel", c.dataset.id === id));
+    renderTrackDetail();
+  }
+  function renderTrackDetail() {
+    const t = window.getTrack(trackPick);
+    const home = window.getCharacter(t.home);
+    const stars = "★".repeat(t.difficulty) + "☆".repeat(5 - t.difficulty);
+    $("#track-detail").innerHTML =
+      `<div class="dd-bio">${t.name} — ${t.feature}</div>
+       <div style="margin-top:6px">${t.laps} laps • Difficulty ${stars} • 🏠 ${home.name}'s home track</div>`;
+  }
+  $("#btn-choose-track").onclick = openTrackSelect;
+  $("#btn-track-confirm").onclick = () => { Career.selectTrack(trackPick); openGarage(); };
+  $("#btn-track-back").onclick = openGarage;
+
   // ---------------- Race ----------------
   function startRace() {
     const track = Career.currentTrack();
@@ -2868,10 +3020,15 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     $("#hud-laptime").textContent = "0:00.0";
     $("#lapflash").classList.add("hidden");
 
+    // player's truck icon on the HUD
+    const ic = $("#hud-truck");
+    ic.innerHTML = "";
+    ic.appendChild(window.makeVehiclePortrait(Career.vehicleId(), 34));
+
     const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
     race = new Engine(canvas, {
       track,
-      roster: Career.buildRoster(),
+      roster: Career.buildRoster(track.id),
       onUpdate: updateHud,
       onFinish: onRaceFinish,
     });
@@ -2938,9 +3095,13 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const name = (car.name || "Rival") + (car.isPlayer ? " (You)" : "");
       const tr = document.createElement("tr");
       if (car.isPlayer) tr.className = "you";
-      tr.innerHTML = `<td class="pos">${ordinal(idx + 1)}</td>
-        <td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${car.color};margin-right:8px;vertical-align:middle"></span>${name}</td>
-        <td style="text-align:right">${Career.POINTS[idx] || 0} pts</td>`;
+      const td0 = document.createElement("td"); td0.className = "pos"; td0.textContent = ordinal(idx + 1);
+      const td1 = document.createElement("td"); td1.className = "name-cell";
+      if (car.vehicleId) td1.appendChild(window.makeVehiclePortrait(car.vehicleId, 24));
+      const nm = document.createElement("span"); nm.textContent = name;
+      td1.appendChild(nm);
+      const td2 = document.createElement("td"); td2.style.textAlign = "right"; td2.textContent = (Career.POINTS[idx] || 0) + " pts";
+      tr.appendChild(td0); tr.appendChild(td1); tr.appendChild(td2);
       table.appendChild(tr);
     });
 

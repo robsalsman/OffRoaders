@@ -396,7 +396,7 @@
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       // grass background
-      ctx.fillStyle = "#3f6b2e";
+      ctx.fillStyle = (this.track.theme && this.track.theme.ground) || "#3f6b2e";
       ctx.fillRect(0, 0, W, H);
       this._grassTexture(ctx, W, H, zoom);
 
@@ -437,18 +437,19 @@
       for (let i = 1; i < pts.length; i++) path.lineTo(pts[i].x, pts[i].y);
       path.closePath();
 
+      const th = this.track.theme || { dirt: "#b07a45", dirtDark: "#5a3c20", rut: "rgba(107,74,41,0.5)" };
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       // dark edge
-      ctx.strokeStyle = "#5a3c20";
+      ctx.strokeStyle = th.dirtDark;
       ctx.lineWidth = this.track.width + 16;
       ctx.stroke(path);
       // dirt
-      ctx.strokeStyle = "#b07a45";
+      ctx.strokeStyle = th.dirt;
       ctx.lineWidth = this.track.width;
       ctx.stroke(path);
       // centre rut hint
-      ctx.strokeStyle = "rgba(107,74,41,0.5)";
+      ctx.strokeStyle = th.rut;
       ctx.lineWidth = 6;
       ctx.setLineDash([18, 26]);
       ctx.stroke(path);
