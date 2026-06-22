@@ -7,6 +7,25 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   function angWrap(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }
 
+  function uiBands(H, dpr, touch) {
+    let top = H * 0.12, bot = touch ? H * 0.28 : H * 0.05;
+    try {
+      const bar = document.getElementById("hud-bar");
+      if (bar) { const r = bar.getBoundingClientRect(); if (r.height) top = (r.bottom + 6) * dpr; }
+      if (touch) {
+        let minTop = Infinity;
+        for (const id of ["stick-base", "btn-nitro"]) {
+          const e = document.getElementById(id);
+          if (e) { const r = e.getBoundingClientRect(); if (r.height) minTop = Math.min(minTop, r.top); }
+        }
+        if (isFinite(minTop)) bot = H - (minTop - 6) * dpr;
+      }
+    } catch (e) { /* keep fallback */ }
+    top = Math.max(0, Math.min(top, H * 0.42));
+    bot = Math.max(0, Math.min(bot, H * 0.5));
+    return { top, bot };
+  }
+
   // Closest point on a closed polyline. Returns {dist, progress} where progress
   // is segIndex + t (0..N), used for lap counting and race position.
   function closestOnLoop(pts, px, py) {
@@ -426,10 +445,9 @@
         this._bounds = { w: (maxX - minX) + pad * 2, h: (maxY - minY) + pad * 2, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
       }
       const b = this._bounds;
-      // fit into the clear band between the HUD and controls; desktop has no
-      // on-screen controls, so use nearly the whole height.
-      const touchUI = this.cfg.touch;
-      const topUI = H * (touchUI ? 0.11 : 0.07), botUI = H * (touchUI ? 0.30 : 0.05);
+      // fit the track strictly between the measured HUD bar and the controls
+      const bands = uiBands(H, this.dpr, this.cfg.touch);
+      const topUI = bands.top, botUI = bands.bot;
       const availH = H - topUI - botUI;
       const zoom = Math.min(W / (b.w * 1.0), availH / (b.h * 1.0));
       this._zoom = zoom;

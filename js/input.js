@@ -66,7 +66,6 @@
     window.addEventListener("keyup", (e) => { if (map[e.code]) { kb[map[e.code]] = false; e.preventDefault(); } });
     bindPad();
     bindButton("btn-nitro", (v) => { btn.nitro = v; });
-    bindButton("btn-brake", (v) => { btn.brake = v; });
   };
 
   // permanent directional joystick: origin is the centre of the fixed pad

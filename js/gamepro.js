@@ -13,6 +13,27 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   function angWrap(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }
 
+  // Measure the on-screen HUD bar and controls (device px) so the track is fitted
+  // strictly between them and never overlaps. Falls back to fractions if unmeasured.
+  function uiBands(H, dpr, touch) {
+    let top = H * 0.12, bot = touch ? H * 0.28 : H * 0.05;
+    try {
+      const bar = document.getElementById("hud-bar");
+      if (bar) { const r = bar.getBoundingClientRect(); if (r.height) top = (r.bottom + 6) * dpr; }
+      if (touch) {
+        let minTop = Infinity;
+        for (const id of ["stick-base", "btn-nitro"]) {
+          const e = document.getElementById(id);
+          if (e) { const r = e.getBoundingClientRect(); if (r.height) minTop = Math.min(minTop, r.top); }
+        }
+        if (isFinite(minTop)) bot = H - (minTop - 6) * dpr;
+      }
+    } catch (e) { /* keep fallback */ }
+    top = Math.max(0, Math.min(top, H * 0.42));
+    bot = Math.max(0, Math.min(bot, H * 0.5));
+    return { top, bot };
+  }
+
   function closestOnLoop(pts, px, py) {
     const N = pts.length;
     let best = Infinity, bestProg = 0;
@@ -1037,8 +1058,8 @@
       const b = this.bbox;
       // Arcade layout: upper area is the "monitor", lower third the controls.
       // Fill the play area aggressively (don't waste space around the track).
-      const touchUI = this.cfg.touch;
-      const topUI = H * (touchUI ? 0.11 : 0.07), botUI = H * (touchUI ? 0.30 : 0.05);
+      const bands = uiBands(H, this.dpr, this.cfg.touch);
+      const topUI = bands.top, botUI = bands.bot;
       const availH = H - topUI - botUI;
       const zoom = Math.min(W / (b.w * 1.0), availH / (b.h * 1.0));
       this._zoom = zoom;
@@ -1112,7 +1133,7 @@
       ctx.save();
       ctx.translate(car.x, car.y - lift);
       ctx.rotate(car.angle + car.wobble * Math.sin(this.time * 30) * 0.04);
-      const mul = car.isPlayer ? 1.6 : 1.4;
+      const mul = car.isPlayer ? 2.05 : 1.85;
       const w = CAR_W * scale * mul, h = CAR_H * scale * mul;
       ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
       ctx.restore();

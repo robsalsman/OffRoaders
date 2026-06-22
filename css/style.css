@@ -31,47 +31,44 @@ html, body {
 
 /* ---------- HUD ---------- */
 #hud { position: absolute; inset: 0; pointer-events: none; }
-.hud-top {
-  position: absolute; top: env(safe-area-inset-top, 8px); left: 0; right: 0;
-  display: flex; gap: 8px; justify-content: center; padding: 8px;
+
+/* solid top HUD bar — the track is fitted strictly below it (no overlap) */
+#hud-bar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+  padding: calc(env(safe-area-inset-top, 6px) + 6px) 10px 8px;
+  background: linear-gradient(180deg, rgba(12,9,7,.92), rgba(12,9,7,.78));
+  border-bottom: 2px solid rgba(255,180,58,.35);
+  display: flex; flex-direction: column; gap: 6px; align-items: center;
 }
+.hud-row1 { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.hud-row2 { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; }
 .hud-box {
-  background: rgba(20,14,10,.62); border: 1px solid rgba(255,180,58,.35);
-  border-radius: 10px; padding: 4px 12px; min-width: 70px; text-align: center;
+  background: rgba(40,28,18,.7); border: 1px solid rgba(255,180,58,.35);
+  border-radius: 10px; padding: 3px 12px; min-width: 64px; text-align: center;
   display: flex; flex-direction: column; line-height: 1.05;
-  font-weight: bold; font-size: 20px; backdrop-filter: blur(2px);
+  font-weight: bold; font-size: 19px;
 }
 .hud-label { font-size: 10px; letter-spacing: 1px; color: var(--accent); font-weight: bold; }
-.hud-laprow {
-  position: absolute; top: calc(env(safe-area-inset-top, 8px) + 58px); left: 0; right: 0;
-  display: flex; gap: 14px; justify-content: center; align-items: center;
-  font-weight: bold; font-size: 15px; pointer-events: none;
-}
-.hud-laprow span { background: rgba(20,14,10,.55); border-radius: 8px; padding: 2px 10px; }
-.laprow-cur { color: var(--text); }
-.laprow-best { color: var(--accent); font-size: 13px; }
+.laprow-cur { color: var(--text); font-weight: bold; font-size: 14px; }
+.laprow-best { color: var(--accent); font-weight: bold; font-size: 13px; }
 .lapflash {
-  position: absolute; top: 30%; left: 0; right: 0; text-align: center;
-  font-size: clamp(20px, 6vw, 34px); font-weight: 900; pointer-events: none;
+  position: absolute; top: 16%; left: 0; right: 0; text-align: center;
+  font-size: clamp(20px, 6vw, 34px); font-weight: 900; pointer-events: none; z-index: 6;
   color: var(--accent); text-shadow: 0 2px 0 var(--accent-2), 0 4px 14px rgba(0,0,0,.7);
   transition: opacity .3s; opacity: 1;
 }
 .lapflash.record { color: #6fe06f; text-shadow: 0 2px 0 #2a8a2a, 0 4px 14px rgba(0,0,0,.7); }
 
-.hud-bottom {
-  position: absolute; left: 10px; top: 104px; display: flex; flex-direction: column; gap: 6px;
-}
 .meter { display: flex; align-items: center; gap: 6px; }
-.meter .hud-label { width: 44px; text-align: right; }
+.meter .hud-label { width: 40px; text-align: right; }
 .meter-bar {
-  width: 130px; height: 12px; background: rgba(0,0,0,.45);
+  width: 96px; height: 11px; background: rgba(0,0,0,.5);
   border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,.15);
 }
 .meter-fill { height: 100%; width: 50%; background: linear-gradient(90deg,#2fd0ff,#0a8); transition: width .08s linear; }
 .meter-fill.speed { background: linear-gradient(90deg,var(--accent),var(--accent-2)); }
 
-.hud-truck { position: absolute; left: 12px; top: 150px; }
-.hud-truck canvas { border-radius: 8px; border: 1px solid rgba(255,255,255,.25); box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.hud-truck canvas { border-radius: 7px; border: 1px solid rgba(255,255,255,.25); display: block; }
 
 .name-cell { display: flex; align-items: center; gap: 8px; }
 .name-cell canvas { border-radius: 5px; flex: 0 0 auto; }
@@ -100,7 +97,7 @@ html, body {
 }
 /* permanent, always-visible d-pad anchored bottom-right */
 .stick-base {
-  position: fixed; right: 70px; bottom: 96px;
+  position: fixed; right: 70px; bottom: 90px;
   width: 156px; height: 156px; border-radius: 50%;
   border: 2px solid rgba(255,255,255,.32);
   background: radial-gradient(circle, rgba(20,14,10,.42), rgba(20,14,10,.62));
@@ -123,15 +120,13 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,.4);
 }
 .drive-btn {
-  position: absolute; left: 22px; pointer-events: auto; touch-action: none;
-  border-radius: 50%; border: 2px solid rgba(255,255,255,.45);
+  position: fixed; left: 30px; pointer-events: auto; touch-action: none;
+  border-radius: 50%; border: 2px solid rgba(255,255,255,.5);
   color: var(--text); font-weight: bold; letter-spacing: 1px;
   cursor: pointer; transition: transform .06s, filter .06s;
 }
-.drive-btn.nitro { bottom: 40px; width: 104px; height: 104px; font-size: 17px;
-  background: radial-gradient(circle at 40% 35%, rgba(80,225,255,.5), rgba(47,160,255,.4)); }
-.drive-btn.brake { bottom: 156px; width: 78px; height: 78px; font-size: 13px;
-  background: radial-gradient(circle at 40% 35%, rgba(255,120,90,.45), rgba(220,60,60,.38)); }
+.drive-btn.nitro { bottom: 96px; width: 124px; height: 124px; font-size: 19px;
+  background: radial-gradient(circle at 40% 35%, rgba(80,225,255,.55), rgba(47,160,255,.45)); }
 .drive-btn.pressed { transform: scale(.93); filter: brightness(1.4); }
 
 /* ---------- Overlay / screens ---------- */
