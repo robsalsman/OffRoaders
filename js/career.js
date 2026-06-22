@@ -274,7 +274,7 @@
     },
 
     // finishOrder: array of {isPlayer, characterId} in finishing order
-    recordResult(finishOrder) {
+    recordResult(finishOrder, bonus = 0) {
       const s = this.state.season;
       let playerPos = finishOrder.findIndex((c) => c.isPlayer);
       if (playerPos < 0) playerPos = finishOrder.length - 1;
@@ -283,12 +283,13 @@
         if (st) st.points += POINTS[idx] || 0;
       });
       const prize = PRIZE[playerPos] || 100;
-      this.state.money += prize;
+      bonus = Math.max(0, Math.round(bonus));
+      this.state.money += prize + bonus;
       if (!s.completed.includes(s.selected)) s.completed.push(s.selected);
       s.selected = s.order.find((id) => !s.completed.includes(id)) || null;
       if (s.completed.length >= s.order.length) s.done = true;
       this.save();
-      return { playerPos, prize };
+      return { playerPos, prize, bonus };
     },
 
     sortedStandings() {

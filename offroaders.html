@@ -475,7 +475,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       id: "mesa", name: "Blazing Mesa", home: "hotrod",
       laps: 4, width: 200, difficulty: 2, feature: "Fast flowing sweepers",
       theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
-      ramps: [0.12, 0.55, 0.82], mud: [],
+      ramps: [0.12, 0.55, 0.82], mud: [], whoops: [0.68],
       points: spline(W([
         [-120, -760], [380, -700], [620, -380], [430, -120], [690, 120],
         [640, 470], [300, 720], [-180, 770], [-560, 600], [-680, 220],
@@ -499,15 +499,15 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       id: "canyon", name: "Dust Canyon", home: "west",
       laps: 4, width: 160, difficulty: 4, feature: "Tight & technical",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
-      ramps: [0.4, 0.88], mud: [0.18, 0.62],
+      ramps: [0.4, 0.88], mud: [0.18, 0.62], surface: "mud", whoops: [0.52],
       points: wave(560, 92, (t) => 1 + 0.26 * Math.sin(t * 5) + 0.05 * Math.cos(t * 3), 1.05, 1.16, 0.2),
     },
     {
       // huge rounded rectangle — long straights, wide power turns
       id: "thunder", name: "Thunder Valley", home: "atrain",
-      laps: 5, width: 210, difficulty: 3, feature: "Big track, long straights",
+      laps: 5, width: 210, difficulty: 3, feature: "Big track, water hazards",
       theme: { ground: "#2e6b46", groundDark: "#24563a", dirt: "#b9925e", dirtDark: "#6e4a28", rut: "#8a6838" },
-      ramps: [0.18, 0.5, 0.82], mud: [],
+      ramps: [0.18, 0.5, 0.82], mud: [0.36, 0.72], surface: "water", whoops: [0.12, 0.62],
       points: spline(W([
         [-560, -780], [560, -780], [760, -560], [760, 560], [560, 780],
         [-560, 780], [-760, 560], [-760, -560],
@@ -516,9 +516,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     {
       // twisty old-school — 4 wide scallops, stretched
       id: "gravel", name: "Gravel Pit", home: "olddog",
-      laps: 5, width: 165, difficulty: 4, feature: "Twisty scallops",
+      laps: 5, width: 165, difficulty: 4, feature: "Twisty, sandy",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
-      ramps: [0.5], mud: [0.3, 0.7, 0.92],
+      ramps: [0.5], mud: [0.3, 0.7, 0.92], surface: "sand",
       points: wave(560, 90, (t) => 1 + 0.24 * Math.sin(t * 4) + 0.06 * Math.sin(t * 2), 1.2, 0.95, 0.5),
     },
     {
@@ -1208,7 +1208,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     },
 
     // finishOrder: array of {isPlayer, characterId} in finishing order
-    recordResult(finishOrder) {
+    recordResult(finishOrder, bonus = 0) {
       const s = this.state.season;
       let playerPos = finishOrder.findIndex((c) => c.isPlayer);
       if (playerPos < 0) playerPos = finishOrder.length - 1;
@@ -1217,12 +1217,13 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         if (st) st.points += POINTS[idx] || 0;
       });
       const prize = PRIZE[playerPos] || 100;
-      this.state.money += prize;
+      bonus = Math.max(0, Math.round(bonus));
+      this.state.money += prize + bonus;
       if (!s.completed.includes(s.selected)) s.completed.push(s.selected);
       s.selected = s.order.find((id) => !s.completed.includes(id)) || null;
       if (s.completed.length >= s.order.length) s.done = true;
       this.save();
-      return { playerPos, prize };
+      return { playerPos, prize, bonus };
     },
 
     sortedStandings() {
@@ -2151,11 +2152,14 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this.input = { left: false, right: false, gas: false, brake: false, nitro: false, drift: false };
       this._bound = {};
       this.particles = [];
+      this.floats = [];        // floating "+$" pickup texts
+      this.cashCollected = 0;  // bonus cash from $ pickups this race
       this.shake = 0;
 
       this._computeBBox();
       this._buildDecal();
       this._buildRamps();
+      this._buildPickups();
       this._buildScene();
       this._buildCars();
       this._resize();
@@ -2190,11 +2194,36 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         const tan = tangentAtProgress(this.pts, prog);
         return { prog, x: p.x, y: p.y, tan, half: this.track.width * 0.5 };
       });
-      // mud / rough patches that slow you down
+      // hazard patches (mud / water / snow / sand) that affect handling
+      this.hazardType = this.track.surface || "mud";
       this.mud = (this.track.mud || []).map((frac) => {
         const p = pointAtProgress(this.pts, frac * this.N);
         return { x: p.x, y: p.y, r: this.track.width * 0.42 };
       });
+      // whoops: short rough sections that make the truck chatter & hop
+      this.whoops = (this.track.whoops || []).map((frac) => {
+        const prog = frac * this.N;
+        return { prog, len: 6 }; // length in progress units
+      });
+    }
+
+    // gold $ pickups spread around the lap, offset to alternating sides so you
+    // have to steer for them. Collected by the player for bonus cash; respawn each lap.
+    _buildPickups() {
+      const n = 9;
+      this.pickups = [];
+      for (let i = 0; i < n; i++) {
+        const frac = (i + 0.5) / n;
+        const prog = frac * this.N;
+        const p = pointAtProgress(this.pts, prog);
+        const tan = tangentAtProgress(this.pts, prog);
+        const lane = (i % 3) - 1; // -1,0,1
+        const off = lane * (this.track.width * 0.26);
+        this.pickups.push({
+          x: p.x - Math.sin(tan) * off, y: p.y + Math.cos(tan) * off,
+          taken: false, value: 25, phase: i,
+        });
+      }
     }
 
     // Pre-render the whole static course (track, berms, ruts, mud, ramps, tyre
@@ -2236,7 +2265,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       }
       g.setLineDash([]); g.globalAlpha = 1;
 
-      this._paintMud(g);
+      this._paintHazards(g);
+      this._paintWhoops(g);
       for (const ramp of this.ramps) this._paintRamp(g, ramp);
       this._paintTyres(g);
       this._paintStartBanner(g);
@@ -2256,14 +2286,42 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       p.closePath(); return p;
     }
 
-    _paintMud(g) {
+    _paintHazards(g) {
+      const T = this.hazardType;
+      const palette = {
+        mud: ["rgba(35,22,10,0.62)", "rgba(80,58,28,0.55)", "rgba(255,255,255,0.06)"],
+        water: ["rgba(28,70,110,0.55)", "rgba(60,120,170,0.5)", "rgba(220,245,255,0.22)"],
+        snow: ["rgba(225,232,240,0.85)", "rgba(245,250,255,0.8)", "rgba(255,255,255,0.5)"],
+        sand: ["rgba(150,120,60,0.5)", "rgba(190,160,95,0.5)", "rgba(255,245,210,0.18)"],
+      }[T] || palette_mud_fallback();
+      function palette_mud_fallback() { return ["rgba(35,22,10,0.62)", "rgba(80,58,28,0.55)", "rgba(255,255,255,0.06)"]; }
       for (const m of (this.mud || [])) {
-        g.fillStyle = "rgba(35,22,10,0.6)";
+        g.fillStyle = palette[0];
         g.beginPath(); g.ellipse(m.x, m.y, m.r, m.r * 0.8, 0, 0, Math.PI * 2); g.fill();
-        g.fillStyle = "rgba(80,58,28,0.55)";
+        g.fillStyle = palette[1];
         g.beginPath(); g.ellipse(m.x, m.y, m.r * 0.66, m.r * 0.5, 0, 0, Math.PI * 2); g.fill();
-        g.fillStyle = "rgba(255,255,255,0.06)";
-        g.beginPath(); g.ellipse(m.x - m.r * 0.2, m.y - m.r * 0.15, m.r * 0.3, m.r * 0.2, 0, 0, Math.PI * 2); g.fill();
+        if (T === "water") { // ripple rings
+          g.strokeStyle = palette[2]; g.lineWidth = 2;
+          for (const rr of [0.4, 0.7]) { g.beginPath(); g.ellipse(m.x, m.y, m.r * rr, m.r * rr * 0.78, 0, 0, Math.PI * 2); g.stroke(); }
+        } else {
+          g.fillStyle = palette[2];
+          g.beginPath(); g.ellipse(m.x - m.r * 0.2, m.y - m.r * 0.15, m.r * 0.3, m.r * 0.2, 0, 0, Math.PI * 2); g.fill();
+        }
+      }
+    }
+
+    // whoops: a run of small ridges across the track that make trucks chatter
+    _paintWhoops(g) {
+      const half = this.track.width / 2 - 6;
+      for (const wp of (this.whoops || [])) {
+        for (let s = -wp.len / 2; s <= wp.len / 2; s += 0.7) {
+          const p = pointAtProgress(this.pts, (wp.prog + s + this.N) % this.N);
+          const tan = tangentAtProgress(this.pts, (wp.prog + s + this.N) % this.N);
+          g.save(); g.translate(p.x, p.y); g.rotate(tan);
+          g.fillStyle = "rgba(0,0,0,0.22)"; g.fillRect(-5, -half, 4, half * 2);
+          g.fillStyle = "rgba(255,240,210,0.28)"; g.fillRect(-1, -half, 4, half * 2);
+          g.restore();
+        }
       }
     }
 
@@ -2325,15 +2383,70 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       g.restore();
     }
 
-    // grandstands set back from the track on the long outer faces
+    // grandstands, hay bales, sponsor banners, a parked-rig paddock & start crowd
     _paintScenery(g) {
       const cx = (this.bbox.minX + this.bbox.maxX) / 2, cy = (this.bbox.minY + this.bbox.maxY) / 2;
+      this._cx = cx; this._cy = cy;
       const rx = this.bbox.w / 2 + 150, ry = this.bbox.h / 2 + 150;
       const spots = [0.35, 1.25, 2.4, 3.5, 4.4, 5.3];
       spots.forEach((ang, i) => {
         const x = cx + Math.cos(ang) * rx, y = cy + Math.sin(ang) * ry;
         this._grandstand(g, x, y, ang, i);
       });
+      // sponsor banners laid along the outer barrier at a couple of spots
+      this._banner(g, 0.22, "OFFROADERS", "#c8341f");
+      this._banner(g, 0.72, "SUPER 4×4", "#1f7ec8");
+      // hay bales tucked into the infield at a few corners
+      [0.1, 0.45, 0.82].forEach((f) => this._hayCluster(g, f));
+      // parked rigs paddock in the infield near the start line
+      this._paddock(g);
+    }
+
+    _banner(g, frac, text, color) {
+      const off = this.track.width / 2 + 30;
+      const p = pointAtProgress(this.pts, frac * this.N), tan = tangentAtProgress(this.pts, frac * this.N);
+      g.save(); g.translate(p.x - Math.sin(tan) * off, p.y + Math.cos(tan) * off); g.rotate(tan);
+      const w = 170, h = 30;
+      g.fillStyle = "rgba(0,0,0,0.3)"; g.fillRect(-w / 2 + 4, -h / 2 + 4, w, h);
+      g.fillStyle = color; g.fillRect(-w / 2, -h / 2, w, h);
+      g.fillStyle = "rgba(255,255,255,0.9)"; g.lineWidth = 2;
+      g.strokeStyle = "rgba(255,255,255,0.8)"; g.strokeRect(-w / 2 + 3, -h / 2 + 3, w - 6, h - 6);
+      g.font = "bold 19px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(text, 0, 1);
+      g.restore();
+    }
+
+    _hayCluster(g, frac) {
+      const p = pointAtProgress(this.pts, frac * this.N);
+      let dx = this._cx - p.x, dy = this._cy - p.y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
+      const bx = p.x + dx * (this.track.width / 2 + 34), by = p.y + dy * (this.track.width / 2 + 34);
+      const tan = Math.atan2(dy, dx);
+      for (let i = -1; i <= 1; i++) this._hay(g, bx - Math.sin(tan) * i * 26, by + Math.cos(tan) * i * 26);
+    }
+    _hay(g, x, y) {
+      g.save(); g.translate(x, y);
+      g.fillStyle = "rgba(0,0,0,0.28)"; g.fillRect(-15, -9, 32, 22);
+      g.fillStyle = "#d9b24a"; g.fillRect(-18, -12, 32, 22);
+      g.strokeStyle = "#a8842f"; g.lineWidth = 1.5;
+      for (let r = -8; r <= 8; r += 5) { g.beginPath(); g.moveTo(-18, r); g.lineTo(14, r); g.stroke(); }
+      g.strokeStyle = "rgba(0,0,0,0.3)"; g.strokeRect(-18, -12, 32, 22);
+      g.restore();
+    }
+
+    _paddock(g) {
+      const p = pointAtProgress(this.pts, 0.04 * this.N);
+      let dx = this._cx - p.x, dy = this._cy - p.y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
+      const px = p.x + dx * (this.track.width / 2 + 90), py = p.y + dy * (this.track.width / 2 + 90);
+      const tan = Math.atan2(dy, dx);
+      const cols = ["#e8482c", "#3aa0ff", "#57d957", "#c46bff"];
+      g.save(); g.translate(px, py); g.rotate(tan + Math.PI / 2);
+      for (let i = 0; i < 4; i++) {
+        const ry = (i - 1.5) * 30;
+        g.fillStyle = "rgba(0,0,0,0.3)"; g.fillRect(-20, ry - 11, 46, 22);
+        g.fillStyle = cols[i]; g.fillRect(-23, ry - 13, 46, 22);
+        g.fillStyle = "rgba(0,0,0,0.4)"; g.fillRect(-6, ry - 9, 14, 18); // cab
+      }
+      g.restore();
     }
     _grandstand(g, x, y, ang, seed) {
       const CROWD = ["#e6dcc0", "#ffffff", "#f2b8b0", "#bcd0f0", "#ffe7a8", "#cfead0", "#e8c0e0"];
@@ -2480,13 +2593,16 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const offFactor = car._offTrack && onGround ? s.offroad : 1;
       maxSpeed *= offFactor;
 
-      // mud / rough patches slow everyone down
+      // hazard patches: mud/sand slow you, water/snow are slippery (handled below)
       car._inMud = false;
       if (this.mud) for (const m of this.mud) {
         const dx = car.x - m.x, dy = car.y - m.y;
         if (dx * dx + dy * dy < m.r * m.r) { car._inMud = true; break; }
       }
-      if (car._inMud && onGround) maxSpeed *= 0.6;
+      if (car._inMud && onGround) {
+        const slow = { mud: 0.6, sand: 0.62, snow: 0.74, water: 0.82 }[this.hazardType] || 0.6;
+        maxSpeed *= slow;
+      }
 
       if (onGround) {
         const th = ctrl.throttle || 0; // analog: stick position sets target speed
@@ -2513,6 +2629,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       if (!onGround) gripLat = 0.999;
       else if (autoDrift) gripLat = 0.92; // slide, but bleed lateral so it settles
       else gripLat = s.grip * (car._offTrack ? 1.05 : 1);
+      // water & snow are slippery — the truck holds less lateral grip on them
+      if (car._inMud && onGround && (this.hazardType === "water" || this.hazardType === "snow")) {
+        gripLat = clamp(gripLat * 1.1, 0, 0.985);
+      }
       vlat *= Math.pow(clamp(gripLat, 0, 0.999), dt * 60);
 
       // steering authority (mild speed-sensitive wash-out)
@@ -2603,6 +2723,19 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       let delta = prog - (car._lastProgRaw % this.N);
       if (delta < -this.N / 2) delta += this.N; else if (delta > this.N / 2) delta -= this.N;
       car.lapProgRaw += delta; car._lastProgRaw = prog;
+
+      // whoops: while on a rough section the truck chatters and hops
+      if (racing) for (const wp of (this.whoops || [])) {
+        let d = Math.abs(prog - wp.prog); if (d > this.N / 2) d = this.N - d;
+        if (d < wp.len / 2 && car.z <= 0.001 && car.speedApprox > 70) {
+          car._whoopAcc = (car._whoopAcc || 0) + car.speedApprox * dt;
+          if (car._whoopAcc > 34) {
+            car._whoopAcc = 0; car.vz = 60 + Math.random() * 30;
+            if (car.isPlayer) this.shake = Math.min(this.shake + 1.4, 5);
+          }
+        }
+      }
+
       const lapsDone = Math.floor((car.lapProgRaw - car.startProg) / this.N);
       if (racing && lapsDone > car.lap) {
         car.lap = lapsDone;
@@ -2611,6 +2744,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           car.lapStart = this.time;
           car.lastLap = split;
           if (car.bestLapThisRace == null || split < car.bestLapThisRace) car.bestLapThisRace = split;
+          this.pickups.forEach((pk) => (pk.taken = false)); // $ respawn each lap
         }
         if (car.lap >= this.track.laps && !car.finished) {
           car.finished = true; car.finishTime = this.time;
@@ -2618,6 +2752,19 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         }
       }
       car.lapProg = car.lapProgRaw;
+
+      // cash pickups — the player grabs $ for bonus money
+      if (racing && car.isPlayer) {
+        for (const pk of this.pickups) {
+          if (pk.taken) continue;
+          const dx = car.x - pk.x, dy = car.y - pk.y;
+          if (dx * dx + dy * dy < 30 * 30) {
+            pk.taken = true; this.cashCollected += pk.value;
+            this.floats.push({ x: pk.x, y: pk.y, life: 1, text: "+$" + pk.value });
+            this._spawnDust(car, 6, 0.6);
+          }
+        }
+      }
     }
 
     _separate() {
@@ -2702,6 +2849,44 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         p.vx *= 0.94; p.vy *= 0.94;
         p.size += 14 * dt;
       }
+      const fs = this.floats;
+      for (let i = fs.length - 1; i >= 0; i--) {
+        const f = fs[i]; f.life -= dt * 0.9; f.y -= 36 * dt;
+        if (f.life <= 0) fs.splice(i, 1);
+      }
+    }
+
+    // spinning gold $ coins (shrink horizontally for a 3D spin), bobbing
+    _drawPickups(ctx) {
+      const t = this.time;
+      for (const pk of this.pickups) {
+        if (pk.taken) continue;
+        const spin = Math.abs(Math.cos(t * 4 + pk.phase));
+        const bob = Math.sin(t * 3 + pk.phase) * 3;
+        ctx.save();
+        ctx.translate(pk.x, pk.y + bob);
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.beginPath(); ctx.ellipse(0, 16, 13 * (0.4 + 0.6 * spin), 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.scale(0.3 + 0.7 * spin, 1); // spin
+        const g = ctx.createRadialGradient(-4, -4, 2, 0, 0, 16);
+        g.addColorStop(0, "#fff4b0"); g.addColorStop(0.5, "#ffd23b"); g.addColorStop(1, "#c8881a");
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#8a5e0e"; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.fillStyle = "#8a5e0e"; ctx.font = "bold 22px sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("$", 0, 1);
+        ctx.restore();
+      }
+    }
+
+    _drawFloats(ctx) {
+      for (const f of this.floats) {
+        ctx.save();
+        ctx.globalAlpha = clamp(f.life, 0, 1);
+        ctx.fillStyle = "#ffe11a"; ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.lineWidth = 4;
+        ctx.font = "bold 30px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.strokeText(f.text, f.x, f.y); ctx.fillText(f.text, f.x, f.y);
+        ctx.restore();
+      }
     }
     _layStreak(car) {
       const d = this.decalCtx;
@@ -2758,9 +2943,11 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       // dynamic skid decals on top of the dirt
       ctx.drawImage(this.decal, this.bbox.minX, this.bbox.minY, this.bbox.w, this.bbox.h);
       this._drawParticles(ctx, false); // ground dust under cars
+      this._drawPickups(ctx);
       // cars sorted so airborne draw last
       [...this.cars].sort((a, b) => a.z - b.z).forEach((car) => this._drawCar(ctx, car));
       this._drawParticles(ctx, true); // airborne dust over cars
+      this._drawFloats(ctx);
 
       ctx.restore();
 
@@ -3280,8 +3467,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     const raceTime = p ? p.finishTime : null;
     const lapIsRecord = bestLap != null && Career.submitLap(track.id, bestLap);
     const raceIsRecord = raceTime != null && Career.submitRace(track.id, raceTime);
+    const pickupBonus = race ? (race.cashCollected || 0) : 0;
 
-    lastResult = Career.recordResult(order);
+    lastResult = Career.recordResult(order, pickupBonus);
     lastResult.bestLap = bestLap;
     lastResult.raceTime = raceTime;
     lastResult.lapIsRecord = lapIsRecord;
@@ -3319,8 +3507,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     const pos = lastResult.playerPos;
     $("#results-title").textContent = pos === 0 ? "🏆 WINNER!" : `Finished ${ordinal(pos + 1)}`;
+    const bonusTxt = lastResult.bonus ? ` &nbsp;•&nbsp; $ pickups: <b>💰 ${lastResult.bonus.toLocaleString()}</b>` : "";
     $("#results-reward").innerHTML =
-      `Prize: <b>💰 ${lastResult.prize.toLocaleString()}</b> &nbsp;•&nbsp; +${Career.POINTS[pos] || 0} championship pts`;
+      `Prize: <b>💰 ${lastResult.prize.toLocaleString()}</b>${bonusTxt} &nbsp;•&nbsp; +${Career.POINTS[pos] || 0} championship pts`;
     show("results");
   }
 

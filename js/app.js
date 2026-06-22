@@ -405,8 +405,9 @@
     const raceTime = p ? p.finishTime : null;
     const lapIsRecord = bestLap != null && Career.submitLap(track.id, bestLap);
     const raceIsRecord = raceTime != null && Career.submitRace(track.id, raceTime);
+    const pickupBonus = race ? (race.cashCollected || 0) : 0;
 
-    lastResult = Career.recordResult(order);
+    lastResult = Career.recordResult(order, pickupBonus);
     lastResult.bestLap = bestLap;
     lastResult.raceTime = raceTime;
     lastResult.lapIsRecord = lapIsRecord;
@@ -444,8 +445,9 @@
 
     const pos = lastResult.playerPos;
     $("#results-title").textContent = pos === 0 ? "🏆 WINNER!" : `Finished ${ordinal(pos + 1)}`;
+    const bonusTxt = lastResult.bonus ? ` &nbsp;•&nbsp; $ pickups: <b>💰 ${lastResult.bonus.toLocaleString()}</b>` : "";
     $("#results-reward").innerHTML =
-      `Prize: <b>💰 ${lastResult.prize.toLocaleString()}</b> &nbsp;•&nbsp; +${Career.POINTS[pos] || 0} championship pts`;
+      `Prize: <b>💰 ${lastResult.prize.toLocaleString()}</b>${bonusTxt} &nbsp;•&nbsp; +${Career.POINTS[pos] || 0} championship pts`;
     show("results");
   }
 
