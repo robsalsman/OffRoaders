@@ -47,9 +47,9 @@
       theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
       ramps: [0.12, 0.55, 0.82], mud: [], whoops: [0.68],
       points: spline(W([
-        [-120, -760], [380, -700], [620, -380], [430, -120], [690, 120],
-        [640, 470], [300, 720], [-180, 770], [-560, 600], [-680, 220],
-        [-560, -160], [-660, -520], [-440, -760],
+        [-89, -806], [281, -742], [459, -403], [318, -127], [511, 127],
+        [474, 498], [222, 763], [-133, 816], [-414, 636], [-503, 233],
+        [-414, -170], [-488, -551], [-326, -806],
       ]), 104),
     },
     {
@@ -59,9 +59,9 @@
       theme: { ground: "#201f38", groundDark: "#15132233", dirt: "#4b475f", dirtDark: "#211d2e", rut: "#5a5570" },
       ramps: [0.28, 0.78], mud: [],
       points: spline(W([
-        [0, -800], [430, -600], [470, -180], [250, 60], [470, 300],
-        [460, 660], [80, 850], [-380, 800], [-640, 440], [-660, -40],
-        [-560, -520], [-260, -780],
+        [0, -840], [318, -630], [348, -189], [185, 63], [348, 315],
+        [340, 693], [59, 892], [-281, 840], [-474, 462], [-488, -42],
+        [-414, -546], [-192, -819],
       ]), 108),
     },
     {
@@ -70,7 +70,7 @@
       laps: 4, width: 160, difficulty: 4, feature: "Tight & technical",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
       ramps: [0.4, 0.88], mud: [0.18, 0.62], surface: "mud", whoops: [0.52],
-      points: wave(560, 92, (t) => 1 + 0.26 * Math.sin(t * 5) + 0.05 * Math.cos(t * 3), 1.05, 1.16, 0.2),
+      points: wave(580, 92, (t) => 1 + 0.26 * Math.sin(t * 5) + 0.05 * Math.cos(t * 3), 0.86, 1.3, 0.2),
     },
     {
       // huge rounded rectangle — long straights, wide power turns
@@ -79,8 +79,8 @@
       theme: { ground: "#2e6b46", groundDark: "#24563a", dirt: "#b9925e", dirtDark: "#6e4a28", rut: "#8a6838" },
       ramps: [0.18, 0.5, 0.82], mud: [0.36, 0.72], surface: "water", whoops: [0.12, 0.62],
       points: spline(W([
-        [-560, -780], [560, -780], [760, -560], [760, 560], [560, 780],
-        [-560, 780], [-760, 560], [-760, -560],
+        [-370, -780], [370, -780], [502, -560], [502, 560], [370, 780],
+        [-370, 780], [-502, 560], [-502, -560],
       ]), 112),
     },
     {
@@ -89,7 +89,7 @@
       laps: 5, width: 165, difficulty: 4, feature: "Twisty, sandy",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
       ramps: [0.5], mud: [0.3, 0.7, 0.92], surface: "sand",
-      points: wave(560, 90, (t) => 1 + 0.24 * Math.sin(t * 4) + 0.06 * Math.sin(t * 2), 1.2, 0.95, 0.5),
+      points: wave(580, 90, (t) => 1 + 0.24 * Math.sin(t * 4) + 0.06 * Math.sin(t * 2), 0.9, 1.26, 0.3),
     },
     {
       // precision chicanes — 6 shallow scallops
@@ -97,7 +97,7 @@
       laps: 4, width: 180, difficulty: 5, feature: "Precision chicanes",
       theme: { ground: "#2e6b3a", groundDark: "#24562f", dirt: "#8f9a8a", dirtDark: "#4a544a", rut: "#6a746a" },
       ramps: [0.35, 0.65, 0.95], mud: [],
-      points: wave(620, 96, (t) => 1 + 0.19 * Math.sin(t * 6) + 0.05 * Math.cos(t * 2), 1.1, 1.0, 0.1),
+      points: wave(640, 96, (t) => 1 + 0.15 * Math.sin(t * 6) + 0.05 * Math.cos(t * 2), 0.9, 1.18, 0.1),
     },
   ];
 

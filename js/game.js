@@ -401,9 +401,9 @@
       // fit into the clear band between the HUD and controls; desktop has no
       // on-screen controls, so use nearly the whole height.
       const touchUI = this.cfg.touch;
-      const topUI = H * (touchUI ? 0.16 : 0.10), botUI = H * (touchUI ? 0.30 : 0.07);
+      const topUI = H * (touchUI ? 0.11 : 0.07), botUI = H * (touchUI ? 0.30 : 0.05);
       const availH = H - topUI - botUI;
-      const zoom = Math.min(W / (b.w * 1.06), availH / (b.h * 1.06));
+      const zoom = Math.min(W / (b.w * 1.0), availH / (b.h * 1.0));
       this._zoom = zoom;
       this.camX = b.cx; this.camY = b.cy;
       const centerY = topUI + availH / 2;

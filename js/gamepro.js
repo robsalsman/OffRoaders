@@ -242,11 +242,16 @@
         const tan = tangentAtProgress(this.pts, prog);
         return { prog, x: p.x, y: p.y, tan, half: this.track.width * 0.5 };
       });
-      // hazard patches (mud / water / snow / sand) that affect handling
+      // hazard patches (mud / water / snow / sand). Offset to one side and sized
+      // so a clean racing lane always remains on the far side — avoiding them is
+      // strategy, not a roadblock.
       this.hazardType = this.track.surface || "mud";
-      this.mud = (this.track.mud || []).map((frac) => {
-        const p = pointAtProgress(this.pts, frac * this.N);
-        return { x: p.x, y: p.y, r: this.track.width * 0.42 };
+      this.mud = (this.track.mud || []).map((frac, i) => {
+        const prog = frac * this.N;
+        const p = pointAtProgress(this.pts, prog), tan = tangentAtProgress(this.pts, prog);
+        const side = (i % 2) ? 1 : -1;
+        const off = side * this.track.width * 0.28;
+        return { x: p.x - Math.sin(tan) * off, y: p.y + Math.cos(tan) * off, r: this.track.width * 0.34, side };
       });
       // whoops: short rough sections that make the truck chatter & hop
       this.whoops = (this.track.whoops || []).map((frac) => {
@@ -687,7 +692,7 @@
       const speedFrac = clamp(Math.abs(vlong) / s.maxSpeed, 0, 1);
       let authority = s.turn * (0.68 + 0.4 * Math.min(1, speedFrac * 1.9));
       authority *= 1 - 0.14 * speedFrac * Math.min(1, Math.abs(car.steerS));
-      if (!onGround) authority *= 0.12;
+      if (!onGround) authority *= 0.45; // enough air control to line up the landing
 
       let dAngle = car.steerS * authority * dt * Math.sign(vlong || 1);
       if (autoDrift) {
@@ -718,7 +723,7 @@
           const along = dx * Math.cos(ramp.tan) + dy * Math.sin(ramp.tan);
           const side = -dx * Math.sin(ramp.tan) + dy * Math.cos(ramp.tan);
           if (Math.abs(along) < 55 && Math.abs(side) < ramp.half) {
-            car.vz = clamp(vlong / s.maxSpeed, 0.3, 1.2) * 230;
+            car.vz = clamp(vlong / s.maxSpeed, 0.3, 1.0) * 195;
             car.rampCooldown = 0.8;
             if (car.isPlayer) this.shake = Math.min(this.shake + 2, 6);
             break;
@@ -967,12 +972,12 @@
       // Static "set piece" camera: frame the ENTIRE track at once (Super Off Road
       // style) so every truck stays on screen and the world never pans or zooms.
       const b = this.bbox;
-      // fit into the clear band between the top HUD and the controls. On desktop
-      // there are no on-screen controls, so use nearly the whole height.
+      // Arcade layout: upper area is the "monitor", lower third the controls.
+      // Fill the play area aggressively (don't waste space around the track).
       const touchUI = this.cfg.touch;
-      const topUI = H * (touchUI ? 0.16 : 0.10), botUI = H * (touchUI ? 0.30 : 0.07);
+      const topUI = H * (touchUI ? 0.11 : 0.07), botUI = H * (touchUI ? 0.30 : 0.05);
       const availH = H - topUI - botUI;
-      const zoom = Math.min(W / (b.w * 1.06), availH / (b.h * 1.06));
+      const zoom = Math.min(W / (b.w * 1.0), availH / (b.h * 1.0));
       this._zoom = zoom;
       this.camX = (b.minX + b.maxX) / 2;
       this.camY = (b.minY + b.maxY) / 2;
@@ -1040,7 +1045,7 @@
       ctx.save();
       ctx.translate(car.x, car.y - lift);
       ctx.rotate(car.angle + car.wobble * Math.sin(this.time * 30) * 0.04);
-      const mul = car.isPlayer ? 1.32 : 1.12;
+      const mul = car.isPlayer ? 1.6 : 1.4;
       const w = CAR_W * scale * mul, h = CAR_H * scale * mul;
       ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
       ctx.restore();

@@ -477,9 +477,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
       ramps: [0.12, 0.55, 0.82], mud: [], whoops: [0.68],
       points: spline(W([
-        [-120, -760], [380, -700], [620, -380], [430, -120], [690, 120],
-        [640, 470], [300, 720], [-180, 770], [-560, 600], [-680, 220],
-        [-560, -160], [-660, -520], [-440, -760],
+        [-89, -806], [281, -742], [459, -403], [318, -127], [511, 127],
+        [474, 498], [222, 763], [-133, 816], [-414, 636], [-503, 233],
+        [-414, -170], [-488, -551], [-326, -806],
       ]), 104),
     },
     {
@@ -489,9 +489,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       theme: { ground: "#201f38", groundDark: "#15132233", dirt: "#4b475f", dirtDark: "#211d2e", rut: "#5a5570" },
       ramps: [0.28, 0.78], mud: [],
       points: spline(W([
-        [0, -800], [430, -600], [470, -180], [250, 60], [470, 300],
-        [460, 660], [80, 850], [-380, 800], [-640, 440], [-660, -40],
-        [-560, -520], [-260, -780],
+        [0, -840], [318, -630], [348, -189], [185, 63], [348, 315],
+        [340, 693], [59, 892], [-281, 840], [-474, 462], [-488, -42],
+        [-414, -546], [-192, -819],
       ]), 108),
     },
     {
@@ -500,7 +500,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       laps: 4, width: 160, difficulty: 4, feature: "Tight & technical",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
       ramps: [0.4, 0.88], mud: [0.18, 0.62], surface: "mud", whoops: [0.52],
-      points: wave(560, 92, (t) => 1 + 0.26 * Math.sin(t * 5) + 0.05 * Math.cos(t * 3), 1.05, 1.16, 0.2),
+      points: wave(580, 92, (t) => 1 + 0.26 * Math.sin(t * 5) + 0.05 * Math.cos(t * 3), 0.86, 1.3, 0.2),
     },
     {
       // huge rounded rectangle — long straights, wide power turns
@@ -509,8 +509,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       theme: { ground: "#2e6b46", groundDark: "#24563a", dirt: "#b9925e", dirtDark: "#6e4a28", rut: "#8a6838" },
       ramps: [0.18, 0.5, 0.82], mud: [0.36, 0.72], surface: "water", whoops: [0.12, 0.62],
       points: spline(W([
-        [-560, -780], [560, -780], [760, -560], [760, 560], [560, 780],
-        [-560, 780], [-760, 560], [-760, -560],
+        [-370, -780], [370, -780], [502, -560], [502, 560], [370, 780],
+        [-370, 780], [-502, 560], [-502, -560],
       ]), 112),
     },
     {
@@ -519,7 +519,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       laps: 5, width: 165, difficulty: 4, feature: "Twisty, sandy",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
       ramps: [0.5], mud: [0.3, 0.7, 0.92], surface: "sand",
-      points: wave(560, 90, (t) => 1 + 0.24 * Math.sin(t * 4) + 0.06 * Math.sin(t * 2), 1.2, 0.95, 0.5),
+      points: wave(580, 90, (t) => 1 + 0.24 * Math.sin(t * 4) + 0.06 * Math.sin(t * 2), 0.9, 1.26, 0.3),
     },
     {
       // precision chicanes — 6 shallow scallops
@@ -527,7 +527,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       laps: 4, width: 180, difficulty: 5, feature: "Precision chicanes",
       theme: { ground: "#2e6b3a", groundDark: "#24562f", dirt: "#8f9a8a", dirtDark: "#4a544a", rut: "#6a746a" },
       ramps: [0.35, 0.65, 0.95], mud: [],
-      points: wave(620, 96, (t) => 1 + 0.19 * Math.sin(t * 6) + 0.05 * Math.cos(t * 2), 1.1, 1.0, 0.1),
+      points: wave(640, 96, (t) => 1 + 0.15 * Math.sin(t * 6) + 0.05 * Math.cos(t * 2), 0.9, 1.18, 0.1),
     },
   ];
 
@@ -1769,9 +1769,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       // fit into the clear band between the HUD and controls; desktop has no
       // on-screen controls, so use nearly the whole height.
       const touchUI = this.cfg.touch;
-      const topUI = H * (touchUI ? 0.16 : 0.10), botUI = H * (touchUI ? 0.30 : 0.07);
+      const topUI = H * (touchUI ? 0.11 : 0.07), botUI = H * (touchUI ? 0.30 : 0.05);
       const availH = H - topUI - botUI;
-      const zoom = Math.min(W / (b.w * 1.06), availH / (b.h * 1.06));
+      const zoom = Math.min(W / (b.w * 1.0), availH / (b.h * 1.0));
       this._zoom = zoom;
       this.camX = b.cx; this.camY = b.cy;
       const centerY = topUI + availH / 2;
@@ -2200,11 +2200,16 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         const tan = tangentAtProgress(this.pts, prog);
         return { prog, x: p.x, y: p.y, tan, half: this.track.width * 0.5 };
       });
-      // hazard patches (mud / water / snow / sand) that affect handling
+      // hazard patches (mud / water / snow / sand). Offset to one side and sized
+      // so a clean racing lane always remains on the far side — avoiding them is
+      // strategy, not a roadblock.
       this.hazardType = this.track.surface || "mud";
-      this.mud = (this.track.mud || []).map((frac) => {
-        const p = pointAtProgress(this.pts, frac * this.N);
-        return { x: p.x, y: p.y, r: this.track.width * 0.42 };
+      this.mud = (this.track.mud || []).map((frac, i) => {
+        const prog = frac * this.N;
+        const p = pointAtProgress(this.pts, prog), tan = tangentAtProgress(this.pts, prog);
+        const side = (i % 2) ? 1 : -1;
+        const off = side * this.track.width * 0.28;
+        return { x: p.x - Math.sin(tan) * off, y: p.y + Math.cos(tan) * off, r: this.track.width * 0.34, side };
       });
       // whoops: short rough sections that make the truck chatter & hop
       this.whoops = (this.track.whoops || []).map((frac) => {
@@ -2645,7 +2650,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const speedFrac = clamp(Math.abs(vlong) / s.maxSpeed, 0, 1);
       let authority = s.turn * (0.68 + 0.4 * Math.min(1, speedFrac * 1.9));
       authority *= 1 - 0.14 * speedFrac * Math.min(1, Math.abs(car.steerS));
-      if (!onGround) authority *= 0.12;
+      if (!onGround) authority *= 0.45; // enough air control to line up the landing
 
       let dAngle = car.steerS * authority * dt * Math.sign(vlong || 1);
       if (autoDrift) {
@@ -2676,7 +2681,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           const along = dx * Math.cos(ramp.tan) + dy * Math.sin(ramp.tan);
           const side = -dx * Math.sin(ramp.tan) + dy * Math.cos(ramp.tan);
           if (Math.abs(along) < 55 && Math.abs(side) < ramp.half) {
-            car.vz = clamp(vlong / s.maxSpeed, 0.3, 1.2) * 230;
+            car.vz = clamp(vlong / s.maxSpeed, 0.3, 1.0) * 195;
             car.rampCooldown = 0.8;
             if (car.isPlayer) this.shake = Math.min(this.shake + 2, 6);
             break;
@@ -2925,12 +2930,12 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       // Static "set piece" camera: frame the ENTIRE track at once (Super Off Road
       // style) so every truck stays on screen and the world never pans or zooms.
       const b = this.bbox;
-      // fit into the clear band between the top HUD and the controls. On desktop
-      // there are no on-screen controls, so use nearly the whole height.
+      // Arcade layout: upper area is the "monitor", lower third the controls.
+      // Fill the play area aggressively (don't waste space around the track).
       const touchUI = this.cfg.touch;
-      const topUI = H * (touchUI ? 0.16 : 0.10), botUI = H * (touchUI ? 0.30 : 0.07);
+      const topUI = H * (touchUI ? 0.11 : 0.07), botUI = H * (touchUI ? 0.30 : 0.05);
       const availH = H - topUI - botUI;
-      const zoom = Math.min(W / (b.w * 1.06), availH / (b.h * 1.06));
+      const zoom = Math.min(W / (b.w * 1.0), availH / (b.h * 1.0));
       this._zoom = zoom;
       this.camX = (b.minX + b.maxX) / 2;
       this.camY = (b.minY + b.maxY) / 2;
@@ -2998,7 +3003,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ctx.save();
       ctx.translate(car.x, car.y - lift);
       ctx.rotate(car.angle + car.wobble * Math.sin(this.time * 30) * 0.04);
-      const mul = car.isPlayer ? 1.32 : 1.12;
+      const mul = car.isPlayer ? 1.6 : 1.4;
       const w = CAR_W * scale * mul, h = CAR_H * scale * mul;
       ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
       ctx.restore();
