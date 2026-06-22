@@ -2,62 +2,102 @@
  * theme (colours), shape, ramps and signature feature. `home` is the driver id
  * whose home track it is (that driver gets a boost there).
  * `ramps` and `mud` are progress fractions (0..1) around the loop.
+ *
+ * Shapes come from two engine-safe generators: hand-placed Catmull-Rom splines
+ * (mesa/neon/thunder — distinct silhouettes & S-curves) and dense polar waves
+ * (canyon/gravel/lab — scalloped technical corners). Neither self-crosses, since
+ * the lap/progress + edge-wall systems rely on nearest-point-on-path and a true
+ * overpass would confuse them.
  */
 (function () {
-  function loop(opts) {
-    const { samples = 56, base = 700, sx = 1, sy = 1, cx = 0, cy = 0, rot = 0, radiusFn = () => 1 } = opts;
+  // closed Catmull-Rom spline through the waypoints -> dense point loop
+  function spline(wp, total = 100) {
+    const n = wp.length, seg = Math.max(3, Math.round(total / n)), pts = [];
+    for (let i = 0; i < n; i++) {
+      const p0 = wp[(i - 1 + n) % n], p1 = wp[i], p2 = wp[(i + 1) % n], p3 = wp[(i + 2) % n];
+      for (let j = 0; j < seg; j++) {
+        const t = j / seg, t2 = t * t, t3 = t2 * t;
+        pts.push({
+          x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+          y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+        });
+      }
+    }
+    return pts;
+  }
+  const W = (pairs) => pairs.map(([x, y]) => ({ x, y }));
+  // Densely-sampled polar curve r(θ). Since r stays positive and each angle maps to
+  // one radius, the loop is mathematically simple (never self-crosses) — so it's
+  // always engine-safe, while a strong radiusFn gives scalloped, technical corners.
+  function wave(base, samples, fn, sx = 1, sy = 1, rot = 0) {
     const pts = [];
     for (let i = 0; i < samples; i++) {
-      const t = (i / samples) * Math.PI * 2;
-      const r = base * radiusFn(t);
+      const t = (i / samples) * Math.PI * 2, r = base * fn(t);
       const x = Math.cos(t) * r * sx, y = Math.sin(t) * r * sy;
-      pts.push({ x: x * Math.cos(rot) - y * Math.sin(rot) + cx, y: x * Math.sin(rot) + y * Math.cos(rot) + cy });
+      pts.push({ x: x * Math.cos(rot) - y * Math.sin(rot), y: x * Math.sin(rot) + y * Math.cos(rot) });
     }
     return pts;
   }
 
   const TRACKS = [
     {
+      // wide flowing asymmetric loop with sweeping bulges
       id: "mesa", name: "Blazing Mesa", home: "hotrod",
-      laps: 4, width: 205, difficulty: 2, feature: "Jump-heavy & fast",
+      laps: 4, width: 200, difficulty: 2, feature: "Fast flowing sweepers",
       theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
-      ramps: [0.16, 0.4, 0.62, 0.85], mud: [],
-      points: loop({ samples: 52, base: 660, sx: 1.4, sy: 0.85, radiusFn: (t) => 1 + 0.06 * Math.sin(t * 2) }),
+      ramps: [0.12, 0.55, 0.82], mud: [],
+      points: spline(W([
+        [-120, -760], [380, -700], [620, -380], [430, -120], [690, 120],
+        [640, 470], [300, 720], [-180, 770], [-560, 600], [-680, 220],
+        [-560, -160], [-660, -520], [-440, -760],
+      ]), 104),
     },
     {
+      // long S-curve kidney — big sweeping left/right transitions
       id: "neon", name: "Neon City", home: "rob",
-      laps: 4, width: 220, difficulty: 3, feature: "Long drift sweepers",
+      laps: 4, width: 215, difficulty: 3, feature: "Long drift sweepers",
       theme: { ground: "#201f38", groundDark: "#15132233", dirt: "#4b475f", dirtDark: "#211d2e", rut: "#5a5570" },
-      ramps: [0.5], mud: [],
-      points: loop({ samples: 58, base: 720, sx: 1.3, sy: 1.0, rot: 0.2, radiusFn: (t) => 1 + 0.16 * Math.sin(t) }),
+      ramps: [0.28, 0.78], mud: [],
+      points: spline(W([
+        [0, -800], [430, -600], [470, -180], [250, 60], [470, 300],
+        [460, 660], [80, 850], [-380, 800], [-640, 440], [-660, -40],
+        [-560, -520], [-260, -780],
+      ]), 108),
     },
     {
+      // tight technical — 5 scalloped corners, elliptical
       id: "canyon", name: "Dust Canyon", home: "west",
-      laps: 4, width: 165, difficulty: 4, feature: "Tight & technical",
+      laps: 4, width: 160, difficulty: 4, feature: "Tight & technical",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
-      ramps: [0.3, 0.7], mud: [0.18, 0.55],
-      points: loop({ samples: 70, base: 600, sx: 1.05, sy: 1.1, rot: 0.4, radiusFn: (t) => 1 + 0.2 * Math.sin(t * 4) + 0.07 * Math.cos(t * 2) }),
+      ramps: [0.4, 0.88], mud: [0.18, 0.62],
+      points: wave(560, 92, (t) => 1 + 0.26 * Math.sin(t * 5) + 0.05 * Math.cos(t * 3), 1.05, 1.16, 0.2),
     },
     {
+      // huge rounded rectangle — long straights, wide power turns
       id: "thunder", name: "Thunder Valley", home: "atrain",
-      laps: 5, width: 215, difficulty: 3, feature: "Big track, long straights",
+      laps: 5, width: 210, difficulty: 3, feature: "Big track, long straights",
       theme: { ground: "#2e6b46", groundDark: "#24563a", dirt: "#b9925e", dirtDark: "#6e4a28", rut: "#8a6838" },
-      ramps: [0.22, 0.74], mud: [],
-      points: loop({ samples: 76, base: 820, sx: 1.4, sy: 0.95, rot: 0.1, radiusFn: (t) => 1 + 0.07 * Math.sin(t * 3) }),
+      ramps: [0.18, 0.5, 0.82], mud: [],
+      points: spline(W([
+        [-560, -780], [560, -780], [760, -560], [760, 560], [560, 780],
+        [-560, 780], [-760, 560], [-760, -560],
+      ]), 112),
     },
     {
+      // twisty old-school — 4 wide scallops, stretched
       id: "gravel", name: "Gravel Pit", home: "olddog",
-      laps: 5, width: 170, difficulty: 4, feature: "Twisty old-school",
+      laps: 5, width: 165, difficulty: 4, feature: "Twisty scallops",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
-      ramps: [0.6], mud: [0.28, 0.66, 0.9],
-      points: loop({ samples: 74, base: 560, sx: 1.25, sy: 1.05, rot: 0.6, radiusFn: (t) => 1 + 0.22 * Math.sin(t * 5) + 0.08 * Math.cos(t * 3) }),
+      ramps: [0.5], mud: [0.3, 0.7, 0.92],
+      points: wave(560, 90, (t) => 1 + 0.24 * Math.sin(t * 4) + 0.06 * Math.sin(t * 2), 1.2, 0.95, 0.5),
     },
     {
+      // precision chicanes — 6 shallow scallops
       id: "lab", name: "Test Loop", home: "drg",
-      laps: 4, width: 185, difficulty: 5, feature: "Precision chicanes",
+      laps: 4, width: 180, difficulty: 5, feature: "Precision chicanes",
       theme: { ground: "#2e6b3a", groundDark: "#24562f", dirt: "#8f9a8a", dirtDark: "#4a544a", rut: "#6a746a" },
-      ramps: [0.45, 0.9], mud: [],
-      points: loop({ samples: 80, base: 700, sx: 1.2, sy: 1.0, rot: 0.15, radiusFn: (t) => 1 + 0.14 * Math.sin(t * 6) + 0.05 * Math.cos(t * 2) }),
+      ramps: [0.35, 0.65, 0.95], mud: [],
+      points: wave(620, 96, (t) => 1 + 0.19 * Math.sin(t * 6) + 0.05 * Math.cos(t * 2), 1.1, 1.0, 0.1),
     },
   ];
 
