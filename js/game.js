@@ -99,12 +99,12 @@
         const along = startProg - row * 0.45;
         const gp = pointAtProgress(this.pts, (along + this.N) % this.N);
         const lateral = lane * (this.track.width * 0.26);
-        const variance = isPlayer ? 1 : (0.985 + Math.random() * 0.03);
+        const variance = isPlayer ? 1 : (0.9 + Math.random() * 0.05);
 
         const stats = {
-          maxSpeed: 325 * p.maxSpeed * variance,
-          accel: 245 * p.accel * variance,
-          turn: 3.2 * p.turn,
+          maxSpeed: 288 * p.maxSpeed * variance,
+          accel: 230 * p.accel * variance,
+          turn: 3.6 * p.turn,
           grip: clamp(0.86 + 0.03 * (p.grip - 1) * 10, 0.6, 0.97),
           offroad: clamp(0.5 + 0.06 * ((p.offroad || 1) - 1) * 10, 0.42, 0.92),
           nitroPower: 1.55 * p.nitroPower,
@@ -395,8 +395,12 @@
         this._bounds = { w: (maxX - minX) + pad * 2, h: (maxY - minY) + pad * 2, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
       }
       const b = this._bounds;
-      const zoom = Math.min(W / (b.w * 1.05), H / (b.h * 1.05));
+      // fit the track into the clear band between the top HUD and the bottom controls
+      const topUI = H * 0.16, botUI = H * 0.30, availH = H - topUI - botUI;
+      const zoom = Math.min(W / (b.w * 1.06), availH / (b.h * 1.06));
+      this._zoom = zoom;
       this.camX = b.cx; this.camY = b.cy;
+      const centerY = topUI + availH / 2;
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       // grass background
@@ -405,7 +409,7 @@
       this._grassTexture(ctx, W, H, zoom);
 
       ctx.save();
-      ctx.translate(W / 2, H * 0.43); // lift track above the controls
+      ctx.translate(W / 2, centerY); // centre track in the clear play band
       ctx.scale(zoom, zoom);
       ctx.translate(-this.camX, -this.camY);
 
@@ -529,6 +533,21 @@
         ctx.stroke();
       }
       ctx.restore();
+
+      // player marker: pulsing ring + bobbing arrow (sized in screen px ÷ zoom)
+      if (car.isPlayer) {
+        const k = 1 / (this._zoom || 0.3), pulse = Math.sin((this.time || 0) * 6);
+        ctx.save();
+        ctx.translate(car.x, car.y);
+        ctx.strokeStyle = "rgba(255,238,0,0.97)"; ctx.lineWidth = 4 * k;
+        ctx.beginPath(); ctx.arc(0, 0, (24 + pulse * 2) * k, 0, Math.PI * 2); ctx.stroke();
+        const ay = (-40 + pulse * 4) * k, aw = 16 * k;
+        ctx.beginPath();
+        ctx.moveTo(-aw, ay - aw); ctx.lineTo(aw, ay - aw); ctx.lineTo(0, ay + 4 * k); ctx.closePath();
+        ctx.fillStyle = "#ffee00"; ctx.lineWidth = 3 * k; ctx.strokeStyle = "rgba(0,0,0,0.7)";
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
     }
 
     _drawCountdown(ctx, W, H) {
