@@ -333,11 +333,13 @@
     }
 
     _rank() {
+      // rank by distance travelled (staggered grid -> subtract each car's startProg)
+      const dist = (c) => c.lapProg - c.startProg;
       const sorted = [...this.cars].sort((a, b) => {
         if (a.finished && b.finished) return a.finishTime - b.finishTime;
         if (a.finished) return -1;
         if (b.finished) return 1;
-        return b.lapProg - a.lapProg;
+        return dist(b) - dist(a);
       });
       sorted.forEach((c, i) => (c.position = i + 1));
     }
@@ -346,8 +348,9 @@
       // End shortly after the player finishes (don't wait for the backmarkers).
       if (this.player.finished) {
         // fill remaining finish order by current rank
+        const dist = (c) => c.lapProg - c.startProg;
         const remaining = this.cars.filter((c) => !this.finishOrder.includes(c))
-          .sort((a, b) => b.lapProg - a.lapProg);
+          .sort((a, b) => dist(b) - dist(a));
         remaining.forEach((c) => this.finishOrder.push(c));
         this.stop();
         const order = this.finishOrder.map((c) => ({ isPlayer: c.isPlayer, characterId: c.characterId, name: c.name, color: c.color }));
