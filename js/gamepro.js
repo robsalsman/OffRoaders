@@ -28,6 +28,25 @@
     }
     return { dist: Math.sqrt(best), progress: bestProg };
   }
+  // search only segments near the car's current progress, so at a figure-8
+  // crossing it follows its own branch instead of snapping to the other one.
+  function closestOnLoopLocal(pts, px, py, near, win) {
+    const N = pts.length;
+    let best = Infinity, bestProg = near;
+    const start = Math.floor(near) - win;
+    for (let k = 0; k <= 2 * win; k++) {
+      const i = ((start + k) % N + N) % N;
+      const a = pts[i], b = pts[(i + 1) % N];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy || 1;
+      let t = ((px - a.x) * dx + (py - a.y) * dy) / len2;
+      t = clamp(t, 0, 1);
+      const cx = a.x + dx * t, cy = a.y + dy * t;
+      const d = (px - cx) * (px - cx) + (py - cy) * (py - cy);
+      if (d < best) { best = d; bestProg = i + t; }
+    }
+    return { dist: Math.sqrt(best), progress: bestProg };
+  }
   function pointAtProgress(pts, prog) {
     const N = pts.length;
     let i = Math.floor(prog) % N; if (i < 0) i += N;
@@ -398,12 +417,17 @@
     // tyre barriers lining both edges of the track — the Super Off Road signature
     _paintTyres(g) {
       const off = this.track.width / 2 + 13, N = this.N;
+      // don't litter tyres in the figure-8 intersection
+      let cross = null;
+      if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * N);
+      const clear = this.track.width * 1.6;
       let acc = 0, prev = this.pts[0], count = 0;
       for (let s = 0; s < N; s += 0.5) {
         const p = pointAtProgress(this.pts, s);
         acc += Math.hypot(p.x - prev.x, p.y - prev.y); prev = p;
         if (acc >= 46) {
           acc = 0;
+          if (cross && Math.hypot(p.x - cross.x, p.y - cross.y) < clear) continue;
           const tan = tangentAtProgress(this.pts, s), nx = -Math.sin(tan), ny = Math.cos(tan);
           this._tyre(g, p.x + nx * off, p.y + ny * off, count);
           this._tyre(g, p.x - nx * off, p.y - ny * off, count);
@@ -758,7 +782,10 @@
     }
 
     _trackLogic(car, dt, racing) {
-      const c = closestOnLoop(this.pts, car.x, car.y);
+      // local search keeps each truck on its own branch through a crossover;
+      // fall back to a global search if it somehow drifts out of the window.
+      let c = closestOnLoopLocal(this.pts, car.x, car.y, car._lastProgRaw, 12);
+      if (c.dist > this.track.width) c = closestOnLoop(this.pts, car.x, car.y);
 
       // invisible edge walls — keep the truck on the dirt, slide along the edge
       const maxOff = this.track.width / 2 - 12;
@@ -776,6 +803,18 @@
       let delta = prog - (car._lastProgRaw % this.N);
       if (delta < -this.N / 2) delta += this.N; else if (delta > this.N / 2) delta -= this.N;
       car.lapProgRaw += delta; car._lastProgRaw = prog;
+
+      // bridge: lift the truck onto the elevated deck over the figure-8 crossing
+      car.onBridge = false; car.bridgeZ = 0;
+      if (this.track.bridge) {
+        const frac = ((prog % this.N) + this.N) % this.N / this.N;
+        const [f0, f1] = this.track.bridge;
+        if (frac > f0 && frac < f1) {
+          const u = (frac - f0) / (f1 - f0); // 0..1 across the deck
+          car.onBridge = true;
+          car.bridgeZ = 26 * Math.min(1, Math.min(u, 1 - u) / 0.22); // ramp at the ends
+        }
+      }
 
       // whoops: while on a rough section the truck chatters and hops
       if (racing) for (const wp of (this.whoops || [])) {
@@ -826,6 +865,7 @@
         for (let j = i + 1; j < this.cars.length; j++) {
           const a = this.cars[i], b = this.cars[j];
           if (Math.abs(a.z - b.z) > 30) continue; // one is airborne over the other
+          if (a.onBridge !== b.onBridge) continue; // one is on the bridge, one beneath
           const dx = b.x - a.x, dy = b.y - a.y;
           let d = Math.hypot(dx, dy);
           if (d < minDist && d > 0.001) {
@@ -935,6 +975,29 @@
       }
     }
 
+    // the elevated overpass deck at the figure-8 crossing (neon-railed)
+    _drawBridge(ctx) {
+      const bz = this.track.bridge, mid = ((bz[0] + bz[1]) / 2) * this.N;
+      const p = pointAtProgress(this.pts, mid), tan = tangentAtProgress(this.pts, mid);
+      const len = this.track.width * 2.3, half = this.track.width / 2 + 8, H = 26;
+      const th = this.track.theme;
+      // cast shadow on the lane below
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(tan);
+      ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(-len / 2 + 7, -half + 12, len, half * 2);
+      ctx.restore();
+      // raised deck
+      ctx.save(); ctx.translate(p.x, p.y - H); ctx.rotate(tan);
+      ctx.fillStyle = "#2a2433"; // support edges
+      ctx.fillRect(-len / 2, -half - 2, len, 6); ctx.fillRect(-len / 2, half - 4, len, 6);
+      ctx.fillStyle = th.dirtDark; ctx.fillRect(-len / 2, -half, len, half * 2);
+      const pat = ctx.createPattern(getDirtTile(th.dirt), "repeat");
+      ctx.fillStyle = pat || th.dirt; ctx.fillRect(-len / 2 + 5, -half + 5, len - 10, half * 2 - 10);
+      // neon guard rails
+      ctx.fillStyle = "#ff3df2"; ctx.fillRect(-len / 2, -half - 6, len, 5);
+      ctx.fillStyle = "#3df2ff"; ctx.fillRect(-len / 2, half + 1, len, 5);
+      ctx.restore();
+    }
+
     _drawFloats(ctx) {
       for (const f of this.floats) {
         ctx.save();
@@ -1004,8 +1067,12 @@
       ctx.drawImage(this.decal, this.bbox.minX, this.bbox.minY, this.bbox.w, this.bbox.h);
       this._drawParticles(ctx, false); // ground dust under cars
       this._drawPickups(ctx);
-      // cars sorted so airborne draw last
-      [...this.cars].sort((a, b) => a.z - b.z).forEach((car) => this._drawCar(ctx, car));
+      // cars sorted so airborne draw last; trucks under the bridge first, then the
+      // elevated deck, then trucks on the bridge — so the overpass reads correctly.
+      const ordered = [...this.cars].sort((a, b) => a.z - b.z);
+      ordered.filter((c) => !c.onBridge).forEach((car) => this._drawCar(ctx, car));
+      if (this.track.bridge) this._drawBridge(ctx);
+      ordered.filter((c) => c.onBridge).forEach((car) => this._drawCar(ctx, car));
       this._drawParticles(ctx, true); // airborne dust over cars
       this._drawFloats(ctx);
 
@@ -1018,7 +1085,7 @@
 
     _drawCar(ctx, car) {
       const sprite = (window.makeTruckSprite || truckSprite)(car.vehicleId, car.color, car.isPlayer);
-      const lift = car.z;
+      const lift = car.z + (car.bridgeZ || 0);
       const scale = 1 + car.z / 260; // grows when airborne (closer to "camera")
       // shadow on the ground (offset opposite to lift, lighter when high)
       ctx.save();

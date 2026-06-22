@@ -39,6 +39,16 @@
     return pts;
   }
 
+  // Gerono lemniscate — a vertical figure-8 that crosses itself once at the
+  // centre. phase puts progress 0 on the bottom lobe (clear of the crossing).
+  function gerono(a, b, samples, phase = -Math.PI / 2) {
+    const pts = [];
+    for (let i = 0; i < samples; i++) {
+      const t = phase + (i / samples) * Math.PI * 2;
+      pts.push({ x: a * Math.sin(t) * Math.cos(t), y: b * Math.sin(t) });
+    }
+    return pts;
+  }
   const TRACKS = [
     {
       // wide flowing asymmetric loop with sweeping bulges
@@ -53,16 +63,13 @@
       ]), 104),
     },
     {
-      // long S-curve kidney — big sweeping left/right transitions
+      // figure-8 with a neon flyover — the ascending pass goes UNDER the bridge,
+      // the descending pass goes OVER it. `bridge` is the elevated progress range.
       id: "neon", name: "Neon City", home: "rob",
-      laps: 4, width: 215, difficulty: 3, feature: "Long drift sweepers",
+      laps: 4, width: 200, difficulty: 3, feature: "Figure-8 flyover",
       theme: { ground: "#201f38", groundDark: "#15132233", dirt: "#4b475f", dirtDark: "#211d2e", rut: "#5a5570" },
-      ramps: [0.28, 0.78], mud: [],
-      points: spline(W([
-        [0, -840], [318, -630], [348, -189], [185, 63], [348, 315],
-        [340, 693], [59, 892], [-281, 840], [-474, 462], [-488, -42],
-        [-414, -546], [-192, -819],
-      ]), 108),
+      ramps: [0.1, 0.55], mud: [], bridge: [0.69, 0.81], figure8: true,
+      points: gerono(1040, 820, 132),
     },
     {
       // tight technical — 5 scalloped corners, elliptical

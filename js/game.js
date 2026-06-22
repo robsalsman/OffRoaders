@@ -24,6 +24,24 @@
     }
     return { dist: Math.sqrt(best), progress: bestProg, x: bx, y: by };
   }
+  // local search near current progress, so figure-8 crossings follow the right branch
+  function closestOnLoopLocal(pts, px, py, near, win) {
+    const N = pts.length;
+    let best = Infinity, bestProg = near, bx = px, by = py;
+    const start = Math.floor(near) - win;
+    for (let k = 0; k <= 2 * win; k++) {
+      const i = ((start + k) % N + N) % N;
+      const a = pts[i], b = pts[(i + 1) % N];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy || 1;
+      let t = ((px - a.x) * dx + (py - a.y) * dy) / len2;
+      t = clamp(t, 0, 1);
+      const cx = a.x + dx * t, cy = a.y + dy * t;
+      const d = (px - cx) * (px - cx) + (py - cy) * (py - cy);
+      if (d < best) { best = d; bestProg = i + t; bx = cx; by = cy; }
+    }
+    return { dist: Math.sqrt(best), progress: bestProg, x: bx, y: by };
+  }
 
   function pointAtProgress(pts, prog) {
     const N = pts.length;
@@ -258,7 +276,9 @@
     }
 
     _trackLogic(car, dt, racing) {
-      const c = closestOnLoop(this.pts, car.x, car.y);
+      const near = car._lastProgRaw === undefined ? car.startProg : car._lastProgRaw;
+      let c = closestOnLoopLocal(this.pts, car.x, car.y, near, 12);
+      if (c.dist > this.track.width) c = closestOnLoop(this.pts, car.x, car.y);
 
       // invisible edge walls — keep the truck on the dirt, slide along the edge
       const maxOff = this.track.width / 2 - 12;
@@ -280,6 +300,13 @@
       if (car.lapProgRaw === undefined) car.lapProgRaw = prog;
       car.lapProgRaw += delta;
       car._lastProgRaw = prog;
+
+      // bridge: flag trucks on the elevated figure-8 deck
+      car.onBridge = false;
+      if (this.track.bridge) {
+        const frac = ((prog % this.N) + this.N) % this.N / this.N;
+        car.onBridge = frac > this.track.bridge[0] && frac < this.track.bridge[1];
+      }
 
       // lap counting from monotonic progress
       const lapsDone = Math.floor((car.lapProgRaw - car.startProg) / this.N);
@@ -306,6 +333,7 @@
       for (let i = 0; i < this.cars.length; i++) {
         for (let j = i + 1; j < this.cars.length; j++) {
           const a = this.cars[i], b = this.cars[j];
+          if (a.onBridge !== b.onBridge) continue; // bridge vs under-pass: no collision
           const dx = b.x - a.x, dy = b.y - a.y;
           let d = Math.hypot(dx, dy);
           if (d < minDist && d > 0.001) {
@@ -421,7 +449,9 @@
 
       this._drawTrack(ctx);
       this._drawStartLine(ctx);
-      for (const car of this.cars) this._drawCar(ctx, car);
+      this.cars.filter((c) => !c.onBridge).forEach((car) => this._drawCar(ctx, car));
+      if (this.track.bridge) this._drawBridge(ctx);
+      this.cars.filter((c) => c.onBridge).forEach((car) => this._drawCar(ctx, car));
 
       ctx.restore();
 
@@ -468,6 +498,19 @@
       ctx.setLineDash([18, 26]);
       ctx.stroke(path);
       ctx.setLineDash([]);
+    }
+
+    _drawBridge(ctx) {
+      const bz = this.track.bridge, mid = ((bz[0] + bz[1]) / 2) * this.N;
+      const p = pointAtProgress(this.pts, mid), tan = tangentAtProgress(this.pts, mid);
+      const len = this.track.width * 2.3, half = this.track.width / 2 + 8;
+      ctx.save(); ctx.translate(p.x, p.y - 18); ctx.rotate(tan);
+      ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(-len / 2 + 6, -half + 16, len, half * 2);
+      ctx.fillStyle = (this.track.theme && this.track.theme.dirt) || "#7a5a3a";
+      ctx.fillRect(-len / 2, -half, len, half * 2);
+      ctx.fillStyle = "#ff3df2"; ctx.fillRect(-len / 2, -half - 5, len, 5);
+      ctx.fillStyle = "#3df2ff"; ctx.fillRect(-len / 2, half, len, 5);
+      ctx.restore();
     }
 
     _drawStartLine(ctx) {

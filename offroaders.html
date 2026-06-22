@@ -469,6 +469,16 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     return pts;
   }
 
+  // Gerono lemniscate — a vertical figure-8 that crosses itself once at the
+  // centre. phase puts progress 0 on the bottom lobe (clear of the crossing).
+  function gerono(a, b, samples, phase = -Math.PI / 2) {
+    const pts = [];
+    for (let i = 0; i < samples; i++) {
+      const t = phase + (i / samples) * Math.PI * 2;
+      pts.push({ x: a * Math.sin(t) * Math.cos(t), y: b * Math.sin(t) });
+    }
+    return pts;
+  }
   const TRACKS = [
     {
       // wide flowing asymmetric loop with sweeping bulges
@@ -483,16 +493,13 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ]), 104),
     },
     {
-      // long S-curve kidney — big sweeping left/right transitions
+      // figure-8 with a neon flyover — the ascending pass goes UNDER the bridge,
+      // the descending pass goes OVER it. `bridge` is the elevated progress range.
       id: "neon", name: "Neon City", home: "rob",
-      laps: 4, width: 215, difficulty: 3, feature: "Long drift sweepers",
+      laps: 4, width: 200, difficulty: 3, feature: "Figure-8 flyover",
       theme: { ground: "#201f38", groundDark: "#15132233", dirt: "#4b475f", dirtDark: "#211d2e", rut: "#5a5570" },
-      ramps: [0.28, 0.78], mud: [],
-      points: spline(W([
-        [0, -840], [318, -630], [348, -189], [185, 63], [348, 315],
-        [340, 693], [59, 892], [-281, 840], [-474, 462], [-488, -42],
-        [-414, -546], [-192, -819],
-      ]), 108),
+      ramps: [0.1, 0.55], mud: [], bridge: [0.69, 0.81], figure8: true,
+      points: gerono(1040, 820, 132),
     },
     {
       // tight technical — 5 scalloped corners, elliptical
@@ -1392,6 +1399,24 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     }
     return { dist: Math.sqrt(best), progress: bestProg, x: bx, y: by };
   }
+  // local search near current progress, so figure-8 crossings follow the right branch
+  function closestOnLoopLocal(pts, px, py, near, win) {
+    const N = pts.length;
+    let best = Infinity, bestProg = near, bx = px, by = py;
+    const start = Math.floor(near) - win;
+    for (let k = 0; k <= 2 * win; k++) {
+      const i = ((start + k) % N + N) % N;
+      const a = pts[i], b = pts[(i + 1) % N];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy || 1;
+      let t = ((px - a.x) * dx + (py - a.y) * dy) / len2;
+      t = clamp(t, 0, 1);
+      const cx = a.x + dx * t, cy = a.y + dy * t;
+      const d = (px - cx) * (px - cx) + (py - cy) * (py - cy);
+      if (d < best) { best = d; bestProg = i + t; bx = cx; by = cy; }
+    }
+    return { dist: Math.sqrt(best), progress: bestProg, x: bx, y: by };
+  }
 
   function pointAtProgress(pts, prog) {
     const N = pts.length;
@@ -1626,7 +1651,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     }
 
     _trackLogic(car, dt, racing) {
-      const c = closestOnLoop(this.pts, car.x, car.y);
+      const near = car._lastProgRaw === undefined ? car.startProg : car._lastProgRaw;
+      let c = closestOnLoopLocal(this.pts, car.x, car.y, near, 12);
+      if (c.dist > this.track.width) c = closestOnLoop(this.pts, car.x, car.y);
 
       // invisible edge walls — keep the truck on the dirt, slide along the edge
       const maxOff = this.track.width / 2 - 12;
@@ -1648,6 +1675,13 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       if (car.lapProgRaw === undefined) car.lapProgRaw = prog;
       car.lapProgRaw += delta;
       car._lastProgRaw = prog;
+
+      // bridge: flag trucks on the elevated figure-8 deck
+      car.onBridge = false;
+      if (this.track.bridge) {
+        const frac = ((prog % this.N) + this.N) % this.N / this.N;
+        car.onBridge = frac > this.track.bridge[0] && frac < this.track.bridge[1];
+      }
 
       // lap counting from monotonic progress
       const lapsDone = Math.floor((car.lapProgRaw - car.startProg) / this.N);
@@ -1674,6 +1708,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       for (let i = 0; i < this.cars.length; i++) {
         for (let j = i + 1; j < this.cars.length; j++) {
           const a = this.cars[i], b = this.cars[j];
+          if (a.onBridge !== b.onBridge) continue; // bridge vs under-pass: no collision
           const dx = b.x - a.x, dy = b.y - a.y;
           let d = Math.hypot(dx, dy);
           if (d < minDist && d > 0.001) {
@@ -1789,7 +1824,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
       this._drawTrack(ctx);
       this._drawStartLine(ctx);
-      for (const car of this.cars) this._drawCar(ctx, car);
+      this.cars.filter((c) => !c.onBridge).forEach((car) => this._drawCar(ctx, car));
+      if (this.track.bridge) this._drawBridge(ctx);
+      this.cars.filter((c) => c.onBridge).forEach((car) => this._drawCar(ctx, car));
 
       ctx.restore();
 
@@ -1836,6 +1873,19 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ctx.setLineDash([18, 26]);
       ctx.stroke(path);
       ctx.setLineDash([]);
+    }
+
+    _drawBridge(ctx) {
+      const bz = this.track.bridge, mid = ((bz[0] + bz[1]) / 2) * this.N;
+      const p = pointAtProgress(this.pts, mid), tan = tangentAtProgress(this.pts, mid);
+      const len = this.track.width * 2.3, half = this.track.width / 2 + 8;
+      ctx.save(); ctx.translate(p.x, p.y - 18); ctx.rotate(tan);
+      ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(-len / 2 + 6, -half + 16, len, half * 2);
+      ctx.fillStyle = (this.track.theme && this.track.theme.dirt) || "#7a5a3a";
+      ctx.fillRect(-len / 2, -half, len, half * 2);
+      ctx.fillStyle = "#ff3df2"; ctx.fillRect(-len / 2, -half - 5, len, 5);
+      ctx.fillStyle = "#3df2ff"; ctx.fillRect(-len / 2, half, len, 5);
+      ctx.restore();
     }
 
     _drawStartLine(ctx) {
@@ -1975,6 +2025,25 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     const N = pts.length;
     let best = Infinity, bestProg = 0;
     for (let i = 0; i < N; i++) {
+      const a = pts[i], b = pts[(i + 1) % N];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy || 1;
+      let t = ((px - a.x) * dx + (py - a.y) * dy) / len2;
+      t = clamp(t, 0, 1);
+      const cx = a.x + dx * t, cy = a.y + dy * t;
+      const d = (px - cx) * (px - cx) + (py - cy) * (py - cy);
+      if (d < best) { best = d; bestProg = i + t; }
+    }
+    return { dist: Math.sqrt(best), progress: bestProg };
+  }
+  // search only segments near the car's current progress, so at a figure-8
+  // crossing it follows its own branch instead of snapping to the other one.
+  function closestOnLoopLocal(pts, px, py, near, win) {
+    const N = pts.length;
+    let best = Infinity, bestProg = near;
+    const start = Math.floor(near) - win;
+    for (let k = 0; k <= 2 * win; k++) {
+      const i = ((start + k) % N + N) % N;
       const a = pts[i], b = pts[(i + 1) % N];
       const dx = b.x - a.x, dy = b.y - a.y;
       const len2 = dx * dx + dy * dy || 1;
@@ -2356,12 +2425,17 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     // tyre barriers lining both edges of the track — the Super Off Road signature
     _paintTyres(g) {
       const off = this.track.width / 2 + 13, N = this.N;
+      // don't litter tyres in the figure-8 intersection
+      let cross = null;
+      if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * N);
+      const clear = this.track.width * 1.6;
       let acc = 0, prev = this.pts[0], count = 0;
       for (let s = 0; s < N; s += 0.5) {
         const p = pointAtProgress(this.pts, s);
         acc += Math.hypot(p.x - prev.x, p.y - prev.y); prev = p;
         if (acc >= 46) {
           acc = 0;
+          if (cross && Math.hypot(p.x - cross.x, p.y - cross.y) < clear) continue;
           const tan = tangentAtProgress(this.pts, s), nx = -Math.sin(tan), ny = Math.cos(tan);
           this._tyre(g, p.x + nx * off, p.y + ny * off, count);
           this._tyre(g, p.x - nx * off, p.y - ny * off, count);
@@ -2716,7 +2790,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     }
 
     _trackLogic(car, dt, racing) {
-      const c = closestOnLoop(this.pts, car.x, car.y);
+      // local search keeps each truck on its own branch through a crossover;
+      // fall back to a global search if it somehow drifts out of the window.
+      let c = closestOnLoopLocal(this.pts, car.x, car.y, car._lastProgRaw, 12);
+      if (c.dist > this.track.width) c = closestOnLoop(this.pts, car.x, car.y);
 
       // invisible edge walls — keep the truck on the dirt, slide along the edge
       const maxOff = this.track.width / 2 - 12;
@@ -2734,6 +2811,18 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       let delta = prog - (car._lastProgRaw % this.N);
       if (delta < -this.N / 2) delta += this.N; else if (delta > this.N / 2) delta -= this.N;
       car.lapProgRaw += delta; car._lastProgRaw = prog;
+
+      // bridge: lift the truck onto the elevated deck over the figure-8 crossing
+      car.onBridge = false; car.bridgeZ = 0;
+      if (this.track.bridge) {
+        const frac = ((prog % this.N) + this.N) % this.N / this.N;
+        const [f0, f1] = this.track.bridge;
+        if (frac > f0 && frac < f1) {
+          const u = (frac - f0) / (f1 - f0); // 0..1 across the deck
+          car.onBridge = true;
+          car.bridgeZ = 26 * Math.min(1, Math.min(u, 1 - u) / 0.22); // ramp at the ends
+        }
+      }
 
       // whoops: while on a rough section the truck chatters and hops
       if (racing) for (const wp of (this.whoops || [])) {
@@ -2784,6 +2873,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         for (let j = i + 1; j < this.cars.length; j++) {
           const a = this.cars[i], b = this.cars[j];
           if (Math.abs(a.z - b.z) > 30) continue; // one is airborne over the other
+          if (a.onBridge !== b.onBridge) continue; // one is on the bridge, one beneath
           const dx = b.x - a.x, dy = b.y - a.y;
           let d = Math.hypot(dx, dy);
           if (d < minDist && d > 0.001) {
@@ -2893,6 +2983,29 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       }
     }
 
+    // the elevated overpass deck at the figure-8 crossing (neon-railed)
+    _drawBridge(ctx) {
+      const bz = this.track.bridge, mid = ((bz[0] + bz[1]) / 2) * this.N;
+      const p = pointAtProgress(this.pts, mid), tan = tangentAtProgress(this.pts, mid);
+      const len = this.track.width * 2.3, half = this.track.width / 2 + 8, H = 26;
+      const th = this.track.theme;
+      // cast shadow on the lane below
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(tan);
+      ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(-len / 2 + 7, -half + 12, len, half * 2);
+      ctx.restore();
+      // raised deck
+      ctx.save(); ctx.translate(p.x, p.y - H); ctx.rotate(tan);
+      ctx.fillStyle = "#2a2433"; // support edges
+      ctx.fillRect(-len / 2, -half - 2, len, 6); ctx.fillRect(-len / 2, half - 4, len, 6);
+      ctx.fillStyle = th.dirtDark; ctx.fillRect(-len / 2, -half, len, half * 2);
+      const pat = ctx.createPattern(getDirtTile(th.dirt), "repeat");
+      ctx.fillStyle = pat || th.dirt; ctx.fillRect(-len / 2 + 5, -half + 5, len - 10, half * 2 - 10);
+      // neon guard rails
+      ctx.fillStyle = "#ff3df2"; ctx.fillRect(-len / 2, -half - 6, len, 5);
+      ctx.fillStyle = "#3df2ff"; ctx.fillRect(-len / 2, half + 1, len, 5);
+      ctx.restore();
+    }
+
     _drawFloats(ctx) {
       for (const f of this.floats) {
         ctx.save();
@@ -2962,8 +3075,12 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ctx.drawImage(this.decal, this.bbox.minX, this.bbox.minY, this.bbox.w, this.bbox.h);
       this._drawParticles(ctx, false); // ground dust under cars
       this._drawPickups(ctx);
-      // cars sorted so airborne draw last
-      [...this.cars].sort((a, b) => a.z - b.z).forEach((car) => this._drawCar(ctx, car));
+      // cars sorted so airborne draw last; trucks under the bridge first, then the
+      // elevated deck, then trucks on the bridge — so the overpass reads correctly.
+      const ordered = [...this.cars].sort((a, b) => a.z - b.z);
+      ordered.filter((c) => !c.onBridge).forEach((car) => this._drawCar(ctx, car));
+      if (this.track.bridge) this._drawBridge(ctx);
+      ordered.filter((c) => c.onBridge).forEach((car) => this._drawCar(ctx, car));
       this._drawParticles(ctx, true); // airborne dust over cars
       this._drawFloats(ctx);
 
@@ -2976,7 +3093,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     _drawCar(ctx, car) {
       const sprite = (window.makeTruckSprite || truckSprite)(car.vehicleId, car.color, car.isPlayer);
-      const lift = car.z;
+      const lift = car.z + (car.bridgeZ || 0);
       const scale = 1 + car.z / 260; // grows when airborne (closer to "camera")
       // shadow on the ground (offset opposite to lift, lighter when high)
       ctx.save();
