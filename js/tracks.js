@@ -80,15 +80,13 @@
       points: wave(580, 92, (t) => 1 + 0.26 * Math.sin(t * 5) + 0.05 * Math.cos(t * 3), 0.86, 1.3, 0.2),
     },
     {
-      // huge rounded rectangle — long straights, wide power turns
+      // big, fast figure-8 with a flyover and water hazards
       id: "thunder", name: "Thunder Valley", home: "atrain",
-      laps: 5, width: 210, difficulty: 3, feature: "Big track, water hazards",
+      laps: 5, width: 210, difficulty: 3, feature: "Big figure-8 flyover",
       theme: { ground: "#2e6b46", groundDark: "#24563a", dirt: "#b9925e", dirtDark: "#6e4a28", rut: "#8a6838" },
-      ramps: [0.18, 0.5, 0.82], mud: [0.36, 0.72], surface: "water", whoops: [0.12, 0.62],
-      points: spline(W([
-        [-370, -780], [370, -780], [502, -560], [502, 560], [370, 780],
-        [-370, 780], [-502, 560], [-502, -560],
-      ]), 112),
+      ramps: [0.15, 0.45], mud: [0.42, 0.9], surface: "water", whoops: [0.1, 0.58],
+      bridge: [0.69, 0.81], figure8: true,
+      points: gerono(1180, 780, 136),
     },
     {
       // twisty old-school — 4 wide scallops, stretched
@@ -99,12 +97,13 @@
       points: wave(580, 90, (t) => 1 + 0.24 * Math.sin(t * 4) + 0.06 * Math.sin(t * 2), 0.9, 1.26, 0.3),
     },
     {
-      // precision chicanes — 6 shallow scallops
+      // tight technical figure-8 with a flyover
       id: "lab", name: "Test Loop", home: "drg",
-      laps: 4, width: 180, difficulty: 5, feature: "Precision chicanes",
+      laps: 4, width: 175, difficulty: 5, feature: "Tight crossover",
       theme: { ground: "#2e6b3a", groundDark: "#24562f", dirt: "#8f9a8a", dirtDark: "#4a544a", rut: "#6a746a" },
-      ramps: [0.35, 0.65, 0.95], mud: [],
-      points: wave(640, 96, (t) => 1 + 0.15 * Math.sin(t * 6) + 0.05 * Math.cos(t * 2), 0.9, 1.18, 0.1),
+      ramps: [0.12, 0.5], mud: [], whoops: [0.55],
+      bridge: [0.69, 0.81], figure8: true,
+      points: gerono(840, 920, 124),
     },
   ];
 
