@@ -379,7 +379,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         <h2>HOW TO PLAY</h2>
         <div class="howto">
           <p><strong>Goal:</strong> Finish each race as high as you can. Cash and championship points are awarded by finishing position.</p>
-          <p><strong>Keyboard:</strong> <kbd>↑</kbd>/<kbd>W</kbd> gas, <kbd>↓</kbd>/<kbd>S</kbd> brake, <kbd>←</kbd><kbd>→</kbd>/<kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> nitro, <kbd>Esc</kbd> pause.</p>
+          <p><strong>Keyboard:</strong> your truck auto-accelerates — <kbd>←</kbd><kbd>→</kbd>/<kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> nitro, <kbd>↓</kbd>/<kbd>S</kbd> brake, <kbd>Esc</kbd> pause.</p>
           <p><strong>The whole track is on screen at once</strong> — no scrolling, so you can always see the pack and plan your line.</p>
           <p><strong>Touch:</strong> Your truck <strong>accelerates automatically</strong>. Push the <strong>steering pad</strong> (bottom-right) in the <strong>direction you want the truck to go</strong> — push down to head down the screen. <strong>NITRO</strong> and <strong>BRAKE</strong> are on the left.</p>
           <p><strong>Drifting:</strong> In Enhanced mode the trucks turn normally — but hold <strong>NITRO</strong> while steering and the truck automatically drifts through the corner.</p>
@@ -1766,8 +1766,11 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         this._bounds = { w: (maxX - minX) + pad * 2, h: (maxY - minY) + pad * 2, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
       }
       const b = this._bounds;
-      // fit the track into the clear band between the top HUD and the bottom controls
-      const topUI = H * 0.16, botUI = H * 0.30, availH = H - topUI - botUI;
+      // fit into the clear band between the HUD and controls; desktop has no
+      // on-screen controls, so use nearly the whole height.
+      const touchUI = this.cfg.touch;
+      const topUI = H * (touchUI ? 0.16 : 0.10), botUI = H * (touchUI ? 0.30 : 0.07);
+      const availH = H - topUI - botUI;
       const zoom = Math.min(W / (b.w * 1.06), availH / (b.h * 1.06));
       this._zoom = zoom;
       this.camX = b.cx; this.camY = b.cy;
@@ -2922,8 +2925,11 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       // Static "set piece" camera: frame the ENTIRE track at once (Super Off Road
       // style) so every truck stays on screen and the world never pans or zooms.
       const b = this.bbox;
-      // fit the track into the clear band between the top HUD and the bottom controls
-      const topUI = H * 0.16, botUI = H * 0.30, availH = H - topUI - botUI;
+      // fit into the clear band between the top HUD and the controls. On desktop
+      // there are no on-screen controls, so use nearly the whole height.
+      const touchUI = this.cfg.touch;
+      const topUI = H * (touchUI ? 0.16 : 0.10), botUI = H * (touchUI ? 0.30 : 0.07);
+      const availH = H - topUI - botUI;
       const zoom = Math.min(W / (b.w * 1.06), availH / (b.h * 1.06));
       this._zoom = zoom;
       this.camX = (b.minX + b.maxX) / 2;
@@ -3405,8 +3411,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     hideOverlay();
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
-    if (window.Input) { // mobile: truck drives itself, you steer
-      window.Input.setAutoGas(isTouch);
+    if (window.Input) { // the truck auto-accelerates everywhere; you just steer
+      window.Input.setAutoGas(true);
       window.Input.setSmartThrottle(Career.assist() === "smart");
     }
 
@@ -3425,6 +3431,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
     race = new Engine(canvas, {
       track,
+      touch: isTouch,
       roster: Career.buildRoster(track.id),
       onUpdate: updateHud,
       onFinish: onRaceFinish,

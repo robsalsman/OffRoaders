@@ -398,8 +398,11 @@
         this._bounds = { w: (maxX - minX) + pad * 2, h: (maxY - minY) + pad * 2, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
       }
       const b = this._bounds;
-      // fit the track into the clear band between the top HUD and the bottom controls
-      const topUI = H * 0.16, botUI = H * 0.30, availH = H - topUI - botUI;
+      // fit into the clear band between the HUD and controls; desktop has no
+      // on-screen controls, so use nearly the whole height.
+      const touchUI = this.cfg.touch;
+      const topUI = H * (touchUI ? 0.16 : 0.10), botUI = H * (touchUI ? 0.30 : 0.07);
+      const availH = H - topUI - botUI;
       const zoom = Math.min(W / (b.w * 1.06), availH / (b.h * 1.06));
       this._zoom = zoom;
       this.camX = b.cx; this.camY = b.cy;

@@ -336,8 +336,8 @@
     hideOverlay();
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
-    if (window.Input) { // mobile: truck drives itself, you steer
-      window.Input.setAutoGas(isTouch);
+    if (window.Input) { // the truck auto-accelerates everywhere; you just steer
+      window.Input.setAutoGas(true);
       window.Input.setSmartThrottle(Career.assist() === "smart");
     }
 
@@ -356,6 +356,7 @@
     const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
     race = new Engine(canvas, {
       track,
+      touch: isTouch,
       roster: Career.buildRoster(track.id),
       onUpdate: updateHud,
       onFinish: onRaceFinish,

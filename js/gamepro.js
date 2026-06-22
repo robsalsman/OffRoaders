@@ -967,8 +967,11 @@
       // Static "set piece" camera: frame the ENTIRE track at once (Super Off Road
       // style) so every truck stays on screen and the world never pans or zooms.
       const b = this.bbox;
-      // fit the track into the clear band between the top HUD and the bottom controls
-      const topUI = H * 0.16, botUI = H * 0.30, availH = H - topUI - botUI;
+      // fit into the clear band between the top HUD and the controls. On desktop
+      // there are no on-screen controls, so use nearly the whole height.
+      const touchUI = this.cfg.touch;
+      const topUI = H * (touchUI ? 0.16 : 0.10), botUI = H * (touchUI ? 0.30 : 0.07);
+      const availH = H - topUI - botUI;
       const zoom = Math.min(W / (b.w * 1.06), availH / (b.h * 1.06));
       this._zoom = zoom;
       this.camX = (b.minX + b.maxX) / 2;
