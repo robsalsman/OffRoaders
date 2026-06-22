@@ -103,10 +103,10 @@ html, body {
   color: rgba(255,255,255,.4); font-size: 13px; font-weight: bold; letter-spacing: 1px;
   pointer-events: none;
 }
-/* permanent, always-visible d-pad anchored bottom-right */
+/* permanent, always-visible d-pad anchored bottom-right (as low as the safe area allows) */
 .stick-base {
-  position: fixed; right: 70px; bottom: 90px;
-  width: 156px; height: 156px; border-radius: 50%;
+  position: fixed; right: 64px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  width: 158px; height: 158px; border-radius: 50%;
   border: 2px solid rgba(255,255,255,.32);
   background: radial-gradient(circle, rgba(20,14,10,.42), rgba(20,14,10,.62));
   box-shadow: 0 4px 16px rgba(0,0,0,.35);
@@ -133,7 +133,7 @@ html, body {
   color: var(--text); font-weight: bold; letter-spacing: 1px;
   cursor: pointer; transition: transform .06s, filter .06s;
 }
-.drive-btn.nitro { bottom: 96px; width: 124px; height: 124px; font-size: 19px;
+.drive-btn.nitro { bottom: calc(env(safe-area-inset-bottom, 0px) + 34px); width: 128px; height: 128px; font-size: 19px;
   background: radial-gradient(circle at 40% 35%, rgba(80,225,255,.55), rgba(47,160,255,.45)); }
 .drive-btn.pressed { transform: scale(.93); filter: brightness(1.4); }
 
@@ -3146,7 +3146,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ctx.save();
       ctx.translate(car.x, car.y - lift);
       ctx.rotate(car.angle + car.wobble * Math.sin(this.time * 30) * 0.04);
-      const mul = car.isPlayer ? 2.05 : 1.85;
+      const mul = car.isPlayer ? 2.5 : 2.25;
       const w = CAR_W * scale * mul, h = CAR_H * scale * mul;
       ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
       ctx.restore();
