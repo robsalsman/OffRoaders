@@ -51,16 +51,18 @@
   }
   const TRACKS = [
     {
-      // wide flowing asymmetric loop with sweeping bulges
+      // speedway: two long straights joined by sweepers, with a chicane kink
       id: "mesa", name: "Blazing Mesa", home: "hotrod",
-      laps: 4, width: 200, difficulty: 2, feature: "Fast flowing sweepers",
+      laps: 4, width: 185, difficulty: 2, feature: "Long straights & chicane",
       theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
-      ramps: [0.12, 0.55, 0.82], mud: [], whoops: [0.68],
+      ramps: [0.18, 0.58], mud: [], whoops: [0.86],
       points: spline(W([
-        [-89, -806], [281, -742], [459, -403], [318, -127], [511, 127],
-        [474, 498], [222, 763], [-133, 816], [-414, 636], [-503, 233],
-        [-414, -170], [-488, -551], [-326, -806],
-      ]), 104),
+        [60, -760], [300, -620],
+        [470, -340], [470, -30], [360, 150], [470, 330], [470, 540],
+        [300, 720], [-40, 762], [-300, 700],
+        [-470, 400], [-470, 20], [-470, -320],
+        [-300, -620],
+      ]), 124),
     },
     {
       // figure-8 with a neon flyover — the ascending pass goes UNDER the bridge,
@@ -72,12 +74,17 @@
       points: gerono(1040, 820, 132),
     },
     {
-      // tight technical — 5 scalloped corners, elliptical
+      // paperclip: a long straight into a tight hairpin, then back up
       id: "canyon", name: "Dust Canyon", home: "west",
-      laps: 4, width: 160, difficulty: 4, feature: "Tight & technical",
+      laps: 4, width: 165, difficulty: 4, feature: "Hairpin & long straight",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
-      ramps: [0.4, 0.88], mud: [0.18, 0.62], surface: "mud", whoops: [0.52],
-      points: wave(580, 92, (t) => 1 + 0.26 * Math.sin(t * 5) + 0.05 * Math.cos(t * 3), 0.86, 1.3, 0.2),
+      ramps: [0.08], mud: [0.78], surface: "mud", whoops: [0.5],
+      points: spline(W([
+        [300, -560], [300, -200], [300, 200], [300, 460],
+        [200, 640], [-40, 700], [-260, 600],
+        [-380, 320], [-380, -40], [-380, -380],
+        [-220, -620], [60, -640],
+      ]), 120),
     },
     {
       // big, fast figure-8 with a flyover and water hazards
@@ -89,12 +96,19 @@
       points: gerono(1180, 780, 136),
     },
     {
-      // twisty old-school — 4 wide scallops, stretched
+      // flowing esses: a straight, sweeping S-bends and a sweeper, sandy
       id: "gravel", name: "Gravel Pit", home: "olddog",
-      laps: 5, width: 165, difficulty: 4, feature: "Twisty, sandy",
+      laps: 5, width: 165, difficulty: 4, feature: "Flowing esses",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
-      ramps: [0.5], mud: [0.3, 0.7, 0.92], surface: "sand",
-      points: wave(580, 90, (t) => 1 + 0.24 * Math.sin(t * 4) + 0.06 * Math.sin(t * 2), 0.9, 1.26, 0.3),
+      ramps: [0.46], mud: [0.16, 0.64], surface: "sand",
+      points: spline(W([
+        [0, -700], [260, -600],
+        [400, -340], [220, -110],
+        [400, 150], [330, 450],
+        [120, 680], [-200, 680],
+        [-390, 420], [-210, 150],
+        [-410, -150], [-260, -520],
+      ]), 116),
     },
     {
       // tight technical figure-8 with a flyover
