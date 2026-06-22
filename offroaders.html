@@ -2156,6 +2156,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this._computeBBox();
       this._buildDecal();
       this._buildRamps();
+      this._buildScene();
       this._buildCars();
       this._resize();
     }
@@ -2194,6 +2195,163 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         const p = pointAtProgress(this.pts, frac * this.N);
         return { x: p.x, y: p.y, r: this.track.width * 0.42 };
       });
+    }
+
+    // Pre-render the whole static course (track, berms, ruts, mud, ramps, tyre
+    // barriers, start banner, grandstands) to one offscreen canvas. Quality goes
+    // up (we can afford expensive detail once) and per-frame cost goes down.
+    _buildScene() {
+      const b = this.bbox, margin = 320;
+      const sx = Math.floor(b.minX - margin), sy = Math.floor(b.minY - margin);
+      const w = Math.ceil(b.w + margin * 2), h = Math.ceil(b.h + margin * 2);
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      const g = cv.getContext("2d");
+      g.translate(-sx, -sy);
+      this.scene = cv; this.sceneX = sx; this.sceneY = sy;
+
+      const th = this.track.theme || { dirt: "#b07a45", dirtDark: "#5a3c20", rut: "#6b4a29" };
+      const Wd = this.track.width;
+      const path = this._loopPath(0);
+      g.lineJoin = "round"; g.lineCap = "round";
+
+      this._paintScenery(g);
+
+      // soft drop shadow under the raised track
+      g.save(); g.shadowColor = "rgba(0,0,0,0.5)"; g.shadowBlur = 26; g.shadowOffsetY = 10;
+      g.strokeStyle = "rgba(0,0,0,0.5)"; g.lineWidth = Wd + 20; g.stroke(path); g.restore();
+
+      // banked berm: dark base, then a lighter raised lip on top
+      g.strokeStyle = th.dirtDark; g.lineWidth = Wd + 24; g.stroke(path);
+      g.strokeStyle = shade(th.dirt, 1.16); g.lineWidth = Wd + 12; g.stroke(path);
+
+      // dirt surface (textured)
+      const pat = g.createPattern(getDirtTile(th.dirt), "repeat");
+      g.strokeStyle = pat || th.dirt; g.lineWidth = Wd; g.stroke(path);
+
+      // edge ambient-occlusion (darker towards the rim) + worn ruts following the line
+      g.strokeStyle = "rgba(0,0,0,0.16)"; g.lineWidth = Wd; g.stroke(this._loopPath(0));
+      g.globalAlpha = 0.5; g.strokeStyle = th.rut; g.lineWidth = 5;
+      for (const off of [-Wd * 0.24, 0, Wd * 0.24]) {
+        g.setLineDash([26, 34]); g.stroke(this._loopPath(off));
+      }
+      g.setLineDash([]); g.globalAlpha = 1;
+
+      this._paintMud(g);
+      for (const ramp of this.ramps) this._paintRamp(g, ramp);
+      this._paintTyres(g);
+      this._paintStartBanner(g);
+    }
+
+    // closed path of the centre line, optionally offset along the outward normal
+    _loopPath(off) {
+      const pts = this.pts, N = pts.length, p = new Path2D();
+      const pt = (i) => {
+        if (!off) return pts[i];
+        const a = pts[(i - 1 + N) % N], b = pts[(i + 1) % N];
+        const tx = b.x - a.x, ty = b.y - a.y, l = Math.hypot(tx, ty) || 1;
+        return { x: pts[i].x + (-ty / l) * off, y: pts[i].y + (tx / l) * off };
+      };
+      const s = pt(0); p.moveTo(s.x, s.y);
+      for (let i = 1; i < N; i++) { const q = pt(i); p.lineTo(q.x, q.y); }
+      p.closePath(); return p;
+    }
+
+    _paintMud(g) {
+      for (const m of (this.mud || [])) {
+        g.fillStyle = "rgba(35,22,10,0.6)";
+        g.beginPath(); g.ellipse(m.x, m.y, m.r, m.r * 0.8, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "rgba(80,58,28,0.55)";
+        g.beginPath(); g.ellipse(m.x, m.y, m.r * 0.66, m.r * 0.5, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "rgba(255,255,255,0.06)";
+        g.beginPath(); g.ellipse(m.x - m.r * 0.2, m.y - m.r * 0.15, m.r * 0.3, m.r * 0.2, 0, 0, Math.PI * 2); g.fill();
+      }
+    }
+
+    _paintRamp(g, ramp) {
+      g.save(); g.translate(ramp.x, ramp.y); g.rotate(ramp.tan);
+      const w = Math.min(ramp.half * 1.6, this.track.width * 0.8), len = 74;
+      const grad = g.createLinearGradient(-len / 2, 0, len / 2, 0);
+      grad.addColorStop(0, "#7a4e26"); grad.addColorStop(0.5, "#b3823f"); grad.addColorStop(1, "#d8ab68");
+      g.fillStyle = grad; g.fillRect(-len / 2, -w / 2, len, w);
+      g.fillStyle = "rgba(255,235,180,0.9)";
+      for (let i = -1; i <= 1; i++) {
+        const cx = i * 24; g.beginPath();
+        g.moveTo(cx - 9, -w / 2 + 6); g.lineTo(cx + 9, 0); g.lineTo(cx - 9, w / 2 - 6);
+        g.lineTo(cx - 2, w / 2 - 6); g.lineTo(cx + 16, 0); g.lineTo(cx - 2, -w / 2 + 6);
+        g.closePath(); g.fill();
+      }
+      g.strokeStyle = "rgba(0,0,0,0.35)"; g.lineWidth = 3; g.strokeRect(-len / 2, -w / 2, len, w);
+      g.restore();
+    }
+
+    // tyre barriers lining both edges of the track — the Super Off Road signature
+    _paintTyres(g) {
+      const off = this.track.width / 2 + 13, N = this.N;
+      let acc = 0, prev = this.pts[0], count = 0;
+      for (let s = 0; s < N; s += 0.5) {
+        const p = pointAtProgress(this.pts, s);
+        acc += Math.hypot(p.x - prev.x, p.y - prev.y); prev = p;
+        if (acc >= 46) {
+          acc = 0;
+          const tan = tangentAtProgress(this.pts, s), nx = -Math.sin(tan), ny = Math.cos(tan);
+          this._tyre(g, p.x + nx * off, p.y + ny * off, count);
+          this._tyre(g, p.x - nx * off, p.y - ny * off, count);
+          count++;
+        }
+      }
+    }
+    _tyre(g, x, y, i) {
+      g.fillStyle = "rgba(0,0,0,0.4)"; g.beginPath(); g.arc(x + 2, y + 3, 11, 0, 7); g.fill();
+      g.fillStyle = "#1b1813"; g.beginPath(); g.arc(x, y, 11, 0, 7); g.fill();
+      g.fillStyle = i % 2 ? "#d23b2e" : "#ededed"; g.beginPath(); g.arc(x, y, 6.5, 0, 7); g.fill();
+      g.fillStyle = "#0f0d0b"; g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill();
+    }
+
+    _paintStartBanner(g) {
+      const a = pointAtProgress(this.pts, 0), tan = tangentAtProgress(this.pts, 0);
+      const half = this.track.width / 2;
+      g.save(); g.translate(a.x, a.y); g.rotate(tan);
+      const sq = 15;
+      for (let i = -Math.ceil(half / sq); i < Math.ceil(half / sq); i++) {
+        g.fillStyle = (i & 1) ? "#fff" : "#1a1a1a"; g.fillRect(-sq, i * sq, sq, sq);
+        g.fillStyle = (i & 1) ? "#1a1a1a" : "#fff"; g.fillRect(0, i * sq, sq, sq);
+      }
+      // banner posts at both ends
+      g.fillStyle = "#caa24a";
+      g.fillRect(-12, -half - 26, 24, 22); g.fillRect(-12, half + 4, 24, 22);
+      g.fillStyle = "#b03020"; g.fillRect(-sq, -half - 22, sq * 2, 16);
+      g.fillStyle = "#fff"; g.font = "bold 13px sans-serif"; g.textAlign = "center";
+      g.fillText("START", 0, -half - 10);
+      g.restore();
+    }
+
+    // grandstands set back from the track on the long outer faces
+    _paintScenery(g) {
+      const cx = (this.bbox.minX + this.bbox.maxX) / 2, cy = (this.bbox.minY + this.bbox.maxY) / 2;
+      const rx = this.bbox.w / 2 + 150, ry = this.bbox.h / 2 + 150;
+      const spots = [0.35, 1.25, 2.4, 3.5, 4.4, 5.3];
+      spots.forEach((ang, i) => {
+        const x = cx + Math.cos(ang) * rx, y = cy + Math.sin(ang) * ry;
+        this._grandstand(g, x, y, ang, i);
+      });
+    }
+    _grandstand(g, x, y, ang, seed) {
+      const CROWD = ["#e6dcc0", "#ffffff", "#f2b8b0", "#bcd0f0", "#ffe7a8", "#cfead0", "#e8c0e0"];
+      const w = 250, h = 78;
+      g.save(); g.translate(x, y); g.rotate(ang + Math.PI / 2);
+      g.fillStyle = "rgba(0,0,0,0.28)"; g.fillRect(-w / 2 + 7, -h / 2 + 9, w, h);
+      g.fillStyle = "#6a6e75"; g.fillRect(-w / 2, -h / 2, w, h);
+      for (let r = 0; r < 4; r++) {
+        const ry = -h / 2 + 9 + r * 15;
+        g.fillStyle = r % 2 ? "#7c818a" : "#73787f"; g.fillRect(-w / 2 + 6, ry, w - 12, 11);
+        for (let px = -w / 2 + 13; px < w / 2 - 10; px += 11) {
+          g.fillStyle = CROWD[((px * 7 + r * 3 + seed * 5) >>> 0) % CROWD.length];
+          g.fillRect(px, ry + 2, 5, 7);
+        }
+      }
+      g.fillStyle = "#3b3f45"; g.fillRect(-w / 2, -h / 2, w, 7); // roof lip
+      g.strokeStyle = "rgba(0,0,0,0.4)"; g.lineWidth = 3; g.strokeRect(-w / 2, -h / 2, w, h);
+      g.restore();
     }
 
     _buildCars() {
@@ -2594,13 +2752,11 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ctx.scale(zoom, zoom);
       ctx.translate(-this.camX, -this.camY);
 
-      this._drawTrack(ctx);
-      // skid decals
+      // pre-rendered static course (track, berms, tyres, ramps, banner, stands)
       ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(this.scene, this.sceneX, this.sceneY);
+      // dynamic skid decals on top of the dirt
       ctx.drawImage(this.decal, this.bbox.minX, this.bbox.minY, this.bbox.w, this.bbox.h);
-      this._drawMud(ctx);
-      this._drawRamps(ctx);
-      this._drawStartLine(ctx);
       this._drawParticles(ctx, false); // ground dust under cars
       // cars sorted so airborne draw last
       [...this.cars].sort((a, b) => a.z - b.z).forEach((car) => this._drawCar(ctx, car));
@@ -2611,78 +2767,6 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this._drawVignette(ctx, W, H);
       if (this.countdown > 0) this._drawCountdown(ctx, W, H);
       if (p.z > 4) this._drawAir(ctx, W, H);
-    }
-
-    _drawTrack(ctx) {
-      const pts = this.pts;
-      const path = new Path2D();
-      path.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) path.lineTo(pts[i].x, pts[i].y);
-      path.closePath();
-      const th = this.track.theme || { dirt: "#b07a45", dirtDark: "#5a3c20", rut: "#6b4a29" };
-      ctx.lineJoin = "round"; ctx.lineCap = "round";
-      // berm / shadow
-      ctx.strokeStyle = "rgba(0,0,0,0.45)";
-      ctx.lineWidth = this.track.width + 22; ctx.stroke(path);
-      // dark dirt rim
-      ctx.strokeStyle = th.dirtDark;
-      ctx.lineWidth = this.track.width + 6; ctx.stroke(path);
-      // dirt surface (textured, themed)
-      const pat = ctx.createPattern(getDirtTile(th.dirt), "repeat");
-      ctx.strokeStyle = pat || th.dirt;
-      ctx.lineWidth = this.track.width; ctx.stroke(path);
-      // centre ruts
-      ctx.strokeStyle = th.rut;
-      ctx.globalAlpha = 0.5;
-      ctx.lineWidth = 5; ctx.setLineDash([22, 30]); ctx.stroke(path); ctx.setLineDash([]);
-      ctx.globalAlpha = 1;
-    }
-
-    _drawMud(ctx) {
-      for (const m of (this.mud || [])) {
-        ctx.fillStyle = "rgba(35,22,10,0.55)";
-        ctx.beginPath(); ctx.ellipse(m.x, m.y, m.r, m.r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "rgba(70,50,25,0.5)";
-        ctx.beginPath(); ctx.ellipse(m.x, m.y, m.r * 0.7, m.r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-
-    _drawRamps(ctx) {
-      for (const ramp of this.ramps) {
-        ctx.save();
-        ctx.translate(ramp.x, ramp.y);
-        ctx.rotate(ramp.tan);
-        const w = Math.min(ramp.half * 1.6, this.track.width * 0.8), len = 70;
-        // ramp base
-        const g = ctx.createLinearGradient(-len / 2, 0, len / 2, 0);
-        g.addColorStop(0, "#8a5a2e"); g.addColorStop(1, "#c89a5e");
-        ctx.fillStyle = g;
-        ctx.fillRect(-len / 2, -w / 2, len, w);
-        // chevrons
-        ctx.fillStyle = "rgba(255,235,180,0.85)";
-        for (let i = -1; i <= 1; i++) {
-          ctx.beginPath();
-          const cx = i * 22;
-          ctx.moveTo(cx - 8, -w / 2 + 6); ctx.lineTo(cx + 8, 0); ctx.lineTo(cx - 8, w / 2 - 6);
-          ctx.lineTo(cx - 2, w / 2 - 6); ctx.lineTo(cx + 14, 0); ctx.lineTo(cx - 2, -w / 2 + 6);
-          ctx.closePath(); ctx.fill();
-        }
-        ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 3;
-        ctx.strokeRect(-len / 2, -w / 2, len, w);
-        ctx.restore();
-      }
-    }
-
-    _drawStartLine(ctx) {
-      const a = pointAtProgress(this.pts, 0), tan = tangentAtProgress(this.pts, 0);
-      const half = this.track.width / 2;
-      ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(tan);
-      const sq = 14;
-      for (let i = -Math.floor(half / sq); i < Math.floor(half / sq); i++) {
-        ctx.fillStyle = (i & 1) ? "#fff" : "#222"; ctx.fillRect(-sq, i * sq, sq, sq);
-        ctx.fillStyle = (i & 1) ? "#222" : "#fff"; ctx.fillRect(0, i * sq, sq, sq);
-      }
-      ctx.restore();
     }
 
     _drawCar(ctx, car) {
