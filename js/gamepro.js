@@ -361,7 +361,7 @@
       this._paintHazards(g);
       this._paintWhoops(g);
       for (const ramp of this.ramps) this._paintRamp(g, ramp);
-      this._paintTyres(g);
+      this._paintBarriers(g);
       this._paintStartBanner(g);
     }
 
@@ -435,32 +435,48 @@
       g.restore();
     }
 
-    // tyre barriers lining both edges of the track — the Super Off Road signature
-    _paintTyres(g) {
-      const off = this.track.width / 2 + 13, N = this.N;
-      // don't litter tyres in the figure-8 intersection
+    // red & white striped barrier walls lining both edges — the Super Off Road look
+    _paintBarriers(g) {
+      const off = this.track.width / 2 + 11;
       let cross = null;
-      if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * N);
-      const clear = this.track.width * 1.6;
-      let acc = 0, prev = this.pts[0], count = 0;
-      for (let s = 0; s < N; s += 0.5) {
-        const p = pointAtProgress(this.pts, s);
-        acc += Math.hypot(p.x - prev.x, p.y - prev.y); prev = p;
-        if (acc >= 46) {
-          acc = 0;
-          if (cross && Math.hypot(p.x - cross.x, p.y - cross.y) < clear) continue;
-          const tan = tangentAtProgress(this.pts, s), nx = -Math.sin(tan), ny = Math.cos(tan);
-          this._tyre(g, p.x + nx * off, p.y + ny * off, count);
-          this._tyre(g, p.x - nx * off, p.y - ny * off, count);
-          count++;
+      if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * this.N);
+      const clear = this.track.width * 1.5;
+      for (const side of [off, -off]) {
+        // build the offset edge as a series of points so we can break it at a bridge
+        const segs = this._edgePolyline(side, cross, clear);
+        g.lineCap = "round"; g.lineJoin = "round";
+        for (const pl of segs) {
+          const path = new Path2D();
+          path.moveTo(pl[0].x, pl[0].y);
+          for (let i = 1; i < pl.length; i++) path.lineTo(pl[i].x, pl[i].y);
+          // shadow / dark base (depth)
+          g.strokeStyle = "rgba(0,0,0,0.55)"; g.lineWidth = 32; g.stroke(path);
+          // white kerb base
+          g.strokeStyle = "#edeef2"; g.lineWidth = 24; g.stroke(path);
+          // red stripes dashed over the white
+          g.strokeStyle = "#d22f2f"; g.lineWidth = 24;
+          g.setLineDash([30, 30]); g.lineDashOffset = side > 0 ? 0 : 30;
+          g.stroke(path); g.setLineDash([]); g.lineDashOffset = 0;
+          // bright top edge so the kerb reads as a raised wall
+          g.strokeStyle = "rgba(255,255,255,0.45)"; g.lineWidth = 6; g.stroke(path);
         }
       }
     }
-    _tyre(g, x, y, i) {
-      g.fillStyle = "rgba(0,0,0,0.4)"; g.beginPath(); g.arc(x + 2, y + 3, 11, 0, 7); g.fill();
-      g.fillStyle = "#1b1813"; g.beginPath(); g.arc(x, y, 11, 0, 7); g.fill();
-      g.fillStyle = i % 2 ? "#d23b2e" : "#ededed"; g.beginPath(); g.arc(x, y, 6.5, 0, 7); g.fill();
-      g.fillStyle = "#0f0d0b"; g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill();
+    // offset edge points, split into runs that skip a gap around the bridge crossing
+    _edgePolyline(off, cross, clear) {
+      const N = this.N, runs = []; let run = [];
+      for (let i = 0; i <= N; i++) {
+        const s = i % N;
+        const a = this.pts[(s - 1 + N) % N], b = this.pts[(s + 1) % N];
+        const tx = b.x - a.x, ty = b.y - a.y, l = Math.hypot(tx, ty) || 1;
+        const p = { x: this.pts[s].x + (-ty / l) * off, y: this.pts[s].y + (tx / l) * off };
+        if (cross && Math.hypot(p.x - cross.x, p.y - cross.y) < clear) {
+          if (run.length > 1) runs.push(run);
+          run = [];
+        } else { run.push(p); }
+      }
+      if (run.length > 1) runs.push(run);
+      return runs;
     }
 
     _paintStartBanner(g) {
