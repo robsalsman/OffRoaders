@@ -502,17 +502,15 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       points: gerono(1040, 820, 132),
     },
     {
-      // paperclip: a long straight into a tight hairpin, then back up
+      // winding circuit with switchbacks down both sides (Sidewinder style)
       id: "canyon", name: "Dust Canyon", home: "west",
-      laps: 4, width: 165, difficulty: 4, feature: "Hairpin & long straight",
+      laps: 4, width: 150, difficulty: 4, feature: "Winding switchbacks",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
-      ramps: [0.08], mud: [0.78], surface: "mud", whoops: [0.5],
+      ramps: [0.02], mud: [0.74], surface: "mud", whoops: [0.5],
       points: spline(W([
-        [300, -560], [300, -200], [300, 200], [300, 460],
-        [200, 640], [-40, 700], [-260, 600],
-        [-380, 320], [-380, -40], [-380, -380],
-        [-220, -620], [60, -640],
-      ]), 120),
+        [-360, -660], [120, -660], [360, -460], [360, -140], [150, -40], [360, 140], [360, 460],
+        [160, 640], [-160, 640], [-360, 440], [-360, 120], [-160, 20], [-360, -160], [-360, -420],
+      ]), 132),
     },
     {
       // big, fast figure-8 with a flyover and water hazards
@@ -524,19 +522,16 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       points: gerono(1180, 780, 136),
     },
     {
-      // flowing esses: a straight, sweeping S-bends and a sweeper, sandy
+      // tight snaking esses down the page, sandy
       id: "gravel", name: "Gravel Pit", home: "olddog",
-      laps: 5, width: 165, difficulty: 4, feature: "Flowing esses",
+      laps: 5, width: 150, difficulty: 4, feature: "Snaking esses",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
-      ramps: [0.46], mud: [0.16, 0.64], surface: "sand",
+      ramps: [0.5], mud: [0.18, 0.66], surface: "sand",
       points: spline(W([
-        [0, -700], [260, -600],
-        [400, -340], [220, -110],
-        [400, 150], [330, 450],
-        [120, 680], [-200, 680],
-        [-390, 420], [-210, 150],
-        [-410, -150], [-260, -520],
-      ]), 116),
+        [-300, -680], [300, -680], [360, -420], [120, -300], [360, -120], [330, 180],
+        [60, 300], [330, 480], [180, 700], [-220, 700], [-380, 440], [-150, 300],
+        [-380, 80], [-340, -260], [-360, -520],
+      ]), 132),
     },
     {
       // loop-in-loop: a big lap, cross into a tight inner loop, then bridge back out
