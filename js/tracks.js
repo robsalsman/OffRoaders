@@ -49,6 +49,16 @@
     }
     return pts;
   }
+  // Limaçon — a big outer loop with a tight inner loop, crossing itself once at
+  // the centre (a different bridge configuration from the figure-8).
+  function limacon(R, k, samples, sx = 1, sy = 1) {
+    const pts = [];
+    for (let i = 0; i < samples; i++) {
+      const t = (i / samples) * Math.PI * 2, r = R * (k + Math.cos(t));
+      pts.push({ x: r * Math.cos(t) * sx, y: r * Math.sin(t) * sy });
+    }
+    return pts;
+  }
   const TRACKS = [
     {
       // speedway: two long straights joined by sweepers, with a chicane kink
@@ -111,13 +121,13 @@
       ]), 116),
     },
     {
-      // tight technical figure-8 with a flyover
+      // loop-in-loop: a big lap, cross into a tight inner loop, then bridge back out
       id: "lab", name: "Test Loop", home: "drg",
-      laps: 4, width: 175, difficulty: 5, feature: "Tight crossover",
+      laps: 4, width: 150, difficulty: 5, feature: "Loop-in-loop flyover",
       theme: { ground: "#2e6b3a", groundDark: "#24562f", dirt: "#8f9a8a", dirtDark: "#4a544a", rut: "#6a746a" },
-      ramps: [0.12, 0.5], mud: [], whoops: [0.55],
-      bridge: [0.69, 0.81], figure8: true,
-      points: gerono(840, 920, 124),
+      ramps: [0.1, 0.86], mud: [], whoops: [0.92],
+      bridge: [0.62, 0.72], figure8: true,
+      points: limacon(620, 0.48, 132, 1.0, 1.18),
     },
   ];
 
