@@ -97,7 +97,7 @@
 
     // graphics toggle label
     const g = Career.graphics();
-    $("#btn-graphics").textContent = "Graphics: " + (g === "enhanced" ? "Enhanced ✨" : "Classic");
+    $("#btn-graphics").textContent = "Graphics: " + (g === "enhanced" ? "Enhanced ✨" : g === "iso" ? "Isometric 🅱" : "Classic");
     $("#btn-throttle").textContent = "Throttle: " + (Career.assist() === "smart" ? "Smart 🅰" : "Full");
 
     renderDriverPanel();
@@ -353,10 +353,12 @@
     ic.innerHTML = "";
     ic.appendChild(window.makeVehiclePortrait(Career.vehicleId(), 34));
 
-    const Engine = (Career.graphics() === "classic" || !window.RacePro) ? Race : RacePro;
+    const gfx = Career.graphics();
+    const Engine = (gfx === "classic" || !window.RacePro) ? Race : RacePro;
     race = new Engine(canvas, {
       track,
       touch: isTouch,
+      iso: gfx === "iso",
       roster: Career.buildRoster(track.id),
       onUpdate: updateHud,
       onFinish: onRaceFinish,

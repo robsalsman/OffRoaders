@@ -124,7 +124,9 @@
     // ---- graphics ----
     graphics() { return this.state.graphics || "enhanced"; },
     toggleGraphics() {
-      this.state.graphics = this.graphics() === "enhanced" ? "classic" : "enhanced";
+      const order = ["enhanced", "iso", "classic"];
+      const i = order.indexOf(this.graphics());
+      this.state.graphics = order[(i + 1) % order.length];
       this.save(); return this.state.graphics;
     },
 
