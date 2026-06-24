@@ -2467,7 +2467,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     // red & white striped barrier walls lining both edges — the Super Off Road look
     _paintBarriers(g) {
-      const off = this.track.width / 2 + 11;
+      const off = this.track.width / 2 + 5;
       let cross = null;
       if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * this.N);
       const clear = this.track.width * 1.5;
@@ -2480,15 +2480,15 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           path.moveTo(pl[0].x, pl[0].y);
           for (let i = 1; i < pl.length; i++) path.lineTo(pl[i].x, pl[i].y);
           // shadow / dark base (depth)
-          g.strokeStyle = "rgba(0,0,0,0.55)"; g.lineWidth = 32; g.stroke(path);
+          g.strokeStyle = "rgba(0,0,0,0.5)"; g.lineWidth = 17; g.stroke(path);
           // white kerb base
-          g.strokeStyle = "#edeef2"; g.lineWidth = 24; g.stroke(path);
+          g.strokeStyle = "#edeef2"; g.lineWidth = 12; g.stroke(path);
           // red stripes dashed over the white
-          g.strokeStyle = "#d22f2f"; g.lineWidth = 24;
-          g.setLineDash([30, 30]); g.lineDashOffset = side > 0 ? 0 : 30;
+          g.strokeStyle = "#d22f2f"; g.lineWidth = 12;
+          g.setLineDash([20, 20]); g.lineDashOffset = side > 0 ? 0 : 20;
           g.stroke(path); g.setLineDash([]); g.lineDashOffset = 0;
           // bright top edge so the kerb reads as a raised wall
-          g.strokeStyle = "rgba(255,255,255,0.45)"; g.lineWidth = 6; g.stroke(path);
+          g.strokeStyle = "rgba(255,255,255,0.4)"; g.lineWidth = 3; g.stroke(path);
         }
       }
     }
@@ -3107,7 +3107,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const camX = (b.minX + b.maxX) / 2, camY = (b.minY + b.maxY) / 2;
       const ox = W / 2, oy = bands.top + availH / 2;
       const pg = (x, y) => [ox + (x - camX) * zoom, oy + (y - camY) * zoom * ISO]; // ground projection
-      const wallH = 60 * zoom, theme = this.track.theme || { ground: "#3f6b2e", dirt: "#b07a45" };
+      const wallH = 46 * zoom, theme = this.track.theme || { ground: "#3f6b2e", dirt: "#b07a45" };
 
       // sky / ground backdrop
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3128,7 +3128,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       let cross = null;
       if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * this.N);
       const clearR = Wd * 1.5, segs = [];
-      for (const side of [Wd / 2 + 11, -(Wd / 2 + 11)]) {
+      for (const side of [Wd / 2 + 5, -(Wd / 2 + 5)]) {
         const runs = this._edgePolyline(side, cross, clearR);
         for (const run of runs) {
           let acc = 0;
