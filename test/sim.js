@@ -47,10 +47,10 @@ function assert(cond, msg) {
 
 // ---- 1. tracks ----
 console.log("Tracks:");
-assert(ctx.TRACKS.length === 6, "6 tracks defined");
+assert(ctx.TRACKS.length === 12, "12 tracks defined");
 assert(ctx.TRACKS.every((t) => t.points.length > 20), "all tracks have point loops");
 assert(ctx.TRACKS.every((t) => ctx.getCharacter(t.home)), "every track has a valid home driver");
-assert(new Set(ctx.TRACKS.map((t) => t.home)).size === 6, "each driver owns one home track");
+assert(new Set(ctx.TRACKS.map((t) => t.home)).size === 6, "home tracks span all 6 drivers");
 
 // ---- 2. career ----
 console.log("Career:");

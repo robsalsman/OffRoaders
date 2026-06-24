@@ -425,15 +425,14 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   </div>
 
   <script>
-/* tracks.js — 6 courses, one home track per driver. Each has a distinct
- * theme (colours), shape, ramps and signature feature. `home` is the driver id
- * whose home track it is (that driver gets a boost there).
- * `ramps` and `mud` are progress fractions (0..1) around the loop.
+/* tracks.js — 12 courses. Each has a distinct theme, shape, ramps and feature.
+ * `home` is a driver id (that driver gets a boost there); the championship races
+ * every track. `ramps`/`mud` are progress fractions (0..1) around the loop.
  *
- * Shapes: hand-placed Catmull-Rom spline circuits (mesa/canyon/gravel — winding
- * layouts with straights, chicanes and switchbacks) and self-crossing generators
- * for the bridge tracks (gerono figure-8 for neon/thunder, limaçon loop-in-loop
- * for lab). `bridge` marks the elevated progress range of an overpass.
+ * Shapes: Catmull-Rom spline circuits + smooth polar `wave` loops + self-crossing
+ * `gerono` figure-8s for the bridge tracks. Every turn radius exceeds the barrier
+ * offset so the kerb walls never fold across the track (see test/wallcheck).
+ * `bridge` marks the elevated progress range of an overpass.
  */
 (function () {
   // closed Catmull-Rom spline through the waypoints -> dense point loop
@@ -544,6 +543,58 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         [-200, -660], [200, -660], [440, -380], [440, 40], [300, 420], [0, 640],
         [-300, 420], [-440, 40], [-440, -380],
       ]), 132),
+    },
+    {
+      // Sidewinder — roomy double-S, fast & flowing
+      id: "sidewinder", name: "Sidewinder", home: "hotrod",
+      laps: 4, width: 150, difficulty: 3, feature: "Flowing double-S",
+      theme: { ground: "#9c6b2e", groundDark: "#7a5223", dirt: "#d39a52", dirtDark: "#6e4a22", rut: "#8a5e2a" },
+      ramps: [0.12, 0.62], mud: [], whoops: [0.4],
+      points: spline(W([
+        [0, -700], [320, -590], [430, -300], [300, -40], [430, 240], [300, 520],
+        [0, 660], [-300, 520], [-430, 240], [-300, -40], [-430, -300], [-320, -590],
+      ]), 132),
+    },
+    {
+      // Big Dukes — a big, fast banked oval speedway
+      id: "bigdukes", name: "Big Dukes", home: "atrain",
+      laps: 5, width: 170, difficulty: 2, feature: "Fast oval speedway",
+      theme: { ground: "#2b3a55", groundDark: "#223047", dirt: "#8a93a6", dirtDark: "#454d5e", rut: "#6a7388" },
+      ramps: [0.25, 0.75], mud: [], whoops: [],
+      points: wave(580, 120, (t) => 1 + 0.05 * Math.sin(t * 2), 1.18, 1.28),
+    },
+    {
+      // Cliffhanger — a long sweeping asymmetric bend, rocky
+      id: "cliffhanger", name: "Cliffhanger", home: "west",
+      laps: 4, width: 152, difficulty: 4, feature: "Sweeping rocky bends",
+      theme: { ground: "#6e5a44", groundDark: "#574734", dirt: "#b59868", dirtDark: "#6a5436", rut: "#8a7048" },
+      ramps: [0.5], mud: [0.18], surface: "sand", whoops: [0.82],
+      points: wave(540, 120, (t) => 1 + 0.21 * Math.sin(t * 2 + 2.2), 1.12, 1.06, 0.5),
+    },
+    {
+      // Wipeout — egg/teardrop with one big hairpin end
+      id: "wipeout", name: "Wipeout", home: "drg",
+      laps: 4, width: 155, difficulty: 4, feature: "Teardrop hairpin",
+      theme: { ground: "#2e6b50", groundDark: "#245640", dirt: "#a89a6a", dirtDark: "#5a5238", rut: "#6a624a" },
+      ramps: [0.35, 0.85], mud: [0.6], surface: "mud", whoops: [],
+      points: wave(540, 120, (t) => 1 + 0.2 * Math.cos(t) + 0.05 * Math.cos(t * 2), 1.0, 1.25),
+    },
+    {
+      // Blaster — a peanut/hourglass with a tight waist (no crossing)
+      id: "blaster", name: "Blaster", home: "rob",
+      laps: 4, width: 160, difficulty: 3, feature: "Hourglass peanut",
+      theme: { ground: "#3a2b55", groundDark: "#2c2143", dirt: "#7a6a9a", dirtDark: "#3a3050", rut: "#5a4f78" },
+      ramps: [0.0, 0.5], mud: [], whoops: [0.25, 0.75],
+      points: wave(520, 120, (t) => 1 + 0.2 * Math.cos(t * 2), 1.32, 1.04),
+    },
+    {
+      // Hurricane Gulch — a tight figure-8 flyover with water hazards
+      id: "hurricane", name: "Hurricane Gulch", home: "olddog",
+      laps: 5, width: 190, difficulty: 5, feature: "Figure-8 flyover",
+      theme: { ground: "#2e4a55", groundDark: "#243a45", dirt: "#7a8a90", dirtDark: "#44545a", rut: "#647480" },
+      ramps: [0.12, 0.55], mud: [0.4, 0.9], surface: "water", whoops: [0.1],
+      bridge: [0.69, 0.81], figure8: true,
+      points: gerono(900, 780, 132),
     },
   ];
 
