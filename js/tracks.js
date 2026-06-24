@@ -113,13 +113,16 @@
       ]), 132),
     },
     {
-      // loop-in-loop: a big lap, cross into a tight inner loop, then bridge back out
+      // technical winding circuit — straights, a chicane and sweeping hairpins
       id: "lab", name: "Test Loop", home: "drg",
-      laps: 4, width: 150, difficulty: 5, feature: "Loop-in-loop flyover",
+      laps: 4, width: 168, difficulty: 5, feature: "Technical circuit",
       theme: { ground: "#2e6b3a", groundDark: "#24562f", dirt: "#8f9a8a", dirtDark: "#4a544a", rut: "#6a746a" },
-      ramps: [0.1, 0.86], mud: [], whoops: [0.92],
-      bridge: [0.62, 0.72], figure8: true,
-      points: limacon(620, 0.48, 132, 1.0, 1.18),
+      ramps: [0.06, 0.55], mud: [], whoops: [0.8],
+      points: spline(W([
+        [-330, -630], [290, -630], [400, -400], [400, -90], [240, 40], [400, 250],
+        [380, 520], [150, 660], [-170, 660], [-390, 430], [-220, 300], [-390, 120],
+        [-380, -200], [-300, -470],
+      ]), 132),
     },
   ];
 

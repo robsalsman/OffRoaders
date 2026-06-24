@@ -92,8 +92,7 @@
       } else { pad.active = false; }
     };
     const release = () => {
-      id = null; pad.active = false; pad.x = pad.y = 0;
-      cv.style.transition = "transform .16s ease-out"; cv.style.transform = "rotate(0deg)";
+      id = null; // hold the last heading — no auto-centre
     };
     if (window.PointerEvent) {
       zone.addEventListener("pointerdown", (e) => { id = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch (_) {} apply(e.clientX, e.clientY); e.preventDefault(); }, { passive: false });
