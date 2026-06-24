@@ -60,15 +60,14 @@
   }
   const TRACKS = [
     {
-      // flowing winding circuit — long straights with chicanes down each side
+      // fast tri-oval — three straights joined by wide sweepers (roomy)
       id: "mesa", name: "Blazing Mesa", home: "hotrod",
-      laps: 4, width: 196, difficulty: 2, feature: "Fast & winding",
+      laps: 4, width: 156, difficulty: 2, feature: "Fast tri-oval",
       theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
-      ramps: [0.04, 0.52], mud: [], whoops: [0.78],
+      ramps: [0.1, 0.6], mud: [], whoops: [0.85],
       points: spline(W([
-        [-380, -680], [380, -680], [380, -340], [220, -240], [380, -40], [380, 380],
-        [220, 560], [400, 690], [60, 750], [-320, 720], [-400, 440], [-400, 80],
-        [-240, -20], [-400, -220], [-400, -460],
+        [0, -680], [300, -560], [450, -300], [470, 40], [360, 360],
+        [180, 620], [-180, 620], [-360, 360], [-470, 40], [-450, -300], [-300, -560],
       ]), 132),
     },
     {
@@ -81,14 +80,14 @@
       points: gerono(1040, 820, 132),
     },
     {
-      // winding circuit with switchbacks down both sides (Sidewinder style)
+      // D-shape — a long left straight into a big sweeping right-hander
       id: "canyon", name: "Dust Canyon", home: "west",
-      laps: 4, width: 184, difficulty: 4, feature: "Winding switchbacks",
+      laps: 4, width: 156, difficulty: 4, feature: "Long straight & sweep",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
-      ramps: [0.02], mud: [0.74], surface: "mud", whoops: [0.5],
+      ramps: [0.06], mud: [0.62], surface: "mud", whoops: [0.3],
       points: spline(W([
-        [-360, -660], [140, -660], [380, -440], [380, -120], [250, -20], [380, 120], [380, 440],
-        [180, 640], [-180, 640], [-380, 440], [-380, 120], [-250, 20], [-380, -160], [-360, -420],
+        [-380, -560], [-380, -180], [-380, 200], [-380, 540], [-120, 660], [200, 600],
+        [420, 360], [470, 0], [420, -360], [200, -600], [-120, -660],
       ]), 132),
     },
     {
@@ -101,27 +100,22 @@
       points: gerono(1180, 780, 136),
     },
     {
-      // tight snaking esses down the page, sandy
+      // sweeping kidney — one long bend in, one big sweep out, sandy
       id: "gravel", name: "Gravel Pit", home: "olddog",
-      laps: 5, width: 182, difficulty: 4, feature: "Snaking esses",
+      laps: 5, width: 150, difficulty: 4, feature: "Sweeping kidney",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
-      ramps: [0.5], mud: [0.18, 0.66], surface: "sand",
-      points: spline(W([
-        [-280, -680], [300, -680], [380, -420], [200, -290], [380, -110], [350, 200],
-        [160, 320], [360, 500], [200, 700], [-220, 700], [-390, 440], [-220, 300],
-        [-400, 80], [-340, -260], [-340, -540],
-      ]), 132),
+      ramps: [0.5], mud: [0.2, 0.7], surface: "sand",
+      points: wave(540, 120, (t) => 1 + 0.15 * Math.sin(t * 2 + 1.0), 1.2, 1.04, 0.3),
     },
     {
-      // technical winding circuit — straights, a chicane and sweeping hairpins
+      // multi-straight circuit — six straights joined by gentle turns
       id: "lab", name: "Test Loop", home: "drg",
-      laps: 4, width: 168, difficulty: 5, feature: "Technical circuit",
+      laps: 4, width: 160, difficulty: 5, feature: "Multi-straight circuit",
       theme: { ground: "#2e6b3a", groundDark: "#24562f", dirt: "#8f9a8a", dirtDark: "#4a544a", rut: "#6a746a" },
-      ramps: [0.06, 0.55], mud: [], whoops: [0.8],
+      ramps: [0.1, 0.6], mud: [], whoops: [0.85],
       points: spline(W([
-        [-330, -630], [290, -630], [400, -400], [400, -90], [240, 40], [400, 250],
-        [380, 520], [150, 660], [-170, 660], [-390, 430], [-220, 300], [-390, 120],
-        [-380, -200], [-300, -470],
+        [-200, -660], [200, -660], [440, -380], [440, 40], [300, 420], [0, 640],
+        [-300, 420], [-440, 40], [-440, -380],
       ]), 132),
     },
   ];
