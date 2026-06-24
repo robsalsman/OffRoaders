@@ -3,11 +3,10 @@
  * whose home track it is (that driver gets a boost there).
  * `ramps` and `mud` are progress fractions (0..1) around the loop.
  *
- * Shapes come from two engine-safe generators: hand-placed Catmull-Rom splines
- * (mesa/neon/thunder — distinct silhouettes & S-curves) and dense polar waves
- * (canyon/gravel/lab — scalloped technical corners). Neither self-crosses, since
- * the lap/progress + edge-wall systems rely on nearest-point-on-path and a true
- * overpass would confuse them.
+ * Shapes: hand-placed Catmull-Rom spline circuits (mesa/canyon/gravel — winding
+ * layouts with straights, chicanes and switchbacks) and self-crossing generators
+ * for the bridge tracks (gerono figure-8 for neon/thunder, limaçon loop-in-loop
+ * for lab). `bridge` marks the elevated progress range of an overpass.
  */
 (function () {
   // closed Catmull-Rom spline through the waypoints -> dense point loop
@@ -61,18 +60,16 @@
   }
   const TRACKS = [
     {
-      // speedway: two long straights joined by sweepers, with a chicane kink
+      // flowing winding circuit — long straights with chicanes down each side
       id: "mesa", name: "Blazing Mesa", home: "hotrod",
-      laps: 4, width: 185, difficulty: 2, feature: "Long straights & chicane",
+      laps: 4, width: 172, difficulty: 2, feature: "Fast & winding",
       theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
-      ramps: [0.18, 0.58], mud: [], whoops: [0.86],
+      ramps: [0.04, 0.52], mud: [], whoops: [0.78],
       points: spline(W([
-        [60, -760], [300, -620],
-        [470, -340], [470, -30], [360, 150], [470, 330], [470, 540],
-        [300, 720], [-40, 762], [-300, 700],
-        [-470, 400], [-470, 20], [-470, -320],
-        [-300, -620],
-      ]), 124),
+        [-380, -680], [380, -680], [380, -360], [140, -250], [380, -60], [380, 380],
+        [160, 560], [380, 690], [60, 740], [-300, 720], [-380, 440], [-380, 80],
+        [-160, -20], [-380, -220], [-380, -460],
+      ]), 132),
     },
     {
       // figure-8 with a neon flyover — the ascending pass goes UNDER the bridge,
@@ -86,7 +83,7 @@
     {
       // winding circuit with switchbacks down both sides (Sidewinder style)
       id: "canyon", name: "Dust Canyon", home: "west",
-      laps: 4, width: 150, difficulty: 4, feature: "Winding switchbacks",
+      laps: 4, width: 160, difficulty: 4, feature: "Winding switchbacks",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
       ramps: [0.02], mud: [0.74], surface: "mud", whoops: [0.5],
       points: spline(W([
@@ -106,7 +103,7 @@
     {
       // tight snaking esses down the page, sandy
       id: "gravel", name: "Gravel Pit", home: "olddog",
-      laps: 5, width: 150, difficulty: 4, feature: "Snaking esses",
+      laps: 5, width: 160, difficulty: 4, feature: "Snaking esses",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
       ramps: [0.5], mud: [0.18, 0.66], surface: "sand",
       points: spline(W([
