@@ -129,6 +129,14 @@ html, body {
   background: radial-gradient(circle at 40% 35%, rgba(80,225,255,.55), rgba(47,160,255,.45)); }
 .drive-btn.pressed { transform: scale(.93); filter: brightness(1.4); }
 
+/* steering wheel (isometric mode) — turn left/right to steer */
+.wheel {
+  position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  right: 24px; width: 188px; height: 188px;
+  pointer-events: auto; touch-action: none;
+}
+#wheel-cv { width: 100%; height: 100%; transform: rotate(0deg); transform-origin: 50% 50%; }
+
 /* ---------- Overlay / screens ---------- */
 #overlay { position: absolute; inset: 0; display: flex; }
 .screen {

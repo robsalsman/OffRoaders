@@ -336,9 +336,15 @@
     hideOverlay();
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
+    // isometric mode steers with a wheel (relative); top-down uses the directional pad
+    const isoMode = Career.graphics() === "iso";
+    const wheelEl = $("#wheel"), stickEl = $("#stick");
+    if (wheelEl) wheelEl.classList.toggle("hidden", !isoMode);
+    if (stickEl) stickEl.classList.toggle("hidden", isoMode);
     if (window.Input) { // the truck auto-accelerates everywhere; you just steer
       window.Input.setAutoGas(true);
       window.Input.setSmartThrottle(Career.assist() === "smart");
+      window.Input.setControlMode(isoMode ? "wheel" : "pad");
     }
 
     // set up lap-record tracking for this race

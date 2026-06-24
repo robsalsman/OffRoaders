@@ -62,13 +62,13 @@
     {
       // flowing winding circuit — long straights with chicanes down each side
       id: "mesa", name: "Blazing Mesa", home: "hotrod",
-      laps: 4, width: 172, difficulty: 2, feature: "Fast & winding",
+      laps: 4, width: 196, difficulty: 2, feature: "Fast & winding",
       theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
       ramps: [0.04, 0.52], mud: [], whoops: [0.78],
       points: spline(W([
-        [-380, -680], [380, -680], [380, -360], [140, -250], [380, -60], [380, 380],
-        [160, 560], [380, 690], [60, 740], [-300, 720], [-380, 440], [-380, 80],
-        [-160, -20], [-380, -220], [-380, -460],
+        [-380, -680], [380, -680], [380, -340], [220, -240], [380, -40], [380, 380],
+        [220, 560], [400, 690], [60, 750], [-320, 720], [-400, 440], [-400, 80],
+        [-240, -20], [-400, -220], [-400, -460],
       ]), 132),
     },
     {
@@ -83,12 +83,12 @@
     {
       // winding circuit with switchbacks down both sides (Sidewinder style)
       id: "canyon", name: "Dust Canyon", home: "west",
-      laps: 4, width: 160, difficulty: 4, feature: "Winding switchbacks",
+      laps: 4, width: 184, difficulty: 4, feature: "Winding switchbacks",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
       ramps: [0.02], mud: [0.74], surface: "mud", whoops: [0.5],
       points: spline(W([
-        [-360, -660], [120, -660], [360, -460], [360, -140], [150, -40], [360, 140], [360, 460],
-        [160, 640], [-160, 640], [-360, 440], [-360, 120], [-160, 20], [-360, -160], [-360, -420],
+        [-360, -660], [140, -660], [380, -440], [380, -120], [250, -20], [380, 120], [380, 440],
+        [180, 640], [-180, 640], [-380, 440], [-380, 120], [-250, 20], [-380, -160], [-360, -420],
       ]), 132),
     },
     {
@@ -103,13 +103,13 @@
     {
       // tight snaking esses down the page, sandy
       id: "gravel", name: "Gravel Pit", home: "olddog",
-      laps: 5, width: 160, difficulty: 4, feature: "Snaking esses",
+      laps: 5, width: 182, difficulty: 4, feature: "Snaking esses",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
       ramps: [0.5], mud: [0.18, 0.66], surface: "sand",
       points: spline(W([
-        [-300, -680], [300, -680], [360, -420], [120, -300], [360, -120], [330, 180],
-        [60, 300], [330, 480], [180, 700], [-220, 700], [-380, 440], [-150, 300],
-        [-380, 80], [-340, -260], [-360, -520],
+        [-280, -680], [300, -680], [380, -420], [200, -290], [380, -110], [350, 200],
+        [160, 320], [360, 500], [200, 700], [-220, 700], [-390, 440], [-220, 300],
+        [-400, 80], [-340, -260], [-340, -540],
       ]), 132),
     },
     {

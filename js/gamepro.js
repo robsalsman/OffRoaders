@@ -22,7 +22,7 @@
       if (bar) { const r = bar.getBoundingClientRect(); if (r.height) top = (r.bottom + 6) * dpr; }
       if (touch) {
         let minTop = Infinity;
-        for (const id of ["stick-base", "btn-nitro"]) {
+        for (const id of ["stick-base", "btn-nitro", "wheel"]) {
           const e = document.getElementById(id);
           if (e) { const r = e.getBoundingClientRect(); if (r.height) minTop = Math.min(minTop, r.top); }
         }
@@ -503,8 +503,10 @@
       this._cx = cx; this._cy = cy;
       const rx = this.bbox.w / 2 + 150, ry = this.bbox.h / 2 + 150;
       const spots = [0.35, 1.25, 2.4, 3.5, 4.4, 5.3];
+      this._stands = [];
       spots.forEach((ang, i) => {
         const x = cx + Math.cos(ang) * rx, y = cy + Math.sin(ang) * ry;
+        this._stands.push({ x, y, ang, i });
         this._grandstand(g, x, y, ang, i);
       });
       // sponsor banners laid along the outer barrier at a couple of spots
@@ -1094,6 +1096,9 @@
       this._drawPickups(ctx);
       ctx.restore();
 
+      // extruded grandstands around the outside
+      this._drawStandsIso(ctx, pg, zoom);
+
       // extruded red/white wall blocks along both edges, depth-sorted back-to-front
       let cross = null;
       if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * this.N);
@@ -1129,15 +1134,45 @@
       if (this.countdown > 0) this._drawCountdown(ctx, W, H);
     }
 
+    _drawStandsIso(ctx, pg, zoom) {
+      if (!this._stands) return;
+      const CROWD = ["#e6dcc0", "#ffffff", "#f2b8b0", "#bcd0f0", "#ffe7a8", "#cfead0", "#e8c0e0"];
+      const h = 66 * zoom;
+      const list = [...this._stands].sort((a, b) => pg(a.x, a.y)[1] - pg(b.x, b.y)[1]);
+      for (const s of list) {
+        const aa = s.ang + Math.PI / 2, fx = Math.cos(aa), fy = Math.sin(aa), nx = -Math.sin(aa), ny = Math.cos(aa);
+        const w = 250, d = 72;
+        const C = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([a, o]) => ({ x: s.x + fx * a + nx * o, y: s.y + fy * a + ny * o }));
+        const base = C.map((q) => pg(q.x, q.y)), top = base.map((q) => [q[0], q[1] - h]);
+        ctx.fillStyle = "#4c5058";
+        for (let i = 0; i < 4; i++) {
+          const a = base[i], b2 = base[(i + 1) % 4], c2 = top[(i + 1) % 4], d2 = top[i];
+          ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b2[0], b2[1]); ctx.lineTo(c2[0], c2[1]); ctx.lineTo(d2[0], d2[1]); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "#6a6e75";
+        ctx.beginPath(); ctx.moveTo(top[0][0], top[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(top[i][0], top[i][1]); ctx.closePath(); ctx.fill();
+        for (let r = 0; r < 22; r++) {
+          const u = r / 22, tx = top[0][0] + (top[1][0] - top[0][0]) * u, ty = top[0][1] + (top[1][1] - top[0][1]) * u;
+          ctx.fillStyle = CROWD[(r * 7 + s.i) % CROWD.length]; ctx.fillRect(tx - 2, ty - 4, 4, 5);
+        }
+      }
+    }
+
     _drawCarIso(ctx, car, pg, zoom, ISO) {
       const [sx, sy] = pg(car.x, car.y);
-      // ground shadow (foreshortened ellipse)
-      ctx.save(); ctx.translate(sx, sy); ctx.scale(1, ISO);
-      ctx.fillStyle = "rgba(0,0,0,0.32)"; ctx.beginPath(); ctx.arc(0, 0, CAR_W * 0.5 * zoom, 0, Math.PI * 2); ctx.fill();
+      // ground shadow (foreshortened ellipse, offset for sun angle)
+      ctx.save(); ctx.translate(sx + 5 * zoom, sy + 3 * zoom); ctx.scale(1, ISO);
+      ctx.fillStyle = "rgba(0,0,0,0.34)"; ctx.beginPath(); ctx.arc(0, 0, CAR_W * 0.55 * zoom, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
-      const lift = (18 + car.z + (car.bridgeZ || 0)) * zoom;
+      const lift = (16 + car.z + (car.bridgeZ || 0)) * zoom;
       const sprite = (window.makeTruckSprite || truckSprite)(car.vehicleId, car.color, car.isPlayer);
-      const mul = car.isPlayer ? 2.7 : 2.4, w = CAR_W * zoom * mul, h = CAR_H * zoom * mul;
+      const mul = car.isPlayer ? 3.0 : 2.7, w = CAR_W * zoom * mul, h = CAR_H * zoom * mul;
+      // dark chassis/tyre block under the body for a bit of height
+      ctx.save(); ctx.translate(sx, sy - lift * 0.5); ctx.rotate(car.angle);
+      ctx.fillStyle = "rgba(15,12,9,0.85)";
+      const bw = w * 0.82, bh = h * 0.92;
+      ctx.fillRect(-bw / 2, -bh / 2, bw, bh);
+      ctx.restore();
       ctx.save(); ctx.translate(sx, sy - lift); ctx.rotate(car.angle);
       ctx.drawImage(sprite, -w / 2, -h / 2, w, h); ctx.restore();
       if (car.isPlayer) {

@@ -14,7 +14,7 @@
       if (bar) { const r = bar.getBoundingClientRect(); if (r.height) top = (r.bottom + 6) * dpr; }
       if (touch) {
         let minTop = Infinity;
-        for (const id of ["stick-base", "btn-nitro"]) {
+        for (const id of ["stick-base", "btn-nitro", "wheel"]) {
           const e = document.getElementById(id);
           if (e) { const r = e.getBoundingClientRect(); if (r.height) minTop = Math.min(minTop, r.top); }
         }
