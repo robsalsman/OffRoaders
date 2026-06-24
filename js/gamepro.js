@@ -34,6 +34,20 @@
     return { top, bot };
   }
 
+  // min distance from a point to a closed polyline (for the track-mask walls)
+  function distToPolyline(pts, px, py) {
+    const N = pts.length; let best = Infinity;
+    for (let i = 0; i < N; i++) {
+      const a = pts[i], b = pts[(i + 1) % N];
+      const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+      let t = ((px - a.x) * dx + (py - a.y) * dy) / l2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const cx = a.x + dx * t, cy = a.y + dy * t;
+      const d = (px - cx) * (px - cx) + (py - cy) * (py - cy);
+      if (d < best) best = d;
+    }
+    return Math.sqrt(best);
+  }
+
   function closestOnLoop(pts, px, py) {
     const N = pts.length;
     let best = Infinity, bestProg = 0;
@@ -230,6 +244,7 @@
       this.ctx = canvas.getContext("2d");
       this.cfg = cfg;
       this.track = cfg.track;
+      this.truckScale = clamp(this.track.width / 175, 0.5, 1); // shrink trucks on narrow tracks
       this.pts = cfg.track.points;
       this.N = this.pts.length;
       this.cars = [];
@@ -248,6 +263,7 @@
       this._buildDecal();
       this._buildRamps();
       this._buildPickups();
+      this._buildWalls();
       this._buildScene();
       this._buildMounds();
       this._buildCars();
@@ -436,8 +452,52 @@
       g.restore();
     }
 
-    // red & white striped barrier walls lining both edges — the Super Off Road look
+    // Build walls from the track region's boundary (mask edges), NOT by offsetting
+    // the centerline — so tight/weaving corridors never fold a wall across the track.
+    _buildWalls() {
+      const half = this.track.width / 2 + 5, b = this.bbox;
+      const cell = Math.max(11, this.track.width / 7);
+      const x0 = b.minX - cell * 2, y0 = b.minY - cell * 2;
+      const cols = Math.ceil((b.w + cell * 4) / cell), rows = Math.ceil((b.h + cell * 4) / cell);
+      // bridge crossing to skip
+      let cross = null;
+      if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * this.N);
+      const clr2 = (this.track.width * 1.5) ** 2;
+      const onTrack = (c, r) => {
+        const x = x0 + (c + 0.5) * cell, y = y0 + (r + 0.5) * cell;
+        if (c < 0 || r < 0 || c >= cols || r >= rows) return false;
+        return distToPolyline(this.pts, x, y) < half;
+      };
+      const edges = [];
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        if (!onTrack(c, r)) continue;
+        const lx = x0 + c * cell, ly = y0 + r * cell;
+        const add = (x1, y1, x2, y2) => {
+          const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+          if (cross && ((mx - cross.x) ** 2 + (my - cross.y) ** 2) < clr2) return;
+          edges.push({ x1, y1, x2, y2, mx, my });
+        };
+        if (!onTrack(c + 1, r)) add(lx + cell, ly, lx + cell, ly + cell);
+        if (!onTrack(c - 1, r)) add(lx, ly, lx, ly + cell);
+        if (!onTrack(c, r + 1)) add(lx, ly + cell, lx + cell, ly + cell);
+        if (!onTrack(c, r - 1)) add(lx, ly, lx + cell, ly);
+      }
+      this._wallEdges = edges;
+    }
+
+    // red & white striped barrier walls along the track-region boundary
     _paintBarriers(g) {
+      g.lineCap = "round"; g.lineJoin = "round";
+      // dark base first (so the kerb sits on a continuous shadow)
+      g.strokeStyle = "rgba(0,0,0,0.5)"; g.lineWidth = 20;
+      for (const e of this._wallEdges) { g.beginPath(); g.moveTo(e.x1, e.y1); g.lineTo(e.x2, e.y2); g.stroke(); }
+      for (const e of this._wallEdges) {
+        const red = (Math.floor((e.mx + e.my) / 34) % 2) === 0;
+        g.strokeStyle = red ? "#d22f2f" : "#edeef2"; g.lineWidth = 14;
+        g.beginPath(); g.moveTo(e.x1, e.y1); g.lineTo(e.x2, e.y2); g.stroke();
+      }
+    }
+    _oldPaintBarriers(g) {
       const off = this.track.width / 2 + 5;
       let cross = null;
       if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * this.N);
@@ -1100,20 +1160,8 @@
       this._drawPickupsIso(ctx, pg, zoom);
       this._drawStandsIso(ctx, pg, zoom);
 
-      // extruded red/white wall blocks along both edges, depth-sorted back-to-front
-      let cross = null;
-      if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * this.N);
-      const clearR = Wd * 1.5, segs = [];
-      for (const side of [Wd / 2 + 5, -(Wd / 2 + 5)]) {
-        const runs = this._edgePolyline(side, cross, clearR);
-        for (const run of runs) {
-          let acc = 0;
-          for (let i = 0; i < run.length - 1; i++) {
-            acc += Math.hypot(run[i + 1].x - run[i].x, run[i + 1].y - run[i].y);
-            segs.push({ a: run[i], b: run[i + 1], red: (Math.floor(acc / 34) % 2) === 0 });
-          }
-        }
-      }
+      // extruded red/white wall blocks from the track-region boundary, depth-sorted
+      const segs = this._wallEdges.map((e) => ({ a: { x: e.x1, y: e.y1 }, b: { x: e.x2, y: e.y2 }, red: (Math.floor((e.mx + e.my) / 30) % 2) === 0 }));
       segs.sort((p, q) => (pg(p.a.x, p.a.y)[1] + pg(p.b.x, p.b.y)[1]) - (pg(q.a.x, q.a.y)[1] + pg(q.b.x, q.b.y)[1]));
       for (const s of segs) {
         const b0 = pg(s.a.x, s.a.y), b1 = pg(s.b.x, s.b.y);
@@ -1218,7 +1266,7 @@
     // a procedural 3D monster truck: 4 big tyres + an extruded body + cab, projected
     _drawCarIso(ctx, car, pg, zoom, ISO) {
       const g0 = pg(car.x, car.y), cx = g0[0], cy = g0[1], persp = g0[2] || 1, a = car.angle;
-      const z = (zoom * persp);
+      const z = (zoom * persp * this.truckScale);
       const fwd = [Math.cos(a), Math.sin(a) * ISO], rgt = [-Math.sin(a), Math.cos(a) * ISO];
       const base = (car.z + (car.bridgeZ || 0)) * z;
       const P = (lx, ly, h) => [cx + (fwd[0] * lx + rgt[0] * ly) * z, cy + (fwd[1] * lx + rgt[1] * ly) * z - h * z - base];
@@ -1370,7 +1418,7 @@
       ctx.save();
       ctx.translate(car.x, car.y - lift);
       ctx.rotate(car.angle + car.wobble * Math.sin(this.time * 30) * 0.04);
-      const mul = car.isPlayer ? 2.9 : 2.6;
+      const mul = (car.isPlayer ? 2.9 : 2.6) * this.truckScale;
       const w = CAR_W * scale * mul, h = CAR_H * scale * mul;
       ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
       ctx.restore();

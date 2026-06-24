@@ -118,15 +118,16 @@
       ]), 132),
     },
     {
-      // Sidewinder — roomy double-S, fast & flowing
+      // Sidewinder — a true serpentine: corridors weave back with walls between them
       id: "sidewinder", name: "Sidewinder", home: "hotrod",
-      laps: 4, width: 150, difficulty: 3, feature: "Flowing double-S",
+      laps: 4, width: 95, difficulty: 4, feature: "Weaving serpentine",
       theme: { ground: "#9c6b2e", groundDark: "#7a5223", dirt: "#d39a52", dirtDark: "#6e4a22", rut: "#8a5e2a" },
-      ramps: [0.12, 0.62], mud: [], whoops: [0.4],
+      ramps: [0.5], mud: [], whoops: [0.25, 0.75],
       points: spline(W([
-        [0, -700], [320, -590], [430, -300], [300, -40], [430, 240], [300, 520],
-        [0, 660], [-300, 520], [-430, 240], [-300, -40], [-430, -300], [-320, -590],
-      ]), 132),
+        [-420, -560], [-300, -560], [-300, -120], [-150, -120], [-150, -560], [150, -560],
+        [150, -120], [300, -120], [300, -560], [440, -560], [440, 560], [300, 560],
+        [300, 120], [150, 120], [150, 560], [-150, 560], [-150, 120], [-300, 120], [-300, 560], [-440, 560],
+      ]), 200),
     },
     {
       // Big Dukes — a big, fast banked oval speedway
