@@ -57,17 +57,26 @@
     }
     return pts;
   }
+  // Serpentine maze generator: down-fingers from the top edge + up-fingers from the
+  // bottom edge, connected at the sides, forming a single weaving non-crossing loop.
+  function maze(o) {
+    const { x0, x1, yT, yB, dT, dB, top, bot } = o;
+    const wp = [{ x: x0, y: yT }];
+    for (const [a, b] of top) wp.push({ x: a, y: yT }, { x: a, y: dT }, { x: b, y: dT }, { x: b, y: yT });
+    wp.push({ x: x1, y: yT }, { x: x1, y: yB });
+    for (const [a, b] of bot) wp.push({ x: a, y: yB }, { x: a, y: dB }, { x: b, y: dB }, { x: b, y: yB });
+    wp.push({ x: x0, y: yB });
+    return wp;
+  }
+  const rot = (pts) => pts.map((p) => ({ x: p.y, y: -p.x })); // 90° (horizontal fingers)
   const TRACKS = [
     {
-      // fast tri-oval — three straights joined by wide sweepers (roomy)
+      // open serpentine maze
       id: "mesa", name: "Blazing Mesa", home: "hotrod",
-      laps: 4, width: 156, difficulty: 2, feature: "Fast tri-oval",
+      laps: 4, width: 105, difficulty: 3, feature: "Open maze",
       theme: { ground: "#8a4326", groundDark: "#6e3219", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
       ramps: [0.1, 0.6], mud: [], whoops: [0.85],
-      points: spline(W([
-        [0, -680], [300, -560], [450, -300], [470, 40], [360, 360],
-        [180, 620], [-180, 620], [-360, 360], [-470, 40], [-450, -300], [-300, -560],
-      ]), 132),
+      points: spline(maze({ x0: -440, x1: 460, yT: -540, yB: 540, dT: -130, dB: 130, top: [[-300, -130], [130, 300]], bot: [[300, 130], [-130, -300]] }), 200),
     },
     {
       // figure-8 with a neon flyover — the ascending pass goes UNDER the bridge,
@@ -79,15 +88,12 @@
       points: gerono(1040, 820, 132),
     },
     {
-      // D-shape — a long left straight into a big sweeping right-hander
+      // horizontal serpentine maze — switchback corridors
       id: "canyon", name: "Dust Canyon", home: "west",
-      laps: 4, width: 156, difficulty: 4, feature: "Long straight & sweep",
+      laps: 4, width: 95, difficulty: 4, feature: "Maze switchbacks",
       theme: { ground: "#b9863f", groundDark: "#9c6a2c", dirt: "#cca162", dirtDark: "#7a5226", rut: "#8a6230" },
       ramps: [0.06], mud: [0.62], surface: "mud", whoops: [0.3],
-      points: spline(W([
-        [-380, -560], [-380, -180], [-380, 200], [-380, 540], [-120, 660], [200, 600],
-        [420, 360], [470, 0], [420, -360], [200, -600], [-120, -660],
-      ]), 132),
+      points: spline(rot(maze({ x0: -420, x1: 440, yT: -540, yB: 540, dT: -120, dB: 120, top: [[-300, -150], [150, 300]], bot: [[300, 150], [-150, -300]] })), 200),
     },
     {
       // big, fast figure-8 with a flyover and water hazards
@@ -99,23 +105,20 @@
       points: gerono(1180, 780, 136),
     },
     {
-      // sweeping kidney — one long bend in, one big sweep out, sandy
+      // dense serpentine maze — tight weaving corridors
       id: "gravel", name: "Gravel Pit", home: "olddog",
-      laps: 5, width: 150, difficulty: 4, feature: "Sweeping kidney",
+      laps: 5, width: 78, difficulty: 4, feature: "Dense maze",
       theme: { ground: "#566b39", groundDark: "#43542c", dirt: "#9a9484", dirtDark: "#5a5448", rut: "#6a6458" },
       ramps: [0.5], mud: [0.2, 0.7], surface: "sand",
-      points: wave(540, 120, (t) => 1 + 0.15 * Math.sin(t * 2 + 1.0), 1.2, 1.04, 0.3),
+      points: spline(maze({ x0: -440, x1: 460, yT: -560, yB: 560, dT: -110, dB: 110, top: [[-330, -200], [-60, 70], [200, 330]], bot: [[330, 200], [70, -60], [-200, -330]] }), 220),
     },
     {
-      // multi-straight circuit — six straights joined by gentle turns
+      // technical horizontal maze — dense switchbacks
       id: "lab", name: "Test Loop", home: "drg",
-      laps: 4, width: 160, difficulty: 5, feature: "Multi-straight circuit",
+      laps: 4, width: 78, difficulty: 5, feature: "Technical maze",
       theme: { ground: "#2e6b3a", groundDark: "#24562f", dirt: "#8f9a8a", dirtDark: "#4a544a", rut: "#6a746a" },
       ramps: [0.1, 0.6], mud: [], whoops: [0.85],
-      points: spline(W([
-        [-200, -660], [200, -660], [440, -380], [440, 40], [300, 420], [0, 640],
-        [-300, 420], [-440, 40], [-440, -380],
-      ]), 132),
+      points: spline(rot(maze({ x0: -440, x1: 460, yT: -560, yB: 560, dT: -110, dB: 110, top: [[-330, -200], [-60, 70], [200, 330]], bot: [[330, 200], [70, -60], [-200, -330]] })), 220),
     },
     {
       // Sidewinder — a true serpentine: corridors weave back with walls between them
@@ -138,28 +141,28 @@
       points: wave(580, 120, (t) => 1 + 0.05 * Math.sin(t * 2), 1.18, 1.28),
     },
     {
-      // Cliffhanger — a long sweeping asymmetric bend, rocky
+      // Cliffhanger — wide horizontal maze with sweeping switchbacks
       id: "cliffhanger", name: "Cliffhanger", home: "west",
-      laps: 4, width: 152, difficulty: 4, feature: "Sweeping rocky bends",
+      laps: 4, width: 100, difficulty: 4, feature: "Wide maze",
       theme: { ground: "#6e5a44", groundDark: "#574734", dirt: "#b59868", dirtDark: "#6a5436", rut: "#8a7048" },
       ramps: [0.5], mud: [0.18], surface: "sand", whoops: [0.82],
-      points: wave(540, 120, (t) => 1 + 0.21 * Math.sin(t * 2 + 2.2), 1.12, 1.06, 0.5),
+      points: spline(rot(maze({ x0: -440, x1: 460, yT: -540, yB: 540, dT: -130, dB: 130, top: [[-300, -130], [130, 300]], bot: [[300, 130], [-130, -300]] })), 200),
     },
     {
-      // Wipeout — egg/teardrop with one big hairpin end
+      // Wipeout — a single bold fold weaving back on itself
       id: "wipeout", name: "Wipeout", home: "drg",
-      laps: 4, width: 155, difficulty: 4, feature: "Teardrop hairpin",
+      laps: 4, width: 85, difficulty: 4, feature: "Single fold",
       theme: { ground: "#2e6b50", groundDark: "#245640", dirt: "#a89a6a", dirtDark: "#5a5238", rut: "#6a624a" },
       ramps: [0.35, 0.85], mud: [0.6], surface: "mud", whoops: [],
-      points: wave(540, 120, (t) => 1 + 0.2 * Math.cos(t) + 0.05 * Math.cos(t * 2), 1.0, 1.25),
+      points: spline(maze({ x0: -400, x1: 420, yT: -540, yB: 540, dT: -110, dB: 110, top: [[-180, 200]], bot: [[180, -200]] }), 170),
     },
     {
-      // Blaster — a peanut/hourglass with a tight waist (no crossing)
+      // Blaster — a tall vertical maze with deep weaving fingers
       id: "blaster", name: "Blaster", home: "rob",
-      laps: 4, width: 160, difficulty: 3, feature: "Hourglass peanut",
+      laps: 4, width: 92, difficulty: 3, feature: "Tall maze",
       theme: { ground: "#3a2b55", groundDark: "#2c2143", dirt: "#7a6a9a", dirtDark: "#3a3050", rut: "#5a4f78" },
       ramps: [0.0, 0.5], mud: [], whoops: [0.25, 0.75],
-      points: wave(520, 120, (t) => 1 + 0.2 * Math.cos(t * 2), 1.32, 1.04),
+      points: spline(maze({ x0: -360, x1: 380, yT: -620, yB: 620, dT: -160, dB: 160, top: [[-240, -90], [120, 260]], bot: [[260, 120], [-90, -240]] }), 210),
     },
     {
       // Hurricane Gulch — a tight figure-8 flyover with water hazards

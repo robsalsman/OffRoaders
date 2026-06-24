@@ -452,35 +452,40 @@
       g.restore();
     }
 
-    // Build walls from the track region's boundary (mask edges), NOT by offsetting
-    // the centerline — so tight/weaving corridors never fold a wall across the track.
+    // Build walls from the track region's boundary using marching squares on the
+    // signed-distance field (SDF = half - dist-to-centreline). Smooth contour segments,
+    // and the boundary can't fold across the track on tight turns.
     _buildWalls() {
       const half = this.track.width / 2 + 5, b = this.bbox;
-      const cell = Math.max(11, this.track.width / 7);
+      const cell = Math.max(10, this.track.width / 8);
       const x0 = b.minX - cell * 2, y0 = b.minY - cell * 2;
       const cols = Math.ceil((b.w + cell * 4) / cell), rows = Math.ceil((b.h + cell * 4) / cell);
-      // bridge crossing to skip
+      const gw = cols + 1, gh = rows + 1, sdf = new Float32Array(gw * gh);
+      for (let r = 0; r < gh; r++) for (let c = 0; c < gw; c++) {
+        sdf[r * gw + c] = half - distToPolyline(this.pts, x0 + c * cell, y0 + r * cell);
+      }
       let cross = null;
       if (this.track.bridge) cross = pointAtProgress(this.pts, ((this.track.bridge[0] + this.track.bridge[1]) / 2) * this.N);
       const clr2 = (this.track.width * 1.5) ** 2;
-      const onTrack = (c, r) => {
-        const x = x0 + (c + 0.5) * cell, y = y0 + (r + 0.5) * cell;
-        if (c < 0 || r < 0 || c >= cols || r >= rows) return false;
-        return distToPolyline(this.pts, x, y) < half;
-      };
+      const cases = { 1: ["L", "B"], 2: ["B", "R"], 3: ["L", "R"], 4: ["T", "R"], 5: ["T", "R", "B", "L"], 6: ["T", "B"], 7: ["T", "L"], 8: ["T", "L"], 9: ["T", "B"], 10: ["T", "L", "B", "R"], 11: ["T", "R"], 12: ["L", "R"], 13: ["B", "R"], 14: ["L", "B"] };
       const edges = [];
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        if (!onTrack(c, r)) continue;
-        const lx = x0 + c * cell, ly = y0 + r * cell;
-        const add = (x1, y1, x2, y2) => {
-          const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-          if (cross && ((mx - cross.x) ** 2 + (my - cross.y) ** 2) < clr2) return;
-          edges.push({ x1, y1, x2, y2, mx, my });
+        const x = x0 + c * cell, y = y0 + r * cell;
+        const vTL = sdf[r * gw + c], vTR = sdf[r * gw + c + 1], vBR = sdf[(r + 1) * gw + c + 1], vBL = sdf[(r + 1) * gw + c];
+        const idx = (vTL > 0 ? 8 : 0) | (vTR > 0 ? 4 : 0) | (vBR > 0 ? 2 : 0) | (vBL > 0 ? 1 : 0);
+        const k = cases[idx]; if (!k) continue;
+        const pt = (e) => {
+          if (e === "T") { const t = vTL / (vTL - vTR); return [x + t * cell, y]; }
+          if (e === "R") { const t = vTR / (vTR - vBR); return [x + cell, y + t * cell]; }
+          if (e === "B") { const t = vBL / (vBL - vBR); return [x + t * cell, y + cell]; }
+          const t = vTL / (vTL - vBL); return [x, y + t * cell];
         };
-        if (!onTrack(c + 1, r)) add(lx + cell, ly, lx + cell, ly + cell);
-        if (!onTrack(c - 1, r)) add(lx, ly, lx, ly + cell);
-        if (!onTrack(c, r + 1)) add(lx, ly + cell, lx + cell, ly + cell);
-        if (!onTrack(c, r - 1)) add(lx, ly, lx + cell, ly);
+        for (let i = 0; i < k.length; i += 2) {
+          const p = pt(k[i]), q = pt(k[i + 1]);
+          const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+          if (cross && ((mx - cross.x) ** 2 + (my - cross.y) ** 2) < clr2) continue;
+          edges.push({ x1: p[0], y1: p[1], x2: q[0], y2: q[1], mx, my });
+        }
       }
       this._wallEdges = edges;
     }
