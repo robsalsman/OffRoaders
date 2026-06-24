@@ -1280,7 +1280,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   const kb = { left: false, right: false, gas: false, brake: false, nitro: false };
   const pad = { x: 0, y: 0, active: false }; // joystick vector (screen space, up = -y)
   const btn = { brake: false, nitro: false };
-  let autoGas = false, smart = false, control = "pad", wheelSteer = 0;
+  let autoGas = false, smart = false, control = "pad";
 
   I.setAutoGas = function (on) { autoGas = !!on; };
   I.setSmartThrottle = function (on) { smart = !!on; };
@@ -1294,9 +1294,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     let steer = (kb.right ? 1 : 0) - (kb.left ? 1 : 0);
     let turn = Math.abs(steer);
 
-    if (control === "wheel") { // steering wheel: relative left/right (like a car)
-      if (wheelSteer !== 0) { steer = wheelSteer; turn = Math.abs(wheelSteer); }
-    } else if (pad.active) { // directional joystick steers toward the pushed heading
+    if (pad.active) { // directional: steer toward the pushed/dragged heading (pad or wheel)
       let diff = Math.atan2(pad.y, pad.x) - carAngle;
       while (diff > PI) diff -= 2 * PI;
       while (diff < -PI) diff += 2 * PI;
@@ -1314,7 +1312,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   };
 
   I.reset = function () {
-    pad.x = pad.y = 0; pad.active = false; wheelSteer = 0;
+    pad.x = pad.y = 0; pad.active = false;
     btn.brake = btn.nitro = false;
     for (const k in kb) kb[k] = false;
     const knob = document.getElementById("stick-knob");
@@ -1338,31 +1336,37 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     bindButton("btn-nitro", (v) => { btn.nitro = v; });
   };
 
-  // steering wheel: drag left/right to steer; springs back to centre on release
+  // steering wheel: a directional dial. Drag toward where you want the truck to go
+  // (same as the d-pad) — feeds `pad`; the wheel spins to point that way.
+  const ISO_Y = 0.62; // un-foreshorten screen Y so the heading matches the tilted view
   function bindWheel() {
     const zone = document.getElementById("wheel");
     const cv = document.getElementById("wheel-cv");
     if (!zone || !cv) return;
     drawWheel(cv);
-    let id = null, startX = 0;
-    const apply = (x) => {
-      wheelSteer = clamp((x - startX) / 80, -1, 1);
-      cv.style.transition = "none";
-      cv.style.transform = `rotate(${wheelSteer * 135}deg)`;
+    let id = null;
+    const apply = (x, y) => {
+      const r = zone.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const dx = x - cx, dy = y - cy;
+      if (Math.hypot(dx, dy) > 16) {
+        pad.x = dx; pad.y = dy / ISO_Y; pad.active = true;
+        const ang = Math.atan2(dy, dx);
+        cv.style.transition = "none";
+        cv.style.transform = `rotate(${ang + Math.PI / 2}rad)`;
+      } else { pad.active = false; }
     };
     const release = () => {
-      id = null; wheelSteer = 0;
-      cv.style.transition = "transform .16s ease-out";
-      cv.style.transform = "rotate(0deg)";
+      id = null; pad.active = false; pad.x = pad.y = 0;
+      cv.style.transition = "transform .16s ease-out"; cv.style.transform = "rotate(0deg)";
     };
     if (window.PointerEvent) {
-      zone.addEventListener("pointerdown", (e) => { id = e.pointerId; startX = e.clientX; try { zone.setPointerCapture(e.pointerId); } catch (_) {} apply(e.clientX); e.preventDefault(); }, { passive: false });
-      zone.addEventListener("pointermove", (e) => { if (e.pointerId === id) { apply(e.clientX); e.preventDefault(); } }, { passive: false });
+      zone.addEventListener("pointerdown", (e) => { id = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch (_) {} apply(e.clientX, e.clientY); e.preventDefault(); }, { passive: false });
+      zone.addEventListener("pointermove", (e) => { if (e.pointerId === id) { apply(e.clientX, e.clientY); e.preventDefault(); } }, { passive: false });
       zone.addEventListener("pointerup", (e) => { if (e.pointerId === id) { release(); e.preventDefault(); } });
       zone.addEventListener("pointercancel", (e) => { if (e.pointerId === id) release(); });
     } else {
-      zone.addEventListener("touchstart", (e) => { const t = e.changedTouches[0]; id = t.identifier; startX = t.clientX; apply(t.clientX); e.preventDefault(); }, { passive: false });
-      zone.addEventListener("touchmove", (e) => { for (const t of e.changedTouches) if (t.identifier === id) apply(t.clientX); e.preventDefault(); }, { passive: false });
+      zone.addEventListener("touchstart", (e) => { const t = e.changedTouches[0]; id = t.identifier; apply(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
+      zone.addEventListener("touchmove", (e) => { for (const t of e.changedTouches) if (t.identifier === id) apply(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
       zone.addEventListener("touchend", (e) => { for (const t of e.changedTouches) if (t.identifier === id) release(); }, { passive: false });
     }
   }
