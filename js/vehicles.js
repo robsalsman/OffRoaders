@@ -248,17 +248,29 @@
     const canopy = (L, T, W, H) => { g.fillStyle = "rgba(120,180,230,0.55)"; rr(g, L, T, W, H, 4); g.fill(); g.fillStyle = "rgba(220,240,255,0.5)"; rr(g, L + 1, T + 1, W * 0.4, H - 2, 2); g.fill(); };
     const skids = (back, front, off) => { g.strokeStyle = "rgba(20,20,20,0.85)"; g.lineWidth = 2; g.beginPath(); g.moveTo(back, -off); g.lineTo(front, -off); g.moveTo(back, off); g.lineTo(front, off); g.stroke(); };
     function tailBoom(len) { // len = how far back (positive); drawn toward -x
-      g.strokeStyle = shade(color, 0.8); g.lineWidth = 5; g.lineCap = "round";
-      g.beginPath(); g.moveTo(8, 0); g.lineTo(-len, 0); g.stroke();
-      g.fillStyle = shade(color, 0.6); // tail fin
-      g.beginPath(); g.moveTo(-len, 2); g.lineTo(-len - 6, 9); g.lineTo(-len - 3, 0); g.closePath(); g.fill();
-      g.strokeStyle = "rgba(20,20,20,0.7)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-len - 2, -6); g.lineTo(-len - 2, 6); g.stroke(); // tail rotor
+      g.strokeStyle = shade(color, 0.5); g.lineWidth = 6.5; g.lineCap = "round"; // dark, thick, clearly separate
+      g.beginPath(); g.moveTo(6, 0); g.lineTo(-len, 0); g.stroke();
+      g.strokeStyle = shade(color, 1.05); g.lineWidth = 2.5; // top highlight stripe along the boom
+      g.beginPath(); g.moveTo(4, 0); g.lineTo(-len + 2, 0); g.stroke();
+      g.fillStyle = shade(color, 0.45); // vertical tail fin
+      g.beginPath(); g.moveTo(-len + 3, 0); g.lineTo(-len - 7, -11); g.lineTo(-len - 7, -3); g.closePath(); g.fill();
+      // tail rotor — a small spinning disc (the universal "helicopter" tell)
+      g.fillStyle = "rgba(225,232,242,0.32)"; g.beginPath(); g.arc(-len - 4, 4, 7, 0, 7); g.fill();
+      g.strokeStyle = "rgba(30,34,42,0.85)"; g.lineWidth = 1.8;
+      g.beginPath(); g.moveTo(-len - 4, -3); g.lineTo(-len - 4, 11); g.stroke();
+      g.fillStyle = "#23262d"; g.beginPath(); g.arc(-len - 4, 4, 2, 0, 7); g.fill();
     }
-    function rotor(rad) { // translucent spinning disc + two blades over the body
-      g.fillStyle = "rgba(220,230,240,0.14)"; g.beginPath(); g.arc(0, 0, rad, 0, 7); g.fill();
-      g.strokeStyle = "rgba(40,44,52,0.7)"; g.lineWidth = 2.4; g.lineCap = "round";
-      g.beginPath(); g.moveTo(-rad, -2); g.lineTo(rad, 2); g.moveTo(-2, -rad); g.lineTo(2, rad); g.stroke();
-      g.fillStyle = "#2b2e35"; g.beginPath(); g.arc(0, 0, 3.5, 0, 7); g.fill(); // hub
+    function rotor(rad) { // bold main rotor: bright disc + rim + 4 blades + sweep arc
+      g.fillStyle = "rgba(228,236,248,0.2)"; g.beginPath(); g.arc(0, 0, rad, 0, 7); g.fill();
+      g.strokeStyle = "rgba(235,242,252,0.5)"; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, rad, 0, 7); g.stroke(); // disc rim
+      g.strokeStyle = "rgba(255,255,255,0.7)"; g.lineWidth = 3.4; g.lineCap = "round"; // bright leading sweep arc (implies spin)
+      g.beginPath(); g.arc(0, 0, rad - 1.5, -0.5, 0.9); g.stroke();
+      g.strokeStyle = "rgba(28,32,40,0.9)"; g.lineWidth = 3; // four blades
+      for (const a of [0.5, 0.5 + Math.PI / 2, 0.5 + Math.PI, 0.5 + 3 * Math.PI / 2]) {
+        g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * rad, Math.sin(a) * rad); g.stroke();
+      }
+      g.fillStyle = "#33373f"; g.beginPath(); g.arc(0, 0, 4, 0, 7); g.fill(); // hub
+      g.fillStyle = "#8a9099"; g.beginPath(); g.arc(0, 0, 1.8, 0, 7); g.fill();
     }
 
     switch (body) {
@@ -267,7 +279,7 @@
         tailBoom(26);
         fuse([[18, 0], [10, -9], [-8, -9], [-10, 0], [-8, 9], [10, 9]], bodyGrad(-9, 18));
         canopy(2, -7, 14, 14);
-        rotor(19); break;
+        rotor(21); break;
       }
       case "heavy": { // big lifter with cargo box
         skids(-14, 16, 14);
@@ -284,7 +296,7 @@
         fuse([[28, 0], [14, -10], [-16, -11], [-18, 0], [-16, 11], [14, 10]], bodyGrad(-11, 22));
         canopy(8, -7, 15, 14);
         g.fillStyle = "#ffe08a"; g.fillRect(20, -2, 7, 4); // nose sensor
-        rotor(19); break;
+        rotor(21); break;
       }
       case "crane": { // sky-crane — open lattice frame
         skids(-14, 14, 13);
@@ -301,7 +313,7 @@
         fuse([[30, 0], [14, -8], [-16, -9], [-18, 0], [-16, 9], [14, 8]], bodyGrad(-9, 18));
         canopy(6, -5, 16, 10);
         g.fillStyle = "rgba(255,255,255,0.85)"; g.fillRect(-12, -1.5, 28, 3); // racing stripe
-        rotor(18); break;
+        rotor(20); break;
       }
       default: { // scout — balanced bubble + boom
         skids(-12, 14, 12);

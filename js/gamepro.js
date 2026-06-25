@@ -244,6 +244,10 @@
       this.ctx = canvas.getContext("2d");
       this.cfg = cfg;
       this.track = cfg.track;
+      // which kind of craft is racing here (truck / boat / heli) — drives the
+      // wall style, surface effects and boundary feel.
+      this.vehKind = (window.getVehicle && cfg.roster && cfg.roster[0]
+        ? (window.getVehicle(cfg.roster[0].vehicleId) || {}).kind : null) || "truck";
       this.truckScale = clamp(this.track.width / 175, 0.5, 1); // shrink trucks on narrow tracks
       this.pts = cfg.track.points;
       this.N = this.pts.length;
@@ -293,7 +297,8 @@
     }
 
     _buildRamps() {
-      this.ramps = (this.track.ramps || []).map((frac) => {
+      // a hovering helicopter never hits a ramp — no jumps on the heli circuit
+      this.ramps = (this.vehKind === "heli" ? [] : (this.track.ramps || [])).map((frac) => {
         const prog = frac * this.N;
         const p = pointAtProgress(this.pts, prog);
         const tan = tangentAtProgress(this.pts, prog);
@@ -311,7 +316,8 @@
         return { x: p.x - Math.sin(tan) * off, y: p.y + Math.cos(tan) * off, r: this.track.width * 0.34, side };
       });
       // whoops: short rough sections that make the truck chatter & hop
-      this.whoops = (this.track.whoops || []).map((frac) => {
+      // washboard "whoops" are a ground-terrain effect — none for hovering helis
+      this.whoops = (this.vehKind === "heli" ? [] : (this.track.whoops || [])).map((frac) => {
         const prog = frac * this.N;
         return { prog, len: 6 }; // length in progress units
       });
@@ -492,10 +498,15 @@
 
     // red & white striped barrier walls along the track-region boundary
     _isWater() { return !!{ open: 1, lagoon: 1, delta: 1, harbor: 1 }[this.track.env]; }
+    // kerb walls for trucks, a foam channel edge for boats, nothing for helis
+    // (their course is bounded by the obstacle maze, not a wall).
+    _wallMode() { return this.vehKind === "heli" ? "none" : this.vehKind === "boat" ? "foam" : "kerb"; }
 
     _paintBarriers(g) {
       g.lineCap = "round"; g.lineJoin = "round";
-      if (this._isWater()) { // waterway: a foamy channel edge, not a striped kerb
+      const mode = this._wallMode();
+      if (mode === "none") return; // helis fly through obstacles — no kerb
+      if (mode === "foam") { // waterway: a foamy channel edge, not a striped kerb
         const th = this.track.theme;
         g.strokeStyle = shade(th.ground, 0.5); g.lineWidth = 13;
         for (const e of this._wallEdges) { g.beginPath(); g.moveTo(e.x1, e.y1); g.lineTo(e.x2, e.y2); g.stroke(); }
@@ -603,7 +614,7 @@
       const poly = () => Array.from({ length: 8 }, () => 0.78 + R() * 0.44);
       const island = () => ({ type: "island", w: 120 + R() * 170, d: 120 + R() * 150, height: 22 + R() * 22, hue: R(), poly: poly() });
       const big = {
-        urban: () => ({ type: "tower", w: 60 + R() * 74, d: 60 + R() * 74, height: 150 + R() * 250, hue: R() }),
+        urban: () => ({ type: "tower", w: 58 + R() * 66, d: 58 + R() * 66, height: 110 + R() * 170, hue: R() }),
         mesa: () => ({ type: "butte", w: 96 + R() * 120, d: 96 + R() * 120, height: 72 + R() * 120, hue: R(), poly: poly() }),
         mountain: () => ({ type: "peak", w: 150 + R() * 150, d: 150 + R() * 150, height: 170 + R() * 200, hue: R(), poly: poly() }),
         jungle: () => ({ type: "tree", w: 52 + R() * 64, d: 52 + R() * 64, height: 64 + R() * 74, hue: R() }),
@@ -613,7 +624,8 @@
           : { type: "ship", w: 130 + R() * 90, d: 46 + R() * 20, height: 22 + R() * 16, hue: R() }),
       }[env];
       const water = !!{ open: 1, lagoon: 1, delta: 1, harbor: 1 }[env];
-      const clearance = (water ? Wd * 0.62 + 96 : Wd * 0.6 + 64);
+      const heliLand = !!{ urban: 1, mesa: 1, jungle: 1, mountain: 1 }[env];
+      const clearance = (water ? Wd * 0.62 + 96 : heliLand ? Wd * 0.5 + 30 : Wd * 0.6 + 64);
       const step = env === "urban" ? 184 : env === "jungle" ? 150 : water ? 300 : 244;
       const jit = env === "urban" ? 34 : 110;
       const props = [];
@@ -622,6 +634,22 @@
           const x = gx + (R() * 2 - 1) * jit, y = gy + (R() * 2 - 1) * jit;
           if (closestOnLoop(this.pts, x, y).dist < clearance) continue;
           props.push(Object.assign({ x, y }, big()));
+        }
+      }
+      // helicopters: line BOTH banks with the biome obstacle so the maze of
+      // buildings / trees / canyon walls IS the course boundary (no kerb).
+      if (heliLand) {
+        const n = this.N, gap = env === "urban" ? 26 : env === "mountain" ? 36 : 22;
+        for (let f = 0; f < 1; f += 0.03) {
+          const prog = f * n, p = pointAtProgress(this.pts, prog), tan = tangentAtProgress(this.pts, prog);
+          const nx = -Math.sin(tan), ny = Math.cos(tan);
+          for (const side of [1, -1]) {
+            const pr = big(), half = Math.max(pr.w, pr.d) / 2, off = Wd / 2 + gap + half * 0.55;
+            if (env === "urban") pr.height *= 0.72; // shorter near the lane so it doesn't occlude
+            const x = p.x + nx * side * off, y = p.y + ny * side * off;
+            if (closestOnLoop(this.pts, x, y).dist < Wd * 0.46) continue; // don't drop into a neighbouring corridor
+            props.push(Object.assign({ x, y }, pr));
+          }
         }
       }
       // waterways: line the channel with red/green marker buoys on both banks
@@ -1005,10 +1033,13 @@
       // position
       car.x += car.vx * dt; car.y += car.vy * dt;
 
-      // skid marks + dust
-      if (onGround && car.drifting) { this._layStreak(car); this._spawnDust(car, 1, 0.5); }
-      else if (onGround && car._offTrack && car.speedApprox > 120) this._spawnDust(car, 1, 0.4);
-      else if (onGround && car.nitroActive) this._spawnDust(car, 1, 0.3);
+      // skid marks + dust — tyre/dirt effects only for ground vehicles (trucks).
+      // Boats throw spray and helis touch nothing, so they leave no skid decals.
+      if (this.vehKind === "truck") {
+        if (onGround && car.drifting) { this._layStreak(car); this._spawnDust(car, 1, 0.5); }
+        else if (onGround && car._offTrack && car.speedApprox > 120) this._spawnDust(car, 1, 0.4);
+        else if (onGround && car.nitroActive) this._spawnDust(car, 1, 0.3);
+      }
       car.wobble = lerp(car.wobble, car.drifting ? 1 : 0, 0.2);
     }
 
@@ -1018,9 +1049,22 @@
       let c = closestOnLoopLocal(this.pts, car.x, car.y, car._lastProgRaw, 12);
       if (c.dist > this.track.width) c = closestOnLoop(this.pts, car.x, car.y);
 
-      // invisible edge walls — keep the truck on the dirt, slide along the edge
       const maxOff = this.track.width / 2 - 12;
-      if (c.dist > maxOff) {
+      if (this.vehKind === "heli") {
+        // soft flight corridor: no kerb. Drifting toward the obstacle maze scrubs
+        // speed and nudges you back in; a wider hard limit stops you escaping.
+        const soft = this.track.width / 2 - 6, hard = this.track.width / 2 + 28;
+        if (c.dist > soft) {
+          const cp = pointAtProgress(this.pts, c.progress);
+          let nx = car.x - cp.x, ny = car.y - cp.y; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+          const over = Math.min(1, (c.dist - soft) / (hard - soft));
+          car.vx *= 1 - 0.05 * over; car.vy *= 1 - 0.05 * over; // brush = scrub speed
+          const vn = car.vx * nx + car.vy * ny;
+          if (vn > 0) { const k = 0.4 + 0.6 * over; car.vx -= nx * vn * k; car.vy -= ny * vn * k; }
+          if (c.dist > hard) { car.x = cp.x + nx * hard; car.y = cp.y + ny * hard; }
+        }
+      } else if (c.dist > maxOff) {
+        // invisible edge walls — keep the truck/boat on course, slide along the edge
         const cp = pointAtProgress(this.pts, c.progress);
         let nx = car.x - cp.x, ny = car.y - cp.y;
         const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
@@ -1028,7 +1072,7 @@
         const vn = car.vx * nx + car.vy * ny; // outward velocity
         if (vn > 0) { car.vx -= nx * vn; car.vy -= ny * vn; }
       }
-      car._offTrack = false; // walls keep everyone on track now
+      car._offTrack = false; // boundary keeps everyone on course
 
       let prog = c.progress;
       let delta = prog - (car._lastProgRaw % this.N);
@@ -1293,10 +1337,10 @@
       this._drawPropsIso(ctx, pg, zoom, ISO);
 
       // track-region boundary: tall red/white kerb walls on land, a low foamy
-      // channel edge on the water (so boat courses read as waterways, not kerbs).
-      const water = this._isWater();
+      // channel edge on the water, nothing for helis (obstacle maze is the bound).
+      const wmode = this._wallMode(), water = wmode === "foam";
       const wallH = water ? 8 : 44, edgeDark = shade(theme.ground, 0.45);
-      const segs = this._wallEdges.map((e) => ({ a: { x: e.x1, y: e.y1 }, b: { x: e.x2, y: e.y2 }, red: (Math.floor((e.mx + e.my) / 30) % 2) === 0 }));
+      const segs = wmode === "none" ? [] : this._wallEdges.map((e) => ({ a: { x: e.x1, y: e.y1 }, b: { x: e.x2, y: e.y2 }, red: (Math.floor((e.mx + e.my) / 30) % 2) === 0 }));
       segs.sort((p, q) => (pg(p.a.x, p.a.y)[1] + pg(p.b.x, p.b.y)[1]) - (pg(q.a.x, q.a.y)[1] + pg(q.b.x, q.b.y)[1]));
       for (const s of segs) {
         const b0 = pg(s.a.x, s.a.y), b1 = pg(s.b.x, s.b.y);
@@ -1643,18 +1687,26 @@
       const tb0 = P(-14, 0, H + 6), tb1 = P(-36, 0, H + 6);
       ctx.strokeStyle = shade(col, 0.7); ctx.lineWidth = 5 * z; ctx.beginPath(); ctx.moveTo(tb0[0], tb0[1]); ctx.lineTo(tb1[0], tb1[1]); ctx.stroke();
       const tf = P(-38, 0, H + 15); ctx.lineWidth = 3 * z; ctx.beginPath(); ctx.moveTo(tb1[0], tb1[1]); ctx.lineTo(tf[0], tf[1]); ctx.stroke();
+      // spinning tail rotor disc
+      const trSpin = this.time * 40;
+      ctx.strokeStyle = "rgba(30,34,42,0.85)"; ctx.lineWidth = 2 * z;
+      for (const off of [0, Math.PI / 2]) { const th = trSpin + off, t0 = P(-37, Math.cos(th) * 8, H + 6 + Math.sin(th) * 8), t1 = P(-37, -Math.cos(th) * 8, H + 6 - Math.sin(th) * 8); ctx.beginPath(); ctx.moveTo(t0[0], t0[1]); ctx.lineTo(t1[0], t1[1]); ctx.stroke(); }
       // fuselage prism (hovering)
       this._isoPrism(ctx, car, P, [[20, 0], [11, -11], [-15, -11], [-17, 0], [-15, 11], [11, 11]], H, H + 13, col, 0.55, 0.82, 1.3);
       // canopy bubble at the nose
-      const cp = P(13, 0, H + 9); ctx.fillStyle = "rgba(150,200,255,0.55)"; ctx.beginPath(); ctx.ellipse(cp[0], cp[1], 7 * z, 5 * z, 0, 0, Math.PI * 2); ctx.fill();
-      // main rotor — translucent disc + spinning blades on top
-      const rh = H + 22, rad = 30, spin = this.time * 24;
-      ctx.fillStyle = "rgba(220,230,240,0.16)"; ctx.beginPath();
-      for (let i = 0; i <= 22; i++) { const th = (i / 22) * Math.PI * 2, p = P(Math.cos(th) * rad, Math.sin(th) * rad, rh); if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
-      ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = "rgba(40,44,52,0.85)"; ctx.lineWidth = 2.6 * z;
-      for (const off of [0, Math.PI / 2]) { const th = spin + off, e0 = P(Math.cos(th) * rad, Math.sin(th) * rad, rh), e1 = P(Math.cos(th + Math.PI) * rad, Math.sin(th + Math.PI) * rad, rh); ctx.beginPath(); ctx.moveTo(e0[0], e0[1]); ctx.lineTo(e1[0], e1[1]); ctx.stroke(); }
-      const hub = P(0, 0, rh); ctx.fillStyle = "#2b2e35"; ctx.beginPath(); ctx.ellipse(hub[0], hub[1], 4 * z, 3 * z, 0, 0, Math.PI * 2); ctx.fill();
+      const cp = P(13, 0, H + 9); ctx.fillStyle = "rgba(150,200,255,0.6)"; ctx.beginPath(); ctx.ellipse(cp[0], cp[1], 7 * z, 5 * z, 0, 0, Math.PI * 2); ctx.fill();
+      // main rotor — bright disc + rim + sweep arc + 4 spinning blades
+      const rh = H + 23, rad = 31, spin = this.time * 26, ring = [];
+      for (let i = 0; i <= 24; i++) { const th = (i / 24) * Math.PI * 2; ring.push(P(Math.cos(th) * rad, Math.sin(th) * rad, rh)); }
+      ctx.fillStyle = "rgba(225,234,246,0.22)"; ctx.beginPath(); ctx.moveTo(ring[0][0], ring[0][1]); for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i][0], ring[i][1]); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(235,242,252,0.45)"; ctx.lineWidth = 1.6 * z; ctx.beginPath(); ctx.moveTo(ring[0][0], ring[0][1]); for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i][0], ring[i][1]); ctx.closePath(); ctx.stroke();
+      // bright leading arc to read as spin
+      ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 3.2 * z; ctx.beginPath();
+      for (let i = 0; i <= 6; i++) { const th = spin + (i / 6) * 1.3, p = P(Math.cos(th) * rad, Math.sin(th) * rad, rh); if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(28,32,40,0.9)"; ctx.lineWidth = 2.6 * z;
+      for (const off of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) { const th = spin + off, e = P(Math.cos(th) * rad, Math.sin(th) * rad, rh), m = P(0, 0, rh); ctx.beginPath(); ctx.moveTo(m[0], m[1]); ctx.lineTo(e[0], e[1]); ctx.stroke(); }
+      const hub = P(0, 0, rh); ctx.fillStyle = "#33373f"; ctx.beginPath(); ctx.ellipse(hub[0], hub[1], 4.5 * z, 3.2 * z, 0, 0, Math.PI * 2); ctx.fill();
     }
 
     _drawBridgeIso(ctx, pg, zoom) {
