@@ -33,13 +33,15 @@
     let turn = Math.abs(steer);
 
     if (control === "drive") {
-      // relative steering wheel: left/right turns the car, independent of heading.
-      // Ease-in curve (gentle near centre) + rate-limited smoothing so it isn't
-      // twitchy, then keyboard fallback.
+      // relative steering wheel for 3D chase. The car's turn authority is high
+      // (tuned for the point-and-snap pad), so for a held wheel we (a) shape the
+      // input with a steep curve (gentle near centre), (b) rate-limit it, and
+      // (c) cap the magnitude so only a big sweep gives a hard turn.
       let target = (kb.right ? 1 : 0) - (kb.left ? 1 : 0);
-      if (wheel.active) { const s = clamp(wheel.steer, -1, 1); target = Math.sign(s) * Math.pow(Math.abs(s), 1.8); }
-      driveSteer += clamp(target - driveSteer, -0.09, 0.09); // ~10 frames to full lock
-      steer = clamp(driveSteer, -1, 1); turn = Math.abs(steer);
+      if (wheel.active) { const s = clamp(wheel.steer, -1, 1); target = Math.sign(s) * Math.pow(Math.abs(s), 2.2); }
+      driveSteer += clamp(target - driveSteer, -0.08, 0.08);
+      driveSteer = clamp(driveSteer, -1, 1);
+      steer = driveSteer * 0.5; turn = Math.abs(driveSteer);
     } else if (pad.active) { // directional: steer toward the pushed/dragged heading (pad or wheel)
       let diff = Math.atan2(pad.y, pad.x) - carAngle;
       while (diff > PI) diff -= 2 * PI;
