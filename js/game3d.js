@@ -42,6 +42,7 @@ class Race3D {
     this._buildScene();
     this._buildTrack();
     this._buildCars();
+    this._buildEnvironment();
   }
 
   // ---- lifecycle (mirrors RacePro's public surface used by app.js) ----
@@ -176,6 +177,82 @@ class Race3D {
     return m;
   }
 
+  _shade(c, f) { const x = (c.clone ? c.clone() : new THREE.Color(c)); return x.multiplyScalar(f); }
+  _distToTrack(x, y) {
+    const p = this.sim.pts; let m = Infinity;
+    for (let i = 0; i < p.length; i += 2) { const dx = p[i].x - x, dy = p[i].y - y, d = dx * dx + dy * dy; if (d < m) m = d; }
+    return Math.sqrt(m);
+  }
+
+  // 3D world dressing: boulders, trees (green tracks), grandstands, distant ranges
+  _buildEnvironment() {
+    const b = this.bbox, Wd = this.track.width, span = Math.max(b.w, b.h);
+    const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+    const ground = this._toColor(this.theme.ground);
+    const isGreen = ground.g > ground.r * 1.05 && ground.g > ground.b * 1.05;
+    const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), Yx = new THREE.Vector3(0, 1, 0), V = new THREE.Vector3(), S = new THREE.Vector3();
+    const place = (mesh, list, yOf, sOf) => {
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      list.forEach((p, i) => { Q.setFromAxisAngle(Yx, p.rot); V.set(p.x, yOf(p), p.y); const s = sOf(p); S.set(s.x, s.y, s.z); M4.compose(V, Q, S); mesh.setMatrixAt(i, M4); });
+      mesh.instanceMatrix.needsUpdate = true; this.scene.add(mesh);
+    };
+
+    // scatter positions off the track
+    const rocks = [], trees = [];
+    const step = 150;
+    for (let gx = b.minX - 200; gx <= b.maxX + 200; gx += step) {
+      for (let gy = b.minY - 200; gy <= b.maxY + 200; gy += step) {
+        const x = gx + (Math.random() * 2 - 1) * 70, y = gy + (Math.random() * 2 - 1) * 70;
+        const d = this._distToTrack(x, y);
+        if (d < Wd * 0.62 + 30) continue;
+        const rot = Math.random() * 6.28;
+        if (isGreen && Math.random() < 0.6) trees.push({ x, y, rot, s: 0.7 + Math.random() * 0.8 });
+        else rocks.push({ x, y, rot, s: 0.6 + Math.random() * 1.1, fy: 0.7 + Math.random() * 0.6 });
+      }
+    }
+    // boulders (faceted, instanced)
+    if (rocks.length) {
+      const rockMat = new THREE.MeshStandardMaterial({ color: this._shade(this.theme.groundDark ? this._toColor(this.theme.groundDark) : ground, 0.92), roughness: 1, metalness: 0, flatShading: true });
+      const inst = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(22, 0), rockMat, rocks.length);
+      place(inst, rocks, () => 6, (p) => ({ x: p.s, y: p.s * p.fy, z: p.s }));
+    }
+    // trees (trunk + foliage), instanced, on green tracks
+    if (trees.length) {
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 1 });
+      const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(4, 5, 30, 6), trunkMat, trees.length);
+      place(trunk, trees, (p) => 15 * p.s, (p) => ({ x: p.s, y: p.s, z: p.s }));
+      const leafMat = new THREE.MeshStandardMaterial({ color: this._shade(ground, 1.15), roughness: 0.9, flatShading: true });
+      const leaf = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(26, 0), leafMat, trees.length);
+      place(leaf, trees, (p) => 44 * p.s, (p) => ({ x: p.s, y: p.s * 1.1, z: p.s }));
+    }
+
+    // grandstands at the ring positions the 2D scene computed
+    const stands = this.sim._stands || [];
+    for (const s of stands) {
+      const g = new THREE.Group(); g.position.set(s.x, 0, s.y); g.rotation.y = -(s.ang + Math.PI / 2);
+      const base = new THREE.Mesh(rbox(250, 30, 70, 6), new THREE.MeshStandardMaterial({ color: 0x4a4f57, roughness: 0.9 }));
+      base.position.y = 15; base.castShadow = true; base.receiveShadow = true; g.add(base);
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(250, 6, 74), new THREE.MeshStandardMaterial({ color: 0x6a6f77, roughness: 0.85 }));
+      seat.position.set(0, 34, 0); seat.rotation.x = -0.5; seat.castShadow = true; g.add(seat);
+      const roof = new THREE.Mesh(rbox(258, 5, 80, 2), new THREE.MeshStandardMaterial({ color: 0x33373d, metalness: 0.4, roughness: 0.5 }));
+      roof.position.set(0, 56, -10); g.add(roof);
+      for (let i = 0; i < 2; i++) { const post = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 56, 6), new THREE.MeshStandardMaterial({ color: 0x33373d })); post.position.set((i ? 1 : -1) * 110, 28, -30); post.castShadow = true; g.add(post); }
+      this.scene.add(g);
+    }
+
+    // distant mountain/mesa ring for backdrop depth (fog fades them)
+    const ringR = span * 1.15, mtnMat = new THREE.MeshStandardMaterial({ color: this._shade(ground, 0.7), roughness: 1, flatShading: true });
+    const mtnGeo = new THREE.ConeGeometry(1, 1, 5);
+    const mtns = new THREE.InstancedMesh(mtnGeo, mtnMat, 16);
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * 6.283 + Math.random() * 0.2, r = ringR * (0.9 + Math.random() * 0.4);
+      const h = span * (0.16 + Math.random() * 0.16), w = h * (1.0 + Math.random() * 0.6);
+      Q.setFromAxisAngle(Yx, Math.random() * 6.28); V.set(cx + Math.cos(a) * r, h / 2 - 10, cy + Math.sin(a) * r); S.set(w, h, w);
+      M4.compose(V, Q, S); mtns.setMatrixAt(i, M4);
+    }
+    mtns.instanceMatrix.needsUpdate = true; this.scene.add(mtns);
+  }
+
   // ---- vehicles ----
   _buildCars() {
     for (const car of this.sim.cars) {
@@ -272,6 +349,9 @@ class Race3D {
       this.camera.position.lerp(desired, 0.06);
       this._look.lerp(new THREE.Vector3(p.x + fx * 24, 20, p.y + fz * 24), 0.08);
       this.camera.lookAt(this._look);
+      // speed/nitro FOV punch for a sense of pace
+      const tFov = 55 + (p.nitroActive ? 9 : 0) + Math.min(7, (p.speedApprox || 0) / 60);
+      this.camera.fov += (tFov - this.camera.fov) * 0.1; this.camera.updateProjectionMatrix();
     }
     this.composer.render();
   }
