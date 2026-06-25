@@ -3246,29 +3246,33 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       }[env];
       const water = !!{ open: 1, lagoon: 1, delta: 1, harbor: 1 }[env];
       const heliLand = !!{ urban: 1, mesa: 1, jungle: 1, mountain: 1 }[env];
-      const clearance = (water ? Wd * 0.62 + 96 : heliLand ? Wd * 0.5 + 30 : Wd * 0.6 + 64);
+      // how far the vehicle can stray from the centreline (+ a margin); NO prop
+      // footprint may intrude inside this, so the craft never flies/sails into one.
+      const edge = (this.vehKind === "heli" ? Wd / 2 + 10 : Wd / 2 + 6);
       const step = env === "urban" ? 184 : env === "jungle" ? 150 : water ? 300 : 244;
       const jit = env === "urban" ? 34 : 110;
       const props = [];
       for (let gx = b.minX - 130; gx <= b.maxX + 120; gx += step) {
         for (let gy = b.minY - 130; gy <= b.maxY + 120; gy += step) {
           const x = gx + (R() * 2 - 1) * jit, y = gy + (R() * 2 - 1) * jit;
-          if (closestOnLoop(this.pts, x, y).dist < clearance) continue;
-          props.push(Object.assign({ x, y }, big()));
+          const pr = big(), half = Math.max(pr.w, pr.d) / 2;
+          // the whole footprint must clear the lane (and not sit in a neighbour lane)
+          if (closestOnLoop(this.pts, x, y).dist - half < edge + 30) continue;
+          props.push(Object.assign({ x, y }, pr));
         }
       }
       // helicopters: line BOTH banks with the biome obstacle so the maze of
       // buildings / trees / canyon walls IS the course boundary (no kerb).
       if (heliLand) {
-        const n = this.N, gap = env === "urban" ? 26 : env === "mountain" ? 36 : 22;
+        const n = this.N, gap = env === "urban" ? 24 : env === "mountain" ? 30 : 26;
         for (let f = 0; f < 1; f += 0.03) {
           const prog = f * n, p = pointAtProgress(this.pts, prog), tan = tangentAtProgress(this.pts, prog);
           const nx = -Math.sin(tan), ny = Math.cos(tan);
           for (const side of [1, -1]) {
-            const pr = big(), half = Math.max(pr.w, pr.d) / 2, off = Wd / 2 + gap + half * 0.55;
+            const pr = big(), half = Math.max(pr.w, pr.d) / 2, off = edge + gap + half; // inner face = edge + gap, clear of the flight lane
             if (env === "urban") pr.height *= 0.72; // shorter near the lane so it doesn't occlude
             const x = p.x + nx * side * off, y = p.y + ny * side * off;
-            if (closestOnLoop(this.pts, x, y).dist < Wd * 0.46) continue; // don't drop into a neighbouring corridor
+            if (closestOnLoop(this.pts, x, y).dist - half < edge) continue; // footprint mustn't reach a neighbouring corridor
             props.push(Object.assign({ x, y }, pr));
           }
         }
@@ -3674,8 +3678,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       const maxOff = this.track.width / 2 - 12;
       if (this.vehKind === "heli") {
         // soft flight corridor: no kerb. Drifting toward the obstacle maze scrubs
-        // speed and nudges you back in; a wider hard limit stops you escaping.
-        const soft = this.track.width / 2 - 6, hard = this.track.width / 2 + 28;
+        // speed and nudges you back in; the hard limit stays clear of the obstacle
+        // line so the heli never flies into a building/rock/tree.
+        const soft = this.track.width / 2 - 10, hard = this.track.width / 2 + 4;
         if (c.dist > soft) {
           const cp = pointAtProgress(this.pts, c.progress);
           let nx = car.x - cp.x, ny = car.y - cp.y; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
