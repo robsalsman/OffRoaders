@@ -75,6 +75,12 @@
   function renderGarage() {
     $("#cash").textContent = Career.state.money.toLocaleString();
 
+    // active series (circuit)
+    const ci = Career.circuitInfo();
+    const sb = $("#series-badge"); if (sb) sb.textContent = ci.name;
+    const sbtn = $("#btn-series"); if (sbtn) sbtn.textContent = "Series: " + ci.short;
+    $("#btn-change-vehicle").textContent = "Change " + ci.noun;
+
     const track = Career.currentTrack();
     const stars = "★".repeat(track.difficulty) + "☆".repeat(5 - track.difficulty);
     const rec = Career.getRecord(track.id);
@@ -209,6 +215,7 @@
     }
   };
   $("#btn-race").onclick = startRace;
+  $("#btn-series").onclick = () => { Career.cycleCircuit(); renderGarage(); };
   $("#btn-graphics").onclick = () => { Career.toggleGraphics(); renderGarage(); };
   $("#btn-throttle").onclick = () => { Career.toggleAssist(); renderGarage(); };
   $("#btn-change-driver").onclick = () => openDriverSelect("garage");

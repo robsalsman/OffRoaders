@@ -1279,23 +1279,45 @@
       ctx.save(); ctx.translate(cx, cy); ctx.scale(1, ISO);
       ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(3 * z, 3 * z, 30 * z, 22 * z, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+
+      const kind = (window.getVehicle ? (window.getVehicle(car.vehicleId) || {}).kind : null) || "truck";
+      if (kind === "boat") this._isoBoat(ctx, car, P, z);
+      else if (kind === "heli") this._isoHeli(ctx, car, P, z);
+      else this._isoTruck(ctx, car, P, z);
+
+      // nitro flame out the back (all kinds)
+      if (car.nitroActive) { const f = P(-24 - Math.random() * 10, 0, kind === "heli" ? 16 : 11); ctx.fillStyle = "rgba(120,220,255,0.8)"; ctx.beginPath(); ctx.ellipse(f[0], f[1], 7 * z, 4 * z, 0, 0, Math.PI * 2); ctx.fill(); }
+
+      if (car.isPlayer) {
+        const pulse = Math.sin(this.time * 6), m = P(0, 0, 44 + pulse * 3);
+        ctx.strokeStyle = "rgba(255,238,0,0.97)"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(cx, cy - base, 30 * z, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(m[0] - 14, m[1] - 14); ctx.lineTo(m[0] + 14, m[1] - 14); ctx.lineTo(m[0], m[1] + 3); ctx.closePath();
+        ctx.fillStyle = "#ffee00"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.fill(); ctx.stroke();
+      }
+    }
+
+    // extruded prism helper: draw the side walls then the gradient top of a polygon
+    _isoPrism(ctx, car, P, pts, hBot, hTop, col, sideF, topLo, topHi) {
+      const Bc = pts.map(([lx, ly]) => P(lx, ly, hBot)), Tc = pts.map(([lx, ly]) => P(lx, ly, hTop)), n = pts.length;
+      ctx.fillStyle = shade(col, sideF);
+      for (let i = 0; i < n; i++) { const A = Bc[i], B = Bc[(i + 1) % n], C = Tc[(i + 1) % n], D = Tc[i]; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.closePath(); ctx.fill(); }
+      const tg = ctx.createLinearGradient(Tc[0][0], Tc[0][1], Tc[(n >> 1)][0], Tc[(n >> 1)][1]);
+      tg.addColorStop(0, shade(col, topHi)); tg.addColorStop(1, shade(col, topLo));
+      ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(Tc[0][0], Tc[0][1]); for (let i = 1; i < n; i++) ctx.lineTo(Tc[i][0], Tc[i][1]); ctx.closePath(); ctx.fill();
+      ctx.lineWidth = car.isPlayer ? 2.4 : 1.4; ctx.strokeStyle = car.isPlayer ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.4)"; ctx.stroke();
+      return Tc;
+    }
+
+    _isoTruck(ctx, car, P, z) {
+      const col = car.color;
       // tyres (knobby, big)
       for (const [lx, ly] of [[20, 17], [20, -17], [-20, 17], [-20, -17]]) {
         const c = P(lx, ly, 8);
         ctx.fillStyle = "#100d0a"; ctx.beginPath(); ctx.ellipse(c[0], c[1], 12 * z, 9 * z, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#2c2820"; ctx.beginPath(); ctx.ellipse(c[0], c[1], 5.5 * z, 4 * z, 0, 0, Math.PI * 2); ctx.fill();
       }
-      const col = car.color;
-      const body = [[22, 13], [22, -13], [-22, -13], [-22, 13]];
-      const Bc = body.map(([lx, ly]) => P(lx, ly, 9)), Tc = body.map(([lx, ly]) => P(lx, ly, 21));
-      // body sides
-      ctx.fillStyle = shade(col, 0.55);
-      for (let i = 0; i < 4; i++) { const A = Bc[i], B = Bc[(i + 1) % 4], C = Tc[(i + 1) % 4], D = Tc[i]; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.closePath(); ctx.fill(); }
-      // body top
-      const tg = ctx.createLinearGradient(Tc[0][0], Tc[0][1], Tc[2][0], Tc[2][1]);
-      tg.addColorStop(0, shade(col, 1.3)); tg.addColorStop(1, shade(col, 0.85));
-      ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(Tc[0][0], Tc[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(Tc[i][0], Tc[i][1]); ctx.closePath(); ctx.fill();
-      ctx.lineWidth = car.isPlayer ? 2.4 : 1.4; ctx.strokeStyle = car.isPlayer ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.4)"; ctx.stroke();
+      this._isoPrism(ctx, car, P, [[22, 13], [22, -13], [-22, -13], [-22, 13]], 9, 21, col, 0.55, 0.85, 1.3);
       // cab / windshield (set forward)
       const cab = [[10, 10], [10, -10], [-6, -10], [-6, 10]];
       const KB = cab.map(([lx, ly]) => P(lx, ly, 21)), KT = cab.map(([lx, ly]) => P(lx, ly, 30));
@@ -1305,15 +1327,50 @@
       // headlights
       const hl = P(22, 7, 15), hr = P(22, -7, 15);
       ctx.fillStyle = "#fff6c8"; ctx.beginPath(); ctx.ellipse(hl[0], hl[1], 3 * z, 2.2 * z, 0, 0, Math.PI * 2); ctx.ellipse(hr[0], hr[1], 3 * z, 2.2 * z, 0, 0, Math.PI * 2); ctx.fill();
-      // nitro flame out the back
-      if (car.nitroActive) { const f = P(-22 - Math.random() * 10, 0, 14); ctx.fillStyle = "rgba(120,220,255,0.8)"; ctx.beginPath(); ctx.ellipse(f[0], f[1], 7 * z, 4 * z, 0, 0, Math.PI * 2); ctx.fill(); }
-      if (car.isPlayer) {
-        const pulse = Math.sin(this.time * 6), m = P(0, 0, 40 + pulse * 3);
-        ctx.strokeStyle = "rgba(255,238,0,0.97)"; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.arc(cx, cy - base, 30 * z, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(m[0] - 14, m[1] - 14); ctx.lineTo(m[0] + 14, m[1] - 14); ctx.lineTo(m[0], m[1] + 3); ctx.closePath();
-        ctx.fillStyle = "#ffee00"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.fill(); ctx.stroke();
-      }
+    }
+
+    _isoBoat(ctx, car, P, z) {
+      const col = car.color;
+      // foamy wake on the water behind the transom (flat on the surface)
+      ctx.fillStyle = "rgba(255,255,255,0.26)";
+      const w = [P(-20, 0, 0), P(-42, -18, 0), P(-34, 0, 0), P(-42, 18, 0)];
+      ctx.beginPath(); ctx.moveTo(w[0][0], w[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(w[i][0], w[i][1]); ctx.closePath(); ctx.fill();
+      // hull — pointed bow at +x, raked sides from waterline up to the deck
+      this._isoPrism(ctx, car, P, [[30, 0], [13, -13], [-22, -13], [-22, 13], [13, 13]], 3, 12, col, 0.5, 0.8, 1.32);
+      // cockpit / windshield block set back
+      const ck = [[6, 8], [6, -8], [-12, -8], [-12, 8]];
+      const KB = ck.map(([lx, ly]) => P(lx, ly, 12)), KT = ck.map(([lx, ly]) => P(lx, ly, 21));
+      ctx.fillStyle = "#12233a";
+      for (let i = 0; i < 4; i++) { const A = KB[i], B = KB[(i + 1) % 4], C = KT[(i + 1) % 4], D = KT[i]; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = "rgba(150,200,255,0.5)"; ctx.beginPath(); ctx.moveTo(KT[0][0], KT[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(KT[i][0], KT[i][1]); ctx.closePath(); ctx.fill();
+      // bow spray fleck
+      const bs = P(28, 0, 4); ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.beginPath(); ctx.ellipse(bs[0], bs[1], 4 * z, 2.5 * z, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    _isoHeli(ctx, car, P, z) {
+      const col = car.color, H = 14; // hover height of the fuselage above the skids
+      ctx.lineCap = "round";
+      // skids on the ground + struts up to the body
+      ctx.strokeStyle = "rgba(20,20,20,0.85)"; ctx.lineWidth = 2.6 * z;
+      for (const off of [-13, 13]) { const s0 = P(-12, off, 1), s1 = P(15, off, 1); ctx.beginPath(); ctx.moveTo(s0[0], s0[1]); ctx.lineTo(s1[0], s1[1]); ctx.stroke(); }
+      ctx.strokeStyle = "rgba(30,30,30,0.7)"; ctx.lineWidth = 2 * z;
+      for (const [lx, ly] of [[-7, -13], [9, -13], [-7, 13], [9, 13]]) { const a = P(lx, ly, 1), b = P(lx, ly * 0.66, H); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+      // tail boom backward (-x) + vertical fin + tail rotor
+      const tb0 = P(-14, 0, H + 6), tb1 = P(-36, 0, H + 6);
+      ctx.strokeStyle = shade(col, 0.7); ctx.lineWidth = 5 * z; ctx.beginPath(); ctx.moveTo(tb0[0], tb0[1]); ctx.lineTo(tb1[0], tb1[1]); ctx.stroke();
+      const tf = P(-38, 0, H + 15); ctx.lineWidth = 3 * z; ctx.beginPath(); ctx.moveTo(tb1[0], tb1[1]); ctx.lineTo(tf[0], tf[1]); ctx.stroke();
+      // fuselage prism (hovering)
+      this._isoPrism(ctx, car, P, [[20, 0], [11, -11], [-15, -11], [-17, 0], [-15, 11], [11, 11]], H, H + 13, col, 0.55, 0.82, 1.3);
+      // canopy bubble at the nose
+      const cp = P(13, 0, H + 9); ctx.fillStyle = "rgba(150,200,255,0.55)"; ctx.beginPath(); ctx.ellipse(cp[0], cp[1], 7 * z, 5 * z, 0, 0, Math.PI * 2); ctx.fill();
+      // main rotor — translucent disc + spinning blades on top
+      const rh = H + 22, rad = 30, spin = this.time * 24;
+      ctx.fillStyle = "rgba(220,230,240,0.16)"; ctx.beginPath();
+      for (let i = 0; i <= 22; i++) { const th = (i / 22) * Math.PI * 2, p = P(Math.cos(th) * rad, Math.sin(th) * rad, rh); if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(40,44,52,0.85)"; ctx.lineWidth = 2.6 * z;
+      for (const off of [0, Math.PI / 2]) { const th = spin + off, e0 = P(Math.cos(th) * rad, Math.sin(th) * rad, rh), e1 = P(Math.cos(th + Math.PI) * rad, Math.sin(th + Math.PI) * rad, rh); ctx.beginPath(); ctx.moveTo(e0[0], e0[1]); ctx.lineTo(e1[0], e1[1]); ctx.stroke(); }
+      const hub = P(0, 0, rh); ctx.fillStyle = "#2b2e35"; ctx.beginPath(); ctx.ellipse(hub[0], hub[1], 4 * z, 3 * z, 0, 0, Math.PI * 2); ctx.fill();
     }
 
     _drawBridgeIso(ctx, pg, zoom) {

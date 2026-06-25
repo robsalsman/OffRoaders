@@ -176,7 +176,8 @@ button.ghost { background: transparent; border: 1px solid rgba(255,255,255,.2); 
 button.ghost.danger { color: var(--bad); border-color: rgba(255,91,91,.4); }
 
 /* ---------- Garage ---------- */
-.garage-head { width: min(960px, 96vw); display: flex; justify-content: space-between; align-items: center; }
+.garage-head { width: min(960px, 96vw); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.series-badge { flex: 1; text-align: center; font-size: 14px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: #ffe9c2; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 5px 14px; }
 .cash { font-size: 22px; font-weight: bold; color: var(--accent); }
 .garage-grid {
   width: min(960px, 96vw); display: grid; gap: 14px; margin: 14px 0;
@@ -315,6 +316,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       <section id="screen-garage" class="screen hidden">
         <div class="garage-head">
           <h2>GARAGE</h2>
+          <div id="series-badge" class="series-badge">Super Off-Road</div>
           <div class="cash">💰 <span id="cash">0</span></div>
         </div>
 
@@ -323,6 +325,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
             <h3>Next Race</h3>
             <div id="next-race" class="next-race"></div>
             <button id="btn-race" class="big primary">Start Race ▶</button>
+            <button id="btn-series" class="big graphics-toggle">Series: Trucks</button>
             <button id="btn-choose-track" class="big graphics-toggle">Choose Track</button>
             <button id="btn-graphics" class="big graphics-toggle">Graphics: Enhanced</button>
             <button id="btn-throttle" class="big graphics-toggle">Throttle: Full</button>
@@ -496,7 +499,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     return wp;
   }
   const rot = (pts) => pts.map((p) => ({ x: p.y, y: -p.x })); // 90° (horizontal fingers)
-  const TRACKS = [
+  const TRUCK_TRACKS = [
     {
       // open serpentine maze
       id: "mesa", name: "Blazing Mesa", home: "hotrod",
@@ -602,9 +605,123 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     },
   ];
 
+  // ---- Powerboat Series — 6 water courses (same generators, water themes) ----
+  const BOAT_TRACKS = [
+    {
+      // open-water sprint — fast flowing oval
+      id: "tiderun", name: "Tide Run", home: "atrain",
+      laps: 5, width: 150, difficulty: 2, feature: "Open-water sprint",
+      theme: { ground: "#10405f", groundDark: "#0c3049", dirt: "#2f7ea8", dirtDark: "#1a5274", rut: "#3f93bd" },
+      ramps: [0.25, 0.75], mud: [], surface: "water", whoops: [],
+      points: wave(580, 120, (t) => 1 + 0.05 * Math.sin(t * 2), 1.2, 1.22),
+    },
+    {
+      // buoy slalom — tall weaving maze marked by buoys
+      id: "buoymaze", name: "Buoy Maze", home: "olddog",
+      laps: 4, width: 92, difficulty: 4, feature: "Buoy slalom",
+      theme: { ground: "#0f4a5a", groundDark: "#0b3845", dirt: "#36a3a0", dirtDark: "#1c5e5c", rut: "#48b8b4" },
+      ramps: [], mud: [0.4], surface: "water", whoops: [0.2, 0.7],
+      points: spline(maze({ x0: -360, x1: 380, yT: -620, yB: 620, dT: -160, dB: 160, top: [[-240, -90], [120, 260]], bot: [[260, 120], [-90, -240]] }), 210),
+    },
+    {
+      // delta channels — horizontal switchback waterways
+      id: "deltaweave", name: "Delta Weave", home: "west",
+      laps: 4, width: 95, difficulty: 4, feature: "Delta channels",
+      theme: { ground: "#1d5040", groundDark: "#143a2e", dirt: "#3a93a0", dirtDark: "#1f5560", rut: "#4aa6b2" },
+      ramps: [0.5], mud: [0.18, 0.66], surface: "water", whoops: [],
+      points: spline(rot(maze({ x0: -420, x1: 440, yT: -540, yB: 540, dT: -120, dB: 120, top: [[-300, -150], [150, 300]], bot: [[300, 150], [-150, -300]] })), 200),
+    },
+    {
+      // figure-8 with a lock/overpass — one pass goes under, one over
+      id: "lagoon8", name: "Lagoon Eight", home: "rob",
+      laps: 4, width: 190, difficulty: 3, feature: "Figure-8 locks",
+      theme: { ground: "#123a66", groundDark: "#0d2b4c", dirt: "#3f7bbf", dirtDark: "#21487a", rut: "#5a90cf" },
+      ramps: [0.1, 0.55], mud: [], surface: "water", bridge: [0.69, 0.81], figure8: true, whoops: [0.3],
+      points: gerono(1040, 820, 132),
+    },
+    {
+      // weaving rip — a true serpentine of narrow channels
+      id: "riptide", name: "Riptide", home: "hotrod",
+      laps: 4, width: 100, difficulty: 4, feature: "Weaving rip",
+      theme: { ground: "#0e4458", groundDark: "#0a3342", dirt: "#2f8fb0", dirtDark: "#195a72", rut: "#41a3c4" },
+      ramps: [0.5], mud: [], surface: "water", whoops: [0.25, 0.75],
+      points: spline(W([
+        [-420, -560], [-300, -560], [-300, -120], [-150, -120], [-150, -560], [150, -560],
+        [150, -120], [300, -120], [300, -560], [440, -560], [440, 560], [300, 560],
+        [300, 120], [150, 120], [150, 560], [-150, 560], [-150, 120], [-300, 120], [-300, 560], [-440, 560],
+      ]), 200),
+    },
+    {
+      // whirlpool — strong scalloped spiral bends
+      id: "whirlpool", name: "Whirlpool", home: "drg",
+      laps: 5, width: 150, difficulty: 5, feature: "Spiralling bends",
+      theme: { ground: "#1a3a5e", groundDark: "#122a45", dirt: "#3a78a8", dirtDark: "#1f4d72", rut: "#4c8cbe" },
+      ramps: [0.5], mud: [0.3, 0.8], surface: "water", whoops: [0.1],
+      points: wave(540, 130, (t) => 1 + 0.2 * Math.sin(t * 3 + 0.5), 1.1, 1.06, 0.4),
+    },
+  ];
+
+  // ---- Chopper Cup — 6 aerial courses (canyon / sky themes) ----
+  const HELI_TRACKS = [
+    {
+      // high-speed gates — fast aerial oval
+      id: "skygate", name: "Sky Gate", home: "drg",
+      laps: 5, width: 150, difficulty: 2, feature: "High-speed gates",
+      theme: { ground: "#2b3f63", groundDark: "#1f2f4c", dirt: "#7c8fb8", dirtDark: "#3d4a6a", rut: "#94a6cc" },
+      ramps: [0.25, 0.75], mud: [], whoops: [],
+      points: wave(580, 120, (t) => 1 + 0.05 * Math.sin(t * 2), 1.2, 1.22),
+    },
+    {
+      // canyon switchbacks — horizontal maze between rock walls
+      id: "canyonrun", name: "Canyon Run", home: "west",
+      laps: 4, width: 95, difficulty: 4, feature: "Canyon switchbacks",
+      theme: { ground: "#7a4a2c", groundDark: "#5e3820", dirt: "#c98f55", dirtDark: "#6e4a28", rut: "#8a5e30" },
+      ramps: [0.5], mud: [], whoops: [0.3, 0.8],
+      points: spline(rot(maze({ x0: -420, x1: 440, yT: -540, yB: 540, dT: -120, dB: 120, top: [[-300, -150], [150, 300]], bot: [[300, 150], [-150, -300]] })), 200),
+    },
+    {
+      // mesa weave — a vertical maze across the mesa tops
+      id: "mesamaze", name: "Mesa Maze", home: "hotrod",
+      laps: 4, width: 105, difficulty: 4, feature: "Mesa weave",
+      theme: { ground: "#8a4a26", groundDark: "#6e3819", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
+      ramps: [0.1, 0.6], mud: [], whoops: [0.85],
+      points: spline(maze({ x0: -440, x1: 460, yT: -540, yB: 540, dT: -130, dB: 130, top: [[-300, -130], [130, 300]], bot: [[300, 130], [-130, -300]] }), 200),
+    },
+    {
+      // aerial figure-8 with a flyover deck
+      id: "loop8", name: "Loop Eight", home: "atrain",
+      laps: 4, width: 190, difficulty: 3, feature: "Aerial figure-8",
+      theme: { ground: "#243a55", groundDark: "#1a2c42", dirt: "#6f86ad", dirtDark: "#3a4a68", rut: "#8295bd" },
+      ramps: [0.1, 0.55], mud: [], bridge: [0.69, 0.81], figure8: true, whoops: [0.3],
+      points: gerono(1040, 820, 132),
+    },
+    {
+      // tight updrafts — narrow serpentine slot canyon
+      id: "updraft", name: "Updraft", home: "olddog",
+      laps: 4, width: 100, difficulty: 5, feature: "Slot-canyon weave",
+      theme: { ground: "#6e4030", groundDark: "#542f22", dirt: "#b87a4e", dirtDark: "#6a4230", rut: "#8a5638" },
+      ramps: [0.5], mud: [], whoops: [0.25, 0.75],
+      points: spline(W([
+        [-420, -560], [-300, -560], [-300, -120], [-150, -120], [-150, -560], [150, -560],
+        [150, -120], [300, -120], [300, -560], [440, -560], [440, 560], [300, 560],
+        [300, 120], [150, 120], [150, 560], [-150, 560], [-150, 120], [-300, 120], [-300, 560], [-440, 560],
+      ]), 200),
+    },
+    {
+      // thunderhead — storm-tossed scalloped spiral
+      id: "thunderhead", name: "Thunderhead", home: "rob",
+      laps: 5, width: 150, difficulty: 5, feature: "Storm bends",
+      theme: { ground: "#2e3550", groundDark: "#22283e", dirt: "#6b7196", dirtDark: "#3a3f5e", rut: "#7e84a8" },
+      ramps: [0.5], mud: [], whoops: [0.1, 0.6],
+      points: wave(540, 130, (t) => 1 + 0.2 * Math.sin(t * 3 + 0.5), 1.1, 1.06, 0.4),
+    },
+  ];
+
+  const TRACK_SETS = { trucks: TRUCK_TRACKS, boats: BOAT_TRACKS, helis: HELI_TRACKS };
+
   // small top-down preview for the track-select cards
   function makeTrackPreview(id, px) {
-    const t = TRACKS.find((x) => x.id === id) || TRACKS[0];
+    const t = window.getTrack(id);
     const S = 2, cv = document.createElement("canvas");
     cv.width = px * S; cv.height = px * S;
     cv.style.width = px + "px"; cv.style.height = px + "px";
@@ -627,34 +744,76 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     return cv;
   }
 
-  window.TRACKS = TRACKS;
-  window.getTrack = (id) => TRACKS.find((t) => t.id === id) || TRACKS[0];
+  window.TRACK_SETS = TRACK_SETS;
+  window.TRACKS = TRUCK_TRACKS; // default; circuits.js repoints this to the active set
+  window.getTrack = (id) => (window.TRACKS || TRUCK_TRACKS).find((t) => t.id === id) || (window.TRACKS || TRUCK_TRACKS)[0];
   window.makeTrackPreview = makeTrackPreview;
 })();
 
 </script>
   <script>
-/* vehicles.js — the 6 trucks: data, base stats, and distinct top-down sprites.
- * Stats are innate ratings 1..5 in the four vehicle categories; per-truck
- * upgrades add 0..5 more. Final performance = truck x driver.
+/* vehicles.js — racing machines for all three circuits.
+ * Each circuit (trucks / boats / helis) has its own 6 vehicles; the active set
+ * is mirrored on window.VEHICLES by circuits.js. Stats are innate ratings 1..5
+ * in the four categories (engine/tires/shocks/nitro); per-vehicle upgrades add
+ * 0..5 more. The same four upgrade slots drive every circuit, so the garage,
+ * career and physics are identical — only the art and theme change.
+ *
+ * `kind` ("truck" | "boat" | "heli") selects the top-down + iso drawer.
  */
 (function () {
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-  const VEHICLES = [
-    { id: "stocker", name: "Stocker", blurb: "Balanced all-rounder", color: "#ffcf33", body: "stock",
+  const TRUCKS = [
+    { id: "stocker", name: "Stocker", blurb: "Balanced all-rounder", color: "#ffcf33", kind: "truck", body: "stock",
       stats: { engine: 3, tires: 3, shocks: 3, nitro: 3 } },
-    { id: "buggy", name: "Sand Flea", blurb: "Light & razor-nimble", color: "#57d957", body: "buggy",
+    { id: "buggy", name: "Sand Flea", blurb: "Light & razor-nimble", color: "#57d957", kind: "truck", body: "buggy",
       stats: { engine: 2, tires: 5, shocks: 4, nitro: 2 } },
-    { id: "monster", name: "Bigfoot", blurb: "Raw power, huge tires", color: "#e8482c", body: "monster",
+    { id: "monster", name: "Bigfoot", blurb: "Raw power, huge tires", color: "#e8482c", kind: "truck", body: "monster",
       stats: { engine: 5, tires: 2, shocks: 4, nitro: 2 } },
-    { id: "baja", name: "Baja Bandit", blurb: "Nitro specialist", color: "#ff8e2b", body: "baja",
+    { id: "baja", name: "Baja Bandit", blurb: "Nitro specialist", color: "#ff8e2b", kind: "truck", body: "baja",
       stats: { engine: 3, tires: 3, shocks: 2, nitro: 5 } },
-    { id: "crawler", name: "Boulder", blurb: "Grip & suspension", color: "#3aa0ff", body: "crawler",
+    { id: "crawler", name: "Boulder", blurb: "Grip & suspension", color: "#3aa0ff", kind: "truck", body: "crawler",
       stats: { engine: 2, tires: 5, shocks: 5, nitro: 1 } },
-    { id: "sprinter", name: "Cheetah", blurb: "Top-speed missile", color: "#c46bff", body: "sprinter",
+    { id: "sprinter", name: "Cheetah", blurb: "Top-speed missile", color: "#c46bff", kind: "truck", body: "sprinter",
       stats: { engine: 5, tires: 3, shocks: 3, nitro: 2 } },
   ];
+
+  // Powerboats — same four stat slots (engine=top speed, tires=turn-in/grip,
+  // shocks=acceleration, nitro=boost).
+  const BOATS = [
+    { id: "cutter", name: "Cutter", blurb: "Balanced runabout", color: "#ffd23a", kind: "boat", body: "runabout",
+      stats: { engine: 3, tires: 3, shocks: 3, nitro: 3 } },
+    { id: "skater", name: "Skater", blurb: "Twin-hull & nimble", color: "#54e0c8", kind: "boat", body: "cat",
+      stats: { engine: 2, tires: 5, shocks: 4, nitro: 2 } },
+    { id: "bruiser", name: "Bruiser", blurb: "Heavy offshore power", color: "#e8482c", kind: "boat", body: "offshore",
+      stats: { engine: 5, tires: 2, shocks: 4, nitro: 2 } },
+    { id: "boostwave", name: "Boostwave", blurb: "Hydroplane rocket", color: "#ff8e2b", kind: "boat", body: "hydro",
+      stats: { engine: 3, tires: 3, shocks: 2, nitro: 5 } },
+    { id: "keelhauler", name: "Keelhauler", blurb: "Sure-footed work hull", color: "#3aa0ff", kind: "boat", body: "tug",
+      stats: { engine: 2, tires: 5, shocks: 5, nitro: 1 } },
+    { id: "torpedo", name: "Torpedo", blurb: "Needle-nosed missile", color: "#c46bff", kind: "boat", body: "needle",
+      stats: { engine: 5, tires: 3, shocks: 3, nitro: 2 } },
+  ];
+
+  // Racing helicopters — same stat slots (engine=top speed, tires=agility,
+  // shocks=climb/accel, nitro=boost).
+  const HELIS = [
+    { id: "hornet", name: "Hornet", blurb: "Balanced scout", color: "#ffd23a", kind: "heli", body: "scout",
+      stats: { engine: 3, tires: 3, shocks: 3, nitro: 3 } },
+    { id: "sparrow", name: "Sparrow", blurb: "Feather-light & agile", color: "#57d957", kind: "heli", body: "light",
+      stats: { engine: 2, tires: 5, shocks: 4, nitro: 2 } },
+    { id: "goliath", name: "Goliath", blurb: "Heavy-lift powerhouse", color: "#e8482c", kind: "heli", body: "heavy",
+      stats: { engine: 5, tires: 2, shocks: 4, nitro: 2 } },
+    { id: "afterburn", name: "Afterburn", blurb: "Boost specialist", color: "#ff8e2b", kind: "heli", body: "gunship",
+      stats: { engine: 3, tires: 3, shocks: 2, nitro: 5 } },
+    { id: "titan", name: "Titan", blurb: "Stable sky-crane", color: "#3aa0ff", kind: "heli", body: "crane",
+      stats: { engine: 2, tires: 5, shocks: 5, nitro: 1 } },
+    { id: "dart", name: "Dart", blurb: "Top-speed racer", color: "#c46bff", kind: "heli", body: "racer",
+      stats: { engine: 5, tires: 3, shocks: 3, nitro: 2 } },
+  ];
+
+  const VEHICLE_SETS = { trucks: TRUCKS, boats: BOATS, helis: HELIS };
 
   function shade(hex, f) {
     const c = hex.replace("#", "");
@@ -756,25 +915,187 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     }
   }
 
+  // draw a top-down powerboat facing +x (bow = +x), centred at 0,0.
+  // Framed within ~±30 x, ±18 y to match the truck sprite box.
+  function drawBoat(g, vehicle, color, isPlayer) {
+    const body = vehicle ? vehicle.body : "runabout";
+    const hullGrad = (T, H) => { const gr = g.createLinearGradient(0, T, 0, T + H); gr.addColorStop(0, shade(color, 1.3)); gr.addColorStop(0.5, color); gr.addColorStop(1, shade(color, 0.62)); return gr; };
+    const wake = () => { // stern wash hint (behind the boat, -x)
+      g.fillStyle = "rgba(255,255,255,0.5)";
+      g.beginPath(); g.moveTo(-22, -3); g.lineTo(-30, -8); g.lineTo(-27, 0); g.lineTo(-30, 8); g.lineTo(-22, 3); g.closePath(); g.fill();
+    };
+    const deckGlass = (L, T, W, H) => { g.fillStyle = "rgba(20,40,60,0.8)"; rr(g, L, T, W, H, 3); g.fill(); g.fillStyle = "rgba(150,200,255,0.4)"; rr(g, L + 1, T + 1, W * 0.45, H - 2, 2); g.fill(); };
+    function hull(pts, fill) {
+      g.fillStyle = "rgba(0,0,0,0.3)"; g.beginPath(); g.moveTo(pts[0][0], pts[0][1] + 2); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1] + 2); g.closePath(); g.fill();
+      g.fillStyle = fill; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); g.fill();
+      g.strokeStyle = isPlayer ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.4)"; g.lineWidth = isPlayer ? 2 : 1.2; g.stroke();
+    }
+
+    switch (body) {
+      case "cat": { // catamaran — two slim hulls + a deck bridge
+        wake();
+        const f = hullGrad(-15, 30);
+        hull([[26, -2], [8, -13], [-20, -14], [-20, -9], [-2, -7], [-2, 7], [-20, 9], [-20, 14], [8, 13], [26, 2]], f);
+        g.fillStyle = "rgba(0,0,0,0.25)"; g.fillRect(-18, -4, 22, 8); // tunnel
+        deckGlass(-6, -6, 14, 12);
+        break;
+      }
+      case "offshore": { // heavy wide deep-V
+        wake();
+        const f = hullGrad(-16, 32);
+        hull([[28, 0], [15, -13], [-18, -16], [-22, -10], [-22, 10], [-18, 16], [15, 13]], f);
+        g.fillStyle = shade(color, 0.78); rr(g, -20, -7, 20, 14, 3); g.fill(); // engine cowl
+        deckGlass(-2, -7, 16, 14);
+        g.fillStyle = "rgba(255,255,255,0.8)"; g.fillRect(2, -1.5, 14, 3); // stripe
+        break;
+      }
+      case "hydro": { // hydroplane — sponsons + rooster tail
+        g.fillStyle = "rgba(255,255,255,0.5)"; // rooster tail (behind)
+        g.beginPath(); g.moveTo(-20, -7); g.lineTo(-30, -14); g.lineTo(-25, 0); g.lineTo(-30, 14); g.lineTo(-20, 7); g.closePath(); g.fill();
+        const f = hullGrad(-12, 24);
+        hull([[28, 0], [12, -8], [-20, -9], [-20, 9], [12, 8]], f);
+        // sponsons
+        g.fillStyle = shade(color, 0.7); rr(g, 4, -16, 15, 7, 2); g.fill(); rr(g, 4, 9, 15, 7, 2); g.fill();
+        deckGlass(-6, -5, 12, 10);
+        g.fillStyle = shade(color, 0.5); rr(g, -20, -3, 5, 6, 1); g.fill(); // tail fin
+        break;
+      }
+      case "tug": { // blunt sure-footed work hull
+        wake();
+        const f = hullGrad(-15, 30);
+        hull([[22, -11], [24, 0], [22, 11], [-20, 13], [-22, 0], [-20, -13]], f);
+        g.fillStyle = shade(color, 0.8); rr(g, -15, -10, 24, 20, 4); g.fill(); // cabin block
+        deckGlass(-3, -7, 13, 14);
+        g.fillStyle = "#2a2a2a"; g.beginPath(); g.arc(-13, 0, 3, 0, 7); g.fill(); // fender
+        break;
+      }
+      case "needle": { // long thin missile hull
+        wake();
+        const f = hullGrad(-9, 18);
+        hull([[30, 0], [16, -7], [-24, -8], [-24, 8], [16, 7]], f);
+        deckGlass(-6, -4, 14, 8);
+        g.fillStyle = "rgba(255,255,255,0.85)"; g.fillRect(-18, -1.5, 32, 3); // centre stripe
+        g.fillStyle = shade(color, 0.5); rr(g, -24, -2, 5, 4, 1); g.fill();
+        break;
+      }
+      default: { // runabout — classic pointed bow ski boat
+        wake();
+        const f = hullGrad(-13, 26);
+        hull([[28, 0], [14, -11], [-20, -13], [-20, 13], [14, 11]], f);
+        g.fillStyle = shade(color, 0.82); rr(g, -18, -9, 18, 18, 3); g.fill(); // open cockpit
+        deckGlass(0, -7, 14, 14);
+        g.fillStyle = "rgba(255,255,255,0.8)"; g.fillRect(-14, -1.5, 26, 3); // stripe
+      }
+    }
+  }
+
+  // draw a top-down helicopter facing +x (nose = +x), centred at 0,0.
+  // Tail boom extends backward (-x); framed within ~±30 x, ±19 y.
+  function drawHeli(g, vehicle, color, isPlayer) {
+    const body = vehicle ? vehicle.body : "scout";
+    const fuse = (pts, fill) => {
+      g.fillStyle = "rgba(0,0,0,0.3)"; g.beginPath(); g.moveTo(pts[0][0], pts[0][1] + 2); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1] + 2); g.closePath(); g.fill();
+      g.fillStyle = fill; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); g.fill();
+      g.strokeStyle = isPlayer ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.4)"; g.lineWidth = isPlayer ? 2 : 1.2; g.stroke();
+    };
+    const bodyGrad = (T, H) => { const gr = g.createLinearGradient(0, T, 0, T + H); gr.addColorStop(0, shade(color, 1.3)); gr.addColorStop(0.5, color); gr.addColorStop(1, shade(color, 0.6)); return gr; };
+    const canopy = (L, T, W, H) => { g.fillStyle = "rgba(120,180,230,0.55)"; rr(g, L, T, W, H, 4); g.fill(); g.fillStyle = "rgba(220,240,255,0.5)"; rr(g, L + 1, T + 1, W * 0.4, H - 2, 2); g.fill(); };
+    const skids = (back, front, off) => { g.strokeStyle = "rgba(20,20,20,0.85)"; g.lineWidth = 2; g.beginPath(); g.moveTo(back, -off); g.lineTo(front, -off); g.moveTo(back, off); g.lineTo(front, off); g.stroke(); };
+    function tailBoom(len) { // len = how far back (positive); drawn toward -x
+      g.strokeStyle = shade(color, 0.8); g.lineWidth = 5; g.lineCap = "round";
+      g.beginPath(); g.moveTo(8, 0); g.lineTo(-len, 0); g.stroke();
+      g.fillStyle = shade(color, 0.6); // tail fin
+      g.beginPath(); g.moveTo(-len, 2); g.lineTo(-len - 6, 9); g.lineTo(-len - 3, 0); g.closePath(); g.fill();
+      g.strokeStyle = "rgba(20,20,20,0.7)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-len - 2, -6); g.lineTo(-len - 2, 6); g.stroke(); // tail rotor
+    }
+    function rotor(rad) { // translucent spinning disc + two blades over the body
+      g.fillStyle = "rgba(220,230,240,0.14)"; g.beginPath(); g.arc(0, 0, rad, 0, 7); g.fill();
+      g.strokeStyle = "rgba(40,44,52,0.7)"; g.lineWidth = 2.4; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-rad, -2); g.lineTo(rad, 2); g.moveTo(-2, -rad); g.lineTo(2, rad); g.stroke();
+      g.fillStyle = "#2b2e35"; g.beginPath(); g.arc(0, 0, 3.5, 0, 7); g.fill(); // hub
+    }
+
+    switch (body) {
+      case "light": { // small bubble scout
+        skids(-10, 12, 11);
+        tailBoom(26);
+        fuse([[18, 0], [10, -9], [-8, -9], [-10, 0], [-8, 9], [10, 9]], bodyGrad(-9, 18));
+        canopy(2, -7, 14, 14);
+        rotor(19); break;
+      }
+      case "heavy": { // big lifter with cargo box
+        skids(-14, 16, 14);
+        tailBoom(28);
+        fuse([[24, 0], [15, -14], [-16, -15], [-18, 0], [-16, 15], [15, 14]], bodyGrad(-15, 30));
+        g.fillStyle = shade(color, 0.7); rr(g, -14, -10, 12, 20, 3); g.fill(); // cargo box
+        canopy(6, -10, 15, 20);
+        rotor(20); break;
+      }
+      case "gunship": { // sleek attack/boost heli — stub wings
+        skids(-12, 14, 10);
+        tailBoom(28);
+        g.fillStyle = shade(color, 0.62); rr(g, -2, -19, 10, 7, 2); g.fill(); rr(g, -2, 12, 10, 7, 2); g.fill(); // stub wings
+        fuse([[28, 0], [14, -10], [-16, -11], [-18, 0], [-16, 11], [14, 10]], bodyGrad(-11, 22));
+        canopy(8, -7, 15, 14);
+        g.fillStyle = "#ffe08a"; g.fillRect(20, -2, 7, 4); // nose sensor
+        rotor(19); break;
+      }
+      case "crane": { // sky-crane — open lattice frame
+        skids(-14, 14, 13);
+        tailBoom(28);
+        fuse([[22, 0], [14, -12], [-18, -12], [-20, 0], [-18, 12], [14, 12]], bodyGrad(-12, 24));
+        g.strokeStyle = "rgba(0,0,0,0.4)"; g.lineWidth = 1.6; g.strokeRect(-16, -8, 24, 16); // frame
+        g.beginPath(); g.moveTo(-16, 0); g.lineTo(8, 0); g.stroke();
+        canopy(7, -9, 14, 18);
+        rotor(21); break;
+      }
+      case "racer": { // needle-nosed speed racer
+        skids(-10, 12, 9);
+        tailBoom(30);
+        fuse([[30, 0], [14, -8], [-16, -9], [-18, 0], [-16, 9], [14, 8]], bodyGrad(-9, 18));
+        canopy(6, -5, 16, 10);
+        g.fillStyle = "rgba(255,255,255,0.85)"; g.fillRect(-12, -1.5, 28, 3); // racing stripe
+        rotor(18); break;
+      }
+      default: { // scout — balanced bubble + boom
+        skids(-12, 14, 12);
+        tailBoom(27);
+        fuse([[24, 0], [13, -11], [-14, -12], [-16, 0], [-14, 12], [13, 11]], bodyGrad(-12, 24));
+        canopy(5, -8, 15, 16);
+        g.fillStyle = "#fff6c8"; g.beginPath(); g.arc(21, 0, 2, 0, 7); g.fill(); // landing light
+        rotor(20);
+      }
+    }
+  }
+
+  // dispatch the right drawer for a vehicle's kind
+  function drawVehicle(g, vehicle, color, isPlayer) {
+    const kind = vehicle ? vehicle.kind : "truck";
+    if (kind === "boat") return drawBoat(g, vehicle, color, isPlayer);
+    if (kind === "heli") return drawHeli(g, vehicle, color, isPlayer);
+    return drawTruck(g, vehicle, color, isPlayer);
+  }
+
   // cached top-down sprite for in-race rendering (facing +x)
   const spriteCache = {};
-  function makeTruckSprite(vehicleId, color, isPlayer) {
+  function makeVehicleSprite(vehicleId, color, isPlayer) {
     const key = vehicleId + "|" + color + (isPlayer ? "|p" : "");
     if (spriteCache[key]) return spriteCache[key];
-    const veh = VEHICLES.find((v) => v.id === vehicleId);
-    const S = 4, w = 64, h = 44;
+    const veh = getVehicle(vehicleId);
+    const S = 4, w = 64, h = 40;
     const cv = document.createElement("canvas");
     cv.width = w * S; cv.height = h * S;
     const g = cv.getContext("2d");
     g.scale(S, S); g.translate(w / 2, h / 2);
-    drawTruck(g, veh, color || (veh ? veh.color : "#ccc"), isPlayer);
+    drawVehicle(g, veh, color || (veh ? veh.color : "#ccc"), isPlayer);
+    cv._w = w; cv._h = h;
     spriteCache[key] = cv;
     return cv;
   }
 
   // card portrait for the select / garage panels
   function makeVehiclePortrait(id, px) {
-    const veh = VEHICLES.find((v) => v.id === id) || VEHICLES[0];
+    const veh = getVehicle(id);
     const S = 2;
     const cv = document.createElement("canvas");
     cv.width = px * S; cv.height = px * S;
@@ -786,15 +1107,22 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     g.save();
     g.translate(px * S / 2, px * S / 2);
     const sc = (px * S) / 70; g.scale(sc, sc);
-    g.rotate(-Math.PI / 2); // point the truck "up" in the card
-    drawTruck(g, veh, veh.color, false);
+    g.rotate(-Math.PI / 2); // point the vehicle "up" in the card
+    drawVehicle(g, veh, veh.color, false);
     g.restore();
     return cv;
   }
 
-  window.VEHICLES = VEHICLES;
-  window.getVehicle = (id) => VEHICLES.find((v) => v.id === id) || VEHICLES[0];
-  window.makeTruckSprite = makeTruckSprite;
+  function getVehicle(id) {
+    const set = window.VEHICLES || TRUCKS;
+    return set.find((v) => v.id === id) || set[0];
+  }
+
+  window.VEHICLE_SETS = VEHICLE_SETS;
+  window.VEHICLES = TRUCKS; // default; circuits.js repoints this to the active set
+  window.getVehicle = getVehicle;
+  window.makeVehicleSprite = makeVehicleSprite;
+  window.makeTruckSprite = makeVehicleSprite; // engines call this name
   window.makeVehiclePortrait = makeVehiclePortrait;
 })();
 
@@ -1003,9 +1331,57 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
 </script>
   <script>
-/* career.js — persistent career: money, vehicle upgrades, driver + driver
- * training, championship season. The 6 characters fill the race grid; you play
- * one and the other five are your AI rivals. Saved to localStorage.
+/* circuits.js — three racing series share one engine, garage and career.
+ *
+ * Each circuit owns its own track set (window.TRACK_SETS) and vehicle set
+ * (window.VEHICLE_SETS); the 6 drivers are shared across all of them. Switching
+ * the active circuit simply re-points window.TRACKS / window.VEHICLES at that
+ * circuit's data so every existing reader (Career, the engines, the UI) keeps
+ * working unchanged — only the content and theme differ.
+ */
+(function () {
+  const CIRCUITS = [
+    { id: "trucks", name: "Super Off-Road", short: "Trucks", noun: "Truck",
+      tagline: "Stadium off-road trucks", accent: "#ff8e2b" },
+    { id: "boats", name: "Powerboat Series", short: "Boats", noun: "Boat",
+      tagline: "Offshore powerboat racing", accent: "#3aa0ff" },
+    { id: "helis", name: "Chopper Cup", short: "Helis", noun: "Heli",
+      tagline: "Low-altitude helicopter racing", accent: "#c46bff" },
+  ];
+
+  const Circuits = {
+    list: CIRCUITS,
+    active: "trucks",
+
+    get(id) { return CIRCUITS.find((c) => c.id === (id || this.active)) || CIRCUITS[0]; },
+    ids() { return CIRCUITS.map((c) => c.id); },
+    indexOf(id) { return Math.max(0, this.ids().indexOf(id || this.active)); },
+    nextId(id) { const ids = this.ids(); return ids[(this.indexOf(id) + 1) % ids.length]; },
+
+    // Point the shared globals at the chosen circuit's data.
+    setActive(id) {
+      const c = this.get(id);
+      this.active = c.id;
+      if (window.TRACK_SETS && window.TRACK_SETS[c.id]) window.TRACKS = window.TRACK_SETS[c.id];
+      if (window.VEHICLE_SETS && window.VEHICLE_SETS[c.id]) window.VEHICLES = window.VEHICLE_SETS[c.id];
+      return c.id;
+    },
+  };
+
+  // establish the default active set immediately (before Career loads)
+  Circuits.setActive("trucks");
+
+  window.CIRCUITS = CIRCUITS;
+  window.Circuits = Circuits;
+})();
+
+</script>
+  <script>
+/* career.js — persistent career across three circuits (trucks / boats / helis).
+ * Money, the chosen driver, driver training, vehicle upgrades and lap records are
+ * shared; each circuit keeps its OWN selected vehicle and championship season.
+ * The 6 characters fill every grid; you play one and the other five are rivals.
+ * Saved to localStorage.
  */
 (function () {
   const KEY = "offroaders_career_v1";
@@ -1021,13 +1397,18 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   ];
 
   const cost = (level) => 500 + level * 300; // shared by vehicle upgrades & driver training
+  const circuitIds = () => (window.Circuits ? window.Circuits.ids() : ["trucks"]);
+  const trackSetFor = (cid) => (window.TRACK_SETS && window.TRACK_SETS[cid]) || window.TRACKS;
+  const vehicleSetFor = (cid) => (window.VEHICLE_SETS && window.VEHICLE_SETS[cid]) || window.VEHICLES;
 
-  function freshSeason() {
-    const order = window.TRACKS.map((t) => t.id);
+  function freshSeason(cid) {
+    const order = trackSetFor(cid).map((t) => t.id);
     const standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
     return { order, completed: [], selected: order[0], standings, done: false, season: 1 };
   }
-
+  function freshCircuit(cid) {
+    return { vehicle: vehicleSetFor(cid)[0].id, season: freshSeason(cid) };
+  }
   function freshTraining() {
     const t = {};
     window.CHARACTERS.forEach((ch) => (t[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }));
@@ -1035,22 +1416,25 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   }
   function freshVehicleUpgrades() {
     const u = {};
-    window.VEHICLES.forEach((v) => (u[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }));
+    const sets = window.VEHICLE_SETS || { trucks: window.VEHICLES };
+    Object.values(sets).forEach((set) => set.forEach((v) => (u[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 })));
     return u;
   }
 
   function freshState() {
+    const circuits = {};
+    circuitIds().forEach((cid) => (circuits[cid] = freshCircuit(cid)));
     return {
-      version: 3,
+      version: 4,
       money: 800,
-      vehicle: window.VEHICLES[0].id,
-      vehicleUpgrades: freshVehicleUpgrades(),
       driver: window.CHARACTERS[0].id,
       training: freshTraining(),
       graphics: "enhanced",
       assist: "full", // touch auto-gas: "full" or "smart" (eases in corners)
       records: {},
-      season: freshSeason(),
+      vehicleUpgrades: freshVehicleUpgrades(),
+      circuit: "trucks",
+      circuits,
     };
   }
 
@@ -1065,55 +1449,99 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
         const raw = localStorage.getItem(KEY);
         if (raw) {
           this.state = JSON.parse(raw);
-          // migration / safety
-          const s = this.state;
-          if (!s.season || !s.season.order) s.season = freshSeason();
-          if (!s.season.completed) s.season.completed = [];
-          if (!s.season.selected) s.season.selected = s.season.order.find((id) => !s.season.completed.includes(id)) || s.season.order[0];
-          if (!s.graphics) s.graphics = "enhanced";
-          if (!s.records) s.records = {};
-          if (!s.driver) s.driver = window.CHARACTERS[0].id;
-          if (!s.training) s.training = freshTraining();
-          window.CHARACTERS.forEach((ch) => { if (!s.training[ch.id]) s.training[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }; });
-          if (!s.vehicle) s.vehicle = window.VEHICLES[0].id;
-          if (!s.vehicleUpgrades) s.vehicleUpgrades = freshVehicleUpgrades();
-          window.VEHICLES.forEach((v) => { if (!s.vehicleUpgrades[v.id]) s.vehicleUpgrades[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }; });
-          // migrate an old single upgrade set onto the starting truck
-          if (s.upgrades) { s.vehicleUpgrades[s.vehicle] = s.upgrades; delete s.upgrades; }
-          if (!s.season.standings || !s.season.standings[0] || !s.season.standings[0].characterId)
-            s.season.standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
+          this._migrate();
+          if (window.Circuits) window.Circuits.setActive(this.state.circuit);
           return this.state;
         }
       } catch (e) { /* corrupt — start fresh */ }
       this.state = freshState();
+      if (window.Circuits) window.Circuits.setActive(this.state.circuit);
       this.save();
       return this.state;
     },
 
+    // bring any older save up to the current multi-circuit shape
+    _migrate() {
+      const s = this.state;
+      if (!s.graphics) s.graphics = "enhanced";
+      if (!s.assist) s.assist = "full";
+      if (!s.records) s.records = {};
+      if (!s.driver) s.driver = window.CHARACTERS[0].id;
+      if (!s.training) s.training = freshTraining();
+      window.CHARACTERS.forEach((ch) => { if (!s.training[ch.id]) s.training[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }; });
+      if (!s.vehicleUpgrades) s.vehicleUpgrades = freshVehicleUpgrades();
+
+      // v3 (single circuit) -> v4 (per-circuit): fold the old season + vehicle into "trucks"
+      if (!s.circuits) {
+        const trucksCircuit = freshCircuit("trucks");
+        if (s.season && s.season.order) trucksCircuit.season = s.season;
+        if (s.vehicle) trucksCircuit.vehicle = s.vehicle;
+        if (s.upgrades) { s.vehicleUpgrades[s.vehicle || trucksCircuit.vehicle] = s.upgrades; delete s.upgrades; }
+        s.circuits = { trucks: trucksCircuit };
+        delete s.season; delete s.vehicle;
+      }
+      // ensure every known circuit exists and is well-formed
+      circuitIds().forEach((cid) => {
+        if (!s.circuits[cid]) s.circuits[cid] = freshCircuit(cid);
+        const c = s.circuits[cid];
+        if (!c.vehicle) c.vehicle = vehicleSetFor(cid)[0].id;
+        if (!c.season || !c.season.order) c.season = freshSeason(cid);
+        const sn = c.season;
+        if (!sn.completed) sn.completed = [];
+        if (!sn.selected) sn.selected = sn.order.find((id) => !sn.completed.includes(id)) || sn.order[0];
+        if (!sn.standings || !sn.standings[0] || !sn.standings[0].characterId)
+          sn.standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
+      });
+      // make sure upgrade entries exist for every vehicle in every set
+      const sets = window.VEHICLE_SETS || { trucks: window.VEHICLES };
+      Object.values(sets).forEach((set) => set.forEach((v) => { if (!s.vehicleUpgrades[v.id]) s.vehicleUpgrades[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }; }));
+      if (!s.circuit || !s.circuits[s.circuit]) s.circuit = "trucks";
+      s.version = 4;
+    },
+
     save() { try { localStorage.setItem(KEY, JSON.stringify(this.state)); } catch (e) {} },
 
-    newCareer() { this.state = freshState(); this.save(); return this.state; },
+    newCareer() { this.state = freshState(); if (window.Circuits) window.Circuits.setActive(this.state.circuit); this.save(); return this.state; },
+
+    // ---- circuit (series) ----
+    circuit() { return this.state.circuit; },
+    circuitInfo() { return window.Circuits ? window.Circuits.get(this.state.circuit) : { id: "trucks", name: "Super Off-Road", noun: "Truck" }; },
+    cur() {
+      const id = this.state.circuit;
+      if (!this.state.circuits[id]) this.state.circuits[id] = freshCircuit(id);
+      return this.state.circuits[id];
+    },
+    setCircuit(id) {
+      if (!window.Circuits || !window.Circuits.get(id)) return false;
+      window.Circuits.setActive(id);
+      this.state.circuit = id;
+      if (!this.state.circuits[id]) this.state.circuits[id] = freshCircuit(id);
+      this.save();
+      return true;
+    },
+    cycleCircuit() { return this.setCircuit(window.Circuits.nextId(this.state.circuit)); },
 
     newSeason() {
-      const next = (this.state.season.season || 1) + 1;
-      this.state.season = freshSeason();
-      this.state.season.season = next;
+      const cid = this.state.circuit, c = this.cur();
+      const next = (c.season.season || 1) + 1;
+      c.season = freshSeason(cid);
+      c.season.season = next;
       this.save();
     },
 
     currentTrack() {
-      const s = this.state.season;
+      const s = this.cur().season;
       const id = s.selected || s.order.find((t) => !s.completed.includes(t)) || s.order[0];
       return window.getTrack(id);
     },
     raceLabel() {
-      const s = this.state.season;
+      const s = this.cur().season;
       return `Race ${s.completed.length + 1} / ${s.order.length}`;
     },
 
     // ---- track selection ----
     trackList() {
-      const s = this.state.season;
+      const s = this.cur().season;
       return s.order.map((id) => ({
         track: window.getTrack(id),
         completed: s.completed.includes(id),
@@ -1121,7 +1549,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       }));
     },
     selectTrack(id) {
-      const s = this.state.season;
+      const s = this.cur().season;
       if (!s.order.includes(id) || s.completed.includes(id)) return false;
       s.selected = id; this.save(); return true;
     },
@@ -1142,7 +1570,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this.save(); return this.state.assist;
     },
 
-    // ---- driver selection ----
+    // ---- driver selection (shared across circuits) ----
     driverId() { return this.state.driver; },
     driver() { return window.getCharacter(this.state.driver); },
     setDriver(id) {
@@ -1152,7 +1580,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this.save();
     },
 
-    // ---- driver training (per character) ----
+    // ---- driver training (per character, shared) ----
     trainedSkills(id) { return this.state.training[id] || { launch: 0, handling: 0, drift: 0, nitro: 0 }; },
     trainLevel(id, skill) { return this.trainedSkills(id)[skill] || 0; },
     trainCostFor(id, skill) {
@@ -1171,7 +1599,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       return true;
     },
 
-    // ---- lap & track records ----
+    // ---- lap & track records (keyed by unique track id, shared) ----
     getRecord(trackId) { return (this.state.records && this.state.records[trackId]) || { lap: null, race: null }; },
     _rec(trackId) {
       if (!this.state.records) this.state.records = {};
@@ -1188,17 +1616,17 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       if (beat) r.race = t; this.save(); return beat;
     },
 
-    // ---- truck selection ----
-    vehicleId() { return this.state.vehicle; },
-    vehicle() { return window.getVehicle(this.state.vehicle); },
+    // ---- vehicle selection (per circuit) ----
+    vehicleId() { return this.cur().vehicle; },
+    vehicle() { return window.getVehicle(this.cur().vehicle); },
     setVehicle(id) {
       if (!window.getVehicle(id)) return;
-      this.state.vehicle = id;
+      this.cur().vehicle = id;
       if (!this.state.vehicleUpgrades[id]) this.state.vehicleUpgrades[id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
       this.save();
     },
 
-    // ---- per-truck upgrades ----
+    // ---- per-vehicle upgrades (shared map keyed by unique vehicle id) ----
     vehicleUpgrades(id) { return this.state.vehicleUpgrades[id] || { engine: 0, tires: 0, shocks: 0, nitro: 0 }; },
     upgradeLevel(id, key) { return this.vehicleUpgrades(id)[key] || 0; },
     upgradeCostFor(id, key) {
@@ -1213,10 +1641,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this.save(); return true;
     },
 
-    // truck performance multipliers (innate stats + upgrades), 1..10 per category
-    performanceFor(truckId) {
-      const v = window.getVehicle(truckId);
-      const up = this.vehicleUpgrades(truckId);
+    // vehicle performance multipliers (innate stats + upgrades), 1..10 per category
+    performanceFor(vehId) {
+      const v = window.getVehicle(vehId);
+      const up = this.vehicleUpgrades(vehId);
       const e = (k) => v.stats[k] + (up[k] || 0);
       return {
         maxSpeed: 1 + 0.02 * e("engine"),
@@ -1246,23 +1674,22 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     },
 
     aiStrength() {
-      const s = this.state.season;
+      const s = this.cur().season;
       return 0.93 + 0.022 * (s.completed ? s.completed.length : 0) + 0.025 * ((s.season || 1) - 1);
     },
 
-    // Build the 6-car grid: the player's driver+truck, plus the other five
-    // drivers each paired with one of the other trucks. The track's home driver
-    // gets a small boost on their home turf.
+    // Build the 6-car grid: the player's driver+vehicle, plus the other five
+    // drivers each paired with one of the other vehicles in the active set.
     buildRoster(trackId) {
-      const playerDriver = this.state.driver, playerVeh = this.state.vehicle;
+      const playerDriver = this.state.driver, playerVeh = this.cur().vehicle;
       const drivers = [window.getCharacter(playerDriver)].concat(window.CHARACTERS.filter((c) => c.id !== playerDriver));
-      const trucks = [window.getVehicle(playerVeh)].concat(window.VEHICLES.filter((v) => v.id !== playerVeh));
+      const vehicles = [window.getVehicle(playerVeh)].concat(window.VEHICLES.filter((v) => v.id !== playerVeh));
       const aiS = this.aiStrength();
       const home = trackId ? (window.getTrack(trackId).home) : null;
       return drivers.map((ch, i) => {
-        const truck = trucks[i] || trucks[0];
+        const veh = vehicles[i] || vehicles[0];
         const isPlayer = ch.id === playerDriver;
-        const t = this.performanceFor(truck.id);
+        const t = this.performanceFor(veh.id);
         const d = this.driverFactors(ch.id);
         const sp = isPlayer ? 1 : aiS;
         const homeBoost = ch.id === home ? 1.06 : 1; // home-track advantage
@@ -1276,13 +1703,13 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           nitroRefill: t.nitroRefill * d.nitroRefill,
           drift: d.drift,
         };
-        return { characterId: ch.id, name: ch.name, vehicleId: truck.id, color: truck.color, isPlayer, perf };
+        return { characterId: ch.id, name: ch.name, vehicleId: veh.id, color: veh.color, isPlayer, perf };
       });
     },
 
     // finishOrder: array of {isPlayer, characterId} in finishing order
     recordResult(finishOrder, bonus = 0) {
-      const s = this.state.season;
+      const s = this.cur().season;
       let playerPos = finishOrder.findIndex((c) => c.isPlayer);
       if (playerPos < 0) playerPos = finishOrder.length - 1;
       finishOrder.forEach((car, idx) => {
@@ -1301,12 +1728,12 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     sortedStandings() {
       const drv = this.state.driver;
-      return this.state.season.standings
+      return this.cur().season.standings
         .map((x) => ({ characterId: x.characterId, name: x.name, points: x.points, you: x.characterId === drv }))
         .sort((a, b) => b.points - a.points);
     },
 
-    seasonDone() { return this.state.season.done; },
+    seasonDone() { return this.cur().season.done; },
   };
 
   window.Career = Career;
@@ -3428,23 +3855,45 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ctx.save(); ctx.translate(cx, cy); ctx.scale(1, ISO);
       ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(3 * z, 3 * z, 30 * z, 22 * z, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+
+      const kind = (window.getVehicle ? (window.getVehicle(car.vehicleId) || {}).kind : null) || "truck";
+      if (kind === "boat") this._isoBoat(ctx, car, P, z);
+      else if (kind === "heli") this._isoHeli(ctx, car, P, z);
+      else this._isoTruck(ctx, car, P, z);
+
+      // nitro flame out the back (all kinds)
+      if (car.nitroActive) { const f = P(-24 - Math.random() * 10, 0, kind === "heli" ? 16 : 11); ctx.fillStyle = "rgba(120,220,255,0.8)"; ctx.beginPath(); ctx.ellipse(f[0], f[1], 7 * z, 4 * z, 0, 0, Math.PI * 2); ctx.fill(); }
+
+      if (car.isPlayer) {
+        const pulse = Math.sin(this.time * 6), m = P(0, 0, 44 + pulse * 3);
+        ctx.strokeStyle = "rgba(255,238,0,0.97)"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(cx, cy - base, 30 * z, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(m[0] - 14, m[1] - 14); ctx.lineTo(m[0] + 14, m[1] - 14); ctx.lineTo(m[0], m[1] + 3); ctx.closePath();
+        ctx.fillStyle = "#ffee00"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.fill(); ctx.stroke();
+      }
+    }
+
+    // extruded prism helper: draw the side walls then the gradient top of a polygon
+    _isoPrism(ctx, car, P, pts, hBot, hTop, col, sideF, topLo, topHi) {
+      const Bc = pts.map(([lx, ly]) => P(lx, ly, hBot)), Tc = pts.map(([lx, ly]) => P(lx, ly, hTop)), n = pts.length;
+      ctx.fillStyle = shade(col, sideF);
+      for (let i = 0; i < n; i++) { const A = Bc[i], B = Bc[(i + 1) % n], C = Tc[(i + 1) % n], D = Tc[i]; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.closePath(); ctx.fill(); }
+      const tg = ctx.createLinearGradient(Tc[0][0], Tc[0][1], Tc[(n >> 1)][0], Tc[(n >> 1)][1]);
+      tg.addColorStop(0, shade(col, topHi)); tg.addColorStop(1, shade(col, topLo));
+      ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(Tc[0][0], Tc[0][1]); for (let i = 1; i < n; i++) ctx.lineTo(Tc[i][0], Tc[i][1]); ctx.closePath(); ctx.fill();
+      ctx.lineWidth = car.isPlayer ? 2.4 : 1.4; ctx.strokeStyle = car.isPlayer ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.4)"; ctx.stroke();
+      return Tc;
+    }
+
+    _isoTruck(ctx, car, P, z) {
+      const col = car.color;
       // tyres (knobby, big)
       for (const [lx, ly] of [[20, 17], [20, -17], [-20, 17], [-20, -17]]) {
         const c = P(lx, ly, 8);
         ctx.fillStyle = "#100d0a"; ctx.beginPath(); ctx.ellipse(c[0], c[1], 12 * z, 9 * z, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#2c2820"; ctx.beginPath(); ctx.ellipse(c[0], c[1], 5.5 * z, 4 * z, 0, 0, Math.PI * 2); ctx.fill();
       }
-      const col = car.color;
-      const body = [[22, 13], [22, -13], [-22, -13], [-22, 13]];
-      const Bc = body.map(([lx, ly]) => P(lx, ly, 9)), Tc = body.map(([lx, ly]) => P(lx, ly, 21));
-      // body sides
-      ctx.fillStyle = shade(col, 0.55);
-      for (let i = 0; i < 4; i++) { const A = Bc[i], B = Bc[(i + 1) % 4], C = Tc[(i + 1) % 4], D = Tc[i]; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.closePath(); ctx.fill(); }
-      // body top
-      const tg = ctx.createLinearGradient(Tc[0][0], Tc[0][1], Tc[2][0], Tc[2][1]);
-      tg.addColorStop(0, shade(col, 1.3)); tg.addColorStop(1, shade(col, 0.85));
-      ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(Tc[0][0], Tc[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(Tc[i][0], Tc[i][1]); ctx.closePath(); ctx.fill();
-      ctx.lineWidth = car.isPlayer ? 2.4 : 1.4; ctx.strokeStyle = car.isPlayer ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.4)"; ctx.stroke();
+      this._isoPrism(ctx, car, P, [[22, 13], [22, -13], [-22, -13], [-22, 13]], 9, 21, col, 0.55, 0.85, 1.3);
       // cab / windshield (set forward)
       const cab = [[10, 10], [10, -10], [-6, -10], [-6, 10]];
       const KB = cab.map(([lx, ly]) => P(lx, ly, 21)), KT = cab.map(([lx, ly]) => P(lx, ly, 30));
@@ -3454,15 +3903,50 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       // headlights
       const hl = P(22, 7, 15), hr = P(22, -7, 15);
       ctx.fillStyle = "#fff6c8"; ctx.beginPath(); ctx.ellipse(hl[0], hl[1], 3 * z, 2.2 * z, 0, 0, Math.PI * 2); ctx.ellipse(hr[0], hr[1], 3 * z, 2.2 * z, 0, 0, Math.PI * 2); ctx.fill();
-      // nitro flame out the back
-      if (car.nitroActive) { const f = P(-22 - Math.random() * 10, 0, 14); ctx.fillStyle = "rgba(120,220,255,0.8)"; ctx.beginPath(); ctx.ellipse(f[0], f[1], 7 * z, 4 * z, 0, 0, Math.PI * 2); ctx.fill(); }
-      if (car.isPlayer) {
-        const pulse = Math.sin(this.time * 6), m = P(0, 0, 40 + pulse * 3);
-        ctx.strokeStyle = "rgba(255,238,0,0.97)"; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.arc(cx, cy - base, 30 * z, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(m[0] - 14, m[1] - 14); ctx.lineTo(m[0] + 14, m[1] - 14); ctx.lineTo(m[0], m[1] + 3); ctx.closePath();
-        ctx.fillStyle = "#ffee00"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.fill(); ctx.stroke();
-      }
+    }
+
+    _isoBoat(ctx, car, P, z) {
+      const col = car.color;
+      // foamy wake on the water behind the transom (flat on the surface)
+      ctx.fillStyle = "rgba(255,255,255,0.26)";
+      const w = [P(-20, 0, 0), P(-42, -18, 0), P(-34, 0, 0), P(-42, 18, 0)];
+      ctx.beginPath(); ctx.moveTo(w[0][0], w[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(w[i][0], w[i][1]); ctx.closePath(); ctx.fill();
+      // hull — pointed bow at +x, raked sides from waterline up to the deck
+      this._isoPrism(ctx, car, P, [[30, 0], [13, -13], [-22, -13], [-22, 13], [13, 13]], 3, 12, col, 0.5, 0.8, 1.32);
+      // cockpit / windshield block set back
+      const ck = [[6, 8], [6, -8], [-12, -8], [-12, 8]];
+      const KB = ck.map(([lx, ly]) => P(lx, ly, 12)), KT = ck.map(([lx, ly]) => P(lx, ly, 21));
+      ctx.fillStyle = "#12233a";
+      for (let i = 0; i < 4; i++) { const A = KB[i], B = KB[(i + 1) % 4], C = KT[(i + 1) % 4], D = KT[i]; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = "rgba(150,200,255,0.5)"; ctx.beginPath(); ctx.moveTo(KT[0][0], KT[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(KT[i][0], KT[i][1]); ctx.closePath(); ctx.fill();
+      // bow spray fleck
+      const bs = P(28, 0, 4); ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.beginPath(); ctx.ellipse(bs[0], bs[1], 4 * z, 2.5 * z, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    _isoHeli(ctx, car, P, z) {
+      const col = car.color, H = 14; // hover height of the fuselage above the skids
+      ctx.lineCap = "round";
+      // skids on the ground + struts up to the body
+      ctx.strokeStyle = "rgba(20,20,20,0.85)"; ctx.lineWidth = 2.6 * z;
+      for (const off of [-13, 13]) { const s0 = P(-12, off, 1), s1 = P(15, off, 1); ctx.beginPath(); ctx.moveTo(s0[0], s0[1]); ctx.lineTo(s1[0], s1[1]); ctx.stroke(); }
+      ctx.strokeStyle = "rgba(30,30,30,0.7)"; ctx.lineWidth = 2 * z;
+      for (const [lx, ly] of [[-7, -13], [9, -13], [-7, 13], [9, 13]]) { const a = P(lx, ly, 1), b = P(lx, ly * 0.66, H); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+      // tail boom backward (-x) + vertical fin + tail rotor
+      const tb0 = P(-14, 0, H + 6), tb1 = P(-36, 0, H + 6);
+      ctx.strokeStyle = shade(col, 0.7); ctx.lineWidth = 5 * z; ctx.beginPath(); ctx.moveTo(tb0[0], tb0[1]); ctx.lineTo(tb1[0], tb1[1]); ctx.stroke();
+      const tf = P(-38, 0, H + 15); ctx.lineWidth = 3 * z; ctx.beginPath(); ctx.moveTo(tb1[0], tb1[1]); ctx.lineTo(tf[0], tf[1]); ctx.stroke();
+      // fuselage prism (hovering)
+      this._isoPrism(ctx, car, P, [[20, 0], [11, -11], [-15, -11], [-17, 0], [-15, 11], [11, 11]], H, H + 13, col, 0.55, 0.82, 1.3);
+      // canopy bubble at the nose
+      const cp = P(13, 0, H + 9); ctx.fillStyle = "rgba(150,200,255,0.55)"; ctx.beginPath(); ctx.ellipse(cp[0], cp[1], 7 * z, 5 * z, 0, 0, Math.PI * 2); ctx.fill();
+      // main rotor — translucent disc + spinning blades on top
+      const rh = H + 22, rad = 30, spin = this.time * 24;
+      ctx.fillStyle = "rgba(220,230,240,0.16)"; ctx.beginPath();
+      for (let i = 0; i <= 22; i++) { const th = (i / 22) * Math.PI * 2, p = P(Math.cos(th) * rad, Math.sin(th) * rad, rh); if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(40,44,52,0.85)"; ctx.lineWidth = 2.6 * z;
+      for (const off of [0, Math.PI / 2]) { const th = spin + off, e0 = P(Math.cos(th) * rad, Math.sin(th) * rad, rh), e1 = P(Math.cos(th + Math.PI) * rad, Math.sin(th + Math.PI) * rad, rh); ctx.beginPath(); ctx.moveTo(e0[0], e0[1]); ctx.lineTo(e1[0], e1[1]); ctx.stroke(); }
+      const hub = P(0, 0, rh); ctx.fillStyle = "#2b2e35"; ctx.beginPath(); ctx.ellipse(hub[0], hub[1], 4 * z, 3 * z, 0, 0, Math.PI * 2); ctx.fill();
     }
 
     _drawBridgeIso(ctx, pg, zoom) {
@@ -3724,6 +4208,12 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   function renderGarage() {
     $("#cash").textContent = Career.state.money.toLocaleString();
 
+    // active series (circuit)
+    const ci = Career.circuitInfo();
+    const sb = $("#series-badge"); if (sb) sb.textContent = ci.name;
+    const sbtn = $("#btn-series"); if (sbtn) sbtn.textContent = "Series: " + ci.short;
+    $("#btn-change-vehicle").textContent = "Change " + ci.noun;
+
     const track = Career.currentTrack();
     const stars = "★".repeat(track.difficulty) + "☆".repeat(5 - track.difficulty);
     const rec = Career.getRecord(track.id);
@@ -3858,6 +4348,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     }
   };
   $("#btn-race").onclick = startRace;
+  $("#btn-series").onclick = () => { Career.cycleCircuit(); renderGarage(); };
   $("#btn-graphics").onclick = () => { Career.toggleGraphics(); renderGarage(); };
   $("#btn-throttle").onclick = () => { Career.toggleAssist(); renderGarage(); };
   $("#btn-change-driver").onclick = () => openDriverSelect("garage");

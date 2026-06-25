@@ -1,6 +1,8 @@
-/* career.js — persistent career: money, vehicle upgrades, driver + driver
- * training, championship season. The 6 characters fill the race grid; you play
- * one and the other five are your AI rivals. Saved to localStorage.
+/* career.js — persistent career across three circuits (trucks / boats / helis).
+ * Money, the chosen driver, driver training, vehicle upgrades and lap records are
+ * shared; each circuit keeps its OWN selected vehicle and championship season.
+ * The 6 characters fill every grid; you play one and the other five are rivals.
+ * Saved to localStorage.
  */
 (function () {
   const KEY = "offroaders_career_v1";
@@ -16,13 +18,18 @@
   ];
 
   const cost = (level) => 500 + level * 300; // shared by vehicle upgrades & driver training
+  const circuitIds = () => (window.Circuits ? window.Circuits.ids() : ["trucks"]);
+  const trackSetFor = (cid) => (window.TRACK_SETS && window.TRACK_SETS[cid]) || window.TRACKS;
+  const vehicleSetFor = (cid) => (window.VEHICLE_SETS && window.VEHICLE_SETS[cid]) || window.VEHICLES;
 
-  function freshSeason() {
-    const order = window.TRACKS.map((t) => t.id);
+  function freshSeason(cid) {
+    const order = trackSetFor(cid).map((t) => t.id);
     const standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
     return { order, completed: [], selected: order[0], standings, done: false, season: 1 };
   }
-
+  function freshCircuit(cid) {
+    return { vehicle: vehicleSetFor(cid)[0].id, season: freshSeason(cid) };
+  }
   function freshTraining() {
     const t = {};
     window.CHARACTERS.forEach((ch) => (t[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }));
@@ -30,22 +37,25 @@
   }
   function freshVehicleUpgrades() {
     const u = {};
-    window.VEHICLES.forEach((v) => (u[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }));
+    const sets = window.VEHICLE_SETS || { trucks: window.VEHICLES };
+    Object.values(sets).forEach((set) => set.forEach((v) => (u[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 })));
     return u;
   }
 
   function freshState() {
+    const circuits = {};
+    circuitIds().forEach((cid) => (circuits[cid] = freshCircuit(cid)));
     return {
-      version: 3,
+      version: 4,
       money: 800,
-      vehicle: window.VEHICLES[0].id,
-      vehicleUpgrades: freshVehicleUpgrades(),
       driver: window.CHARACTERS[0].id,
       training: freshTraining(),
       graphics: "enhanced",
       assist: "full", // touch auto-gas: "full" or "smart" (eases in corners)
       records: {},
-      season: freshSeason(),
+      vehicleUpgrades: freshVehicleUpgrades(),
+      circuit: "trucks",
+      circuits,
     };
   }
 
@@ -60,55 +70,99 @@
         const raw = localStorage.getItem(KEY);
         if (raw) {
           this.state = JSON.parse(raw);
-          // migration / safety
-          const s = this.state;
-          if (!s.season || !s.season.order) s.season = freshSeason();
-          if (!s.season.completed) s.season.completed = [];
-          if (!s.season.selected) s.season.selected = s.season.order.find((id) => !s.season.completed.includes(id)) || s.season.order[0];
-          if (!s.graphics) s.graphics = "enhanced";
-          if (!s.records) s.records = {};
-          if (!s.driver) s.driver = window.CHARACTERS[0].id;
-          if (!s.training) s.training = freshTraining();
-          window.CHARACTERS.forEach((ch) => { if (!s.training[ch.id]) s.training[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }; });
-          if (!s.vehicle) s.vehicle = window.VEHICLES[0].id;
-          if (!s.vehicleUpgrades) s.vehicleUpgrades = freshVehicleUpgrades();
-          window.VEHICLES.forEach((v) => { if (!s.vehicleUpgrades[v.id]) s.vehicleUpgrades[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }; });
-          // migrate an old single upgrade set onto the starting truck
-          if (s.upgrades) { s.vehicleUpgrades[s.vehicle] = s.upgrades; delete s.upgrades; }
-          if (!s.season.standings || !s.season.standings[0] || !s.season.standings[0].characterId)
-            s.season.standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
+          this._migrate();
+          if (window.Circuits) window.Circuits.setActive(this.state.circuit);
           return this.state;
         }
       } catch (e) { /* corrupt — start fresh */ }
       this.state = freshState();
+      if (window.Circuits) window.Circuits.setActive(this.state.circuit);
       this.save();
       return this.state;
     },
 
+    // bring any older save up to the current multi-circuit shape
+    _migrate() {
+      const s = this.state;
+      if (!s.graphics) s.graphics = "enhanced";
+      if (!s.assist) s.assist = "full";
+      if (!s.records) s.records = {};
+      if (!s.driver) s.driver = window.CHARACTERS[0].id;
+      if (!s.training) s.training = freshTraining();
+      window.CHARACTERS.forEach((ch) => { if (!s.training[ch.id]) s.training[ch.id] = { launch: 0, handling: 0, drift: 0, nitro: 0 }; });
+      if (!s.vehicleUpgrades) s.vehicleUpgrades = freshVehicleUpgrades();
+
+      // v3 (single circuit) -> v4 (per-circuit): fold the old season + vehicle into "trucks"
+      if (!s.circuits) {
+        const trucksCircuit = freshCircuit("trucks");
+        if (s.season && s.season.order) trucksCircuit.season = s.season;
+        if (s.vehicle) trucksCircuit.vehicle = s.vehicle;
+        if (s.upgrades) { s.vehicleUpgrades[s.vehicle || trucksCircuit.vehicle] = s.upgrades; delete s.upgrades; }
+        s.circuits = { trucks: trucksCircuit };
+        delete s.season; delete s.vehicle;
+      }
+      // ensure every known circuit exists and is well-formed
+      circuitIds().forEach((cid) => {
+        if (!s.circuits[cid]) s.circuits[cid] = freshCircuit(cid);
+        const c = s.circuits[cid];
+        if (!c.vehicle) c.vehicle = vehicleSetFor(cid)[0].id;
+        if (!c.season || !c.season.order) c.season = freshSeason(cid);
+        const sn = c.season;
+        if (!sn.completed) sn.completed = [];
+        if (!sn.selected) sn.selected = sn.order.find((id) => !sn.completed.includes(id)) || sn.order[0];
+        if (!sn.standings || !sn.standings[0] || !sn.standings[0].characterId)
+          sn.standings = window.CHARACTERS.map((ch) => ({ characterId: ch.id, name: ch.name, points: 0 }));
+      });
+      // make sure upgrade entries exist for every vehicle in every set
+      const sets = window.VEHICLE_SETS || { trucks: window.VEHICLES };
+      Object.values(sets).forEach((set) => set.forEach((v) => { if (!s.vehicleUpgrades[v.id]) s.vehicleUpgrades[v.id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 }; }));
+      if (!s.circuit || !s.circuits[s.circuit]) s.circuit = "trucks";
+      s.version = 4;
+    },
+
     save() { try { localStorage.setItem(KEY, JSON.stringify(this.state)); } catch (e) {} },
 
-    newCareer() { this.state = freshState(); this.save(); return this.state; },
+    newCareer() { this.state = freshState(); if (window.Circuits) window.Circuits.setActive(this.state.circuit); this.save(); return this.state; },
+
+    // ---- circuit (series) ----
+    circuit() { return this.state.circuit; },
+    circuitInfo() { return window.Circuits ? window.Circuits.get(this.state.circuit) : { id: "trucks", name: "Super Off-Road", noun: "Truck" }; },
+    cur() {
+      const id = this.state.circuit;
+      if (!this.state.circuits[id]) this.state.circuits[id] = freshCircuit(id);
+      return this.state.circuits[id];
+    },
+    setCircuit(id) {
+      if (!window.Circuits || !window.Circuits.get(id)) return false;
+      window.Circuits.setActive(id);
+      this.state.circuit = id;
+      if (!this.state.circuits[id]) this.state.circuits[id] = freshCircuit(id);
+      this.save();
+      return true;
+    },
+    cycleCircuit() { return this.setCircuit(window.Circuits.nextId(this.state.circuit)); },
 
     newSeason() {
-      const next = (this.state.season.season || 1) + 1;
-      this.state.season = freshSeason();
-      this.state.season.season = next;
+      const cid = this.state.circuit, c = this.cur();
+      const next = (c.season.season || 1) + 1;
+      c.season = freshSeason(cid);
+      c.season.season = next;
       this.save();
     },
 
     currentTrack() {
-      const s = this.state.season;
+      const s = this.cur().season;
       const id = s.selected || s.order.find((t) => !s.completed.includes(t)) || s.order[0];
       return window.getTrack(id);
     },
     raceLabel() {
-      const s = this.state.season;
+      const s = this.cur().season;
       return `Race ${s.completed.length + 1} / ${s.order.length}`;
     },
 
     // ---- track selection ----
     trackList() {
-      const s = this.state.season;
+      const s = this.cur().season;
       return s.order.map((id) => ({
         track: window.getTrack(id),
         completed: s.completed.includes(id),
@@ -116,7 +170,7 @@
       }));
     },
     selectTrack(id) {
-      const s = this.state.season;
+      const s = this.cur().season;
       if (!s.order.includes(id) || s.completed.includes(id)) return false;
       s.selected = id; this.save(); return true;
     },
@@ -137,7 +191,7 @@
       this.save(); return this.state.assist;
     },
 
-    // ---- driver selection ----
+    // ---- driver selection (shared across circuits) ----
     driverId() { return this.state.driver; },
     driver() { return window.getCharacter(this.state.driver); },
     setDriver(id) {
@@ -147,7 +201,7 @@
       this.save();
     },
 
-    // ---- driver training (per character) ----
+    // ---- driver training (per character, shared) ----
     trainedSkills(id) { return this.state.training[id] || { launch: 0, handling: 0, drift: 0, nitro: 0 }; },
     trainLevel(id, skill) { return this.trainedSkills(id)[skill] || 0; },
     trainCostFor(id, skill) {
@@ -166,7 +220,7 @@
       return true;
     },
 
-    // ---- lap & track records ----
+    // ---- lap & track records (keyed by unique track id, shared) ----
     getRecord(trackId) { return (this.state.records && this.state.records[trackId]) || { lap: null, race: null }; },
     _rec(trackId) {
       if (!this.state.records) this.state.records = {};
@@ -183,17 +237,17 @@
       if (beat) r.race = t; this.save(); return beat;
     },
 
-    // ---- truck selection ----
-    vehicleId() { return this.state.vehicle; },
-    vehicle() { return window.getVehicle(this.state.vehicle); },
+    // ---- vehicle selection (per circuit) ----
+    vehicleId() { return this.cur().vehicle; },
+    vehicle() { return window.getVehicle(this.cur().vehicle); },
     setVehicle(id) {
       if (!window.getVehicle(id)) return;
-      this.state.vehicle = id;
+      this.cur().vehicle = id;
       if (!this.state.vehicleUpgrades[id]) this.state.vehicleUpgrades[id] = { engine: 0, tires: 0, shocks: 0, nitro: 0 };
       this.save();
     },
 
-    // ---- per-truck upgrades ----
+    // ---- per-vehicle upgrades (shared map keyed by unique vehicle id) ----
     vehicleUpgrades(id) { return this.state.vehicleUpgrades[id] || { engine: 0, tires: 0, shocks: 0, nitro: 0 }; },
     upgradeLevel(id, key) { return this.vehicleUpgrades(id)[key] || 0; },
     upgradeCostFor(id, key) {
@@ -208,10 +262,10 @@
       this.save(); return true;
     },
 
-    // truck performance multipliers (innate stats + upgrades), 1..10 per category
-    performanceFor(truckId) {
-      const v = window.getVehicle(truckId);
-      const up = this.vehicleUpgrades(truckId);
+    // vehicle performance multipliers (innate stats + upgrades), 1..10 per category
+    performanceFor(vehId) {
+      const v = window.getVehicle(vehId);
+      const up = this.vehicleUpgrades(vehId);
       const e = (k) => v.stats[k] + (up[k] || 0);
       return {
         maxSpeed: 1 + 0.02 * e("engine"),
@@ -241,23 +295,22 @@
     },
 
     aiStrength() {
-      const s = this.state.season;
+      const s = this.cur().season;
       return 0.93 + 0.022 * (s.completed ? s.completed.length : 0) + 0.025 * ((s.season || 1) - 1);
     },
 
-    // Build the 6-car grid: the player's driver+truck, plus the other five
-    // drivers each paired with one of the other trucks. The track's home driver
-    // gets a small boost on their home turf.
+    // Build the 6-car grid: the player's driver+vehicle, plus the other five
+    // drivers each paired with one of the other vehicles in the active set.
     buildRoster(trackId) {
-      const playerDriver = this.state.driver, playerVeh = this.state.vehicle;
+      const playerDriver = this.state.driver, playerVeh = this.cur().vehicle;
       const drivers = [window.getCharacter(playerDriver)].concat(window.CHARACTERS.filter((c) => c.id !== playerDriver));
-      const trucks = [window.getVehicle(playerVeh)].concat(window.VEHICLES.filter((v) => v.id !== playerVeh));
+      const vehicles = [window.getVehicle(playerVeh)].concat(window.VEHICLES.filter((v) => v.id !== playerVeh));
       const aiS = this.aiStrength();
       const home = trackId ? (window.getTrack(trackId).home) : null;
       return drivers.map((ch, i) => {
-        const truck = trucks[i] || trucks[0];
+        const veh = vehicles[i] || vehicles[0];
         const isPlayer = ch.id === playerDriver;
-        const t = this.performanceFor(truck.id);
+        const t = this.performanceFor(veh.id);
         const d = this.driverFactors(ch.id);
         const sp = isPlayer ? 1 : aiS;
         const homeBoost = ch.id === home ? 1.06 : 1; // home-track advantage
@@ -271,13 +324,13 @@
           nitroRefill: t.nitroRefill * d.nitroRefill,
           drift: d.drift,
         };
-        return { characterId: ch.id, name: ch.name, vehicleId: truck.id, color: truck.color, isPlayer, perf };
+        return { characterId: ch.id, name: ch.name, vehicleId: veh.id, color: veh.color, isPlayer, perf };
       });
     },
 
     // finishOrder: array of {isPlayer, characterId} in finishing order
     recordResult(finishOrder, bonus = 0) {
-      const s = this.state.season;
+      const s = this.cur().season;
       let playerPos = finishOrder.findIndex((c) => c.isPlayer);
       if (playerPos < 0) playerPos = finishOrder.length - 1;
       finishOrder.forEach((car, idx) => {
@@ -296,12 +349,12 @@
 
     sortedStandings() {
       const drv = this.state.driver;
-      return this.state.season.standings
+      return this.cur().season.standings
         .map((x) => ({ characterId: x.characterId, name: x.name, points: x.points, you: x.characterId === drv }))
         .sort((a, b) => b.points - a.points);
     },
 
-    seasonDone() { return this.state.season.done; },
+    seasonDone() { return this.cur().season.done; },
   };
 
   window.Career = Career;

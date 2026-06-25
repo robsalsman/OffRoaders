@@ -69,7 +69,7 @@
     return wp;
   }
   const rot = (pts) => pts.map((p) => ({ x: p.y, y: -p.x })); // 90° (horizontal fingers)
-  const TRACKS = [
+  const TRUCK_TRACKS = [
     {
       // open serpentine maze
       id: "mesa", name: "Blazing Mesa", home: "hotrod",
@@ -175,9 +175,123 @@
     },
   ];
 
+  // ---- Powerboat Series — 6 water courses (same generators, water themes) ----
+  const BOAT_TRACKS = [
+    {
+      // open-water sprint — fast flowing oval
+      id: "tiderun", name: "Tide Run", home: "atrain",
+      laps: 5, width: 150, difficulty: 2, feature: "Open-water sprint",
+      theme: { ground: "#10405f", groundDark: "#0c3049", dirt: "#2f7ea8", dirtDark: "#1a5274", rut: "#3f93bd" },
+      ramps: [0.25, 0.75], mud: [], surface: "water", whoops: [],
+      points: wave(580, 120, (t) => 1 + 0.05 * Math.sin(t * 2), 1.2, 1.22),
+    },
+    {
+      // buoy slalom — tall weaving maze marked by buoys
+      id: "buoymaze", name: "Buoy Maze", home: "olddog",
+      laps: 4, width: 92, difficulty: 4, feature: "Buoy slalom",
+      theme: { ground: "#0f4a5a", groundDark: "#0b3845", dirt: "#36a3a0", dirtDark: "#1c5e5c", rut: "#48b8b4" },
+      ramps: [], mud: [0.4], surface: "water", whoops: [0.2, 0.7],
+      points: spline(maze({ x0: -360, x1: 380, yT: -620, yB: 620, dT: -160, dB: 160, top: [[-240, -90], [120, 260]], bot: [[260, 120], [-90, -240]] }), 210),
+    },
+    {
+      // delta channels — horizontal switchback waterways
+      id: "deltaweave", name: "Delta Weave", home: "west",
+      laps: 4, width: 95, difficulty: 4, feature: "Delta channels",
+      theme: { ground: "#1d5040", groundDark: "#143a2e", dirt: "#3a93a0", dirtDark: "#1f5560", rut: "#4aa6b2" },
+      ramps: [0.5], mud: [0.18, 0.66], surface: "water", whoops: [],
+      points: spline(rot(maze({ x0: -420, x1: 440, yT: -540, yB: 540, dT: -120, dB: 120, top: [[-300, -150], [150, 300]], bot: [[300, 150], [-150, -300]] })), 200),
+    },
+    {
+      // figure-8 with a lock/overpass — one pass goes under, one over
+      id: "lagoon8", name: "Lagoon Eight", home: "rob",
+      laps: 4, width: 190, difficulty: 3, feature: "Figure-8 locks",
+      theme: { ground: "#123a66", groundDark: "#0d2b4c", dirt: "#3f7bbf", dirtDark: "#21487a", rut: "#5a90cf" },
+      ramps: [0.1, 0.55], mud: [], surface: "water", bridge: [0.69, 0.81], figure8: true, whoops: [0.3],
+      points: gerono(1040, 820, 132),
+    },
+    {
+      // weaving rip — a true serpentine of narrow channels
+      id: "riptide", name: "Riptide", home: "hotrod",
+      laps: 4, width: 100, difficulty: 4, feature: "Weaving rip",
+      theme: { ground: "#0e4458", groundDark: "#0a3342", dirt: "#2f8fb0", dirtDark: "#195a72", rut: "#41a3c4" },
+      ramps: [0.5], mud: [], surface: "water", whoops: [0.25, 0.75],
+      points: spline(W([
+        [-420, -560], [-300, -560], [-300, -120], [-150, -120], [-150, -560], [150, -560],
+        [150, -120], [300, -120], [300, -560], [440, -560], [440, 560], [300, 560],
+        [300, 120], [150, 120], [150, 560], [-150, 560], [-150, 120], [-300, 120], [-300, 560], [-440, 560],
+      ]), 200),
+    },
+    {
+      // whirlpool — strong scalloped spiral bends
+      id: "whirlpool", name: "Whirlpool", home: "drg",
+      laps: 5, width: 150, difficulty: 5, feature: "Spiralling bends",
+      theme: { ground: "#1a3a5e", groundDark: "#122a45", dirt: "#3a78a8", dirtDark: "#1f4d72", rut: "#4c8cbe" },
+      ramps: [0.5], mud: [0.3, 0.8], surface: "water", whoops: [0.1],
+      points: wave(540, 130, (t) => 1 + 0.2 * Math.sin(t * 3 + 0.5), 1.1, 1.06, 0.4),
+    },
+  ];
+
+  // ---- Chopper Cup — 6 aerial courses (canyon / sky themes) ----
+  const HELI_TRACKS = [
+    {
+      // high-speed gates — fast aerial oval
+      id: "skygate", name: "Sky Gate", home: "drg",
+      laps: 5, width: 150, difficulty: 2, feature: "High-speed gates",
+      theme: { ground: "#2b3f63", groundDark: "#1f2f4c", dirt: "#7c8fb8", dirtDark: "#3d4a6a", rut: "#94a6cc" },
+      ramps: [0.25, 0.75], mud: [], whoops: [],
+      points: wave(580, 120, (t) => 1 + 0.05 * Math.sin(t * 2), 1.2, 1.22),
+    },
+    {
+      // canyon switchbacks — horizontal maze between rock walls
+      id: "canyonrun", name: "Canyon Run", home: "west",
+      laps: 4, width: 95, difficulty: 4, feature: "Canyon switchbacks",
+      theme: { ground: "#7a4a2c", groundDark: "#5e3820", dirt: "#c98f55", dirtDark: "#6e4a28", rut: "#8a5e30" },
+      ramps: [0.5], mud: [], whoops: [0.3, 0.8],
+      points: spline(rot(maze({ x0: -420, x1: 440, yT: -540, yB: 540, dT: -120, dB: 120, top: [[-300, -150], [150, 300]], bot: [[300, 150], [-150, -300]] })), 200),
+    },
+    {
+      // mesa weave — a vertical maze across the mesa tops
+      id: "mesamaze", name: "Mesa Maze", home: "hotrod",
+      laps: 4, width: 105, difficulty: 4, feature: "Mesa weave",
+      theme: { ground: "#8a4a26", groundDark: "#6e3819", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
+      ramps: [0.1, 0.6], mud: [], whoops: [0.85],
+      points: spline(maze({ x0: -440, x1: 460, yT: -540, yB: 540, dT: -130, dB: 130, top: [[-300, -130], [130, 300]], bot: [[300, 130], [-130, -300]] }), 200),
+    },
+    {
+      // aerial figure-8 with a flyover deck
+      id: "loop8", name: "Loop Eight", home: "atrain",
+      laps: 4, width: 190, difficulty: 3, feature: "Aerial figure-8",
+      theme: { ground: "#243a55", groundDark: "#1a2c42", dirt: "#6f86ad", dirtDark: "#3a4a68", rut: "#8295bd" },
+      ramps: [0.1, 0.55], mud: [], bridge: [0.69, 0.81], figure8: true, whoops: [0.3],
+      points: gerono(1040, 820, 132),
+    },
+    {
+      // tight updrafts — narrow serpentine slot canyon
+      id: "updraft", name: "Updraft", home: "olddog",
+      laps: 4, width: 100, difficulty: 5, feature: "Slot-canyon weave",
+      theme: { ground: "#6e4030", groundDark: "#542f22", dirt: "#b87a4e", dirtDark: "#6a4230", rut: "#8a5638" },
+      ramps: [0.5], mud: [], whoops: [0.25, 0.75],
+      points: spline(W([
+        [-420, -560], [-300, -560], [-300, -120], [-150, -120], [-150, -560], [150, -560],
+        [150, -120], [300, -120], [300, -560], [440, -560], [440, 560], [300, 560],
+        [300, 120], [150, 120], [150, 560], [-150, 560], [-150, 120], [-300, 120], [-300, 560], [-440, 560],
+      ]), 200),
+    },
+    {
+      // thunderhead — storm-tossed scalloped spiral
+      id: "thunderhead", name: "Thunderhead", home: "rob",
+      laps: 5, width: 150, difficulty: 5, feature: "Storm bends",
+      theme: { ground: "#2e3550", groundDark: "#22283e", dirt: "#6b7196", dirtDark: "#3a3f5e", rut: "#7e84a8" },
+      ramps: [0.5], mud: [], whoops: [0.1, 0.6],
+      points: wave(540, 130, (t) => 1 + 0.2 * Math.sin(t * 3 + 0.5), 1.1, 1.06, 0.4),
+    },
+  ];
+
+  const TRACK_SETS = { trucks: TRUCK_TRACKS, boats: BOAT_TRACKS, helis: HELI_TRACKS };
+
   // small top-down preview for the track-select cards
   function makeTrackPreview(id, px) {
-    const t = TRACKS.find((x) => x.id === id) || TRACKS[0];
+    const t = window.getTrack(id);
     const S = 2, cv = document.createElement("canvas");
     cv.width = px * S; cv.height = px * S;
     cv.style.width = px + "px"; cv.style.height = px + "px";
@@ -200,7 +314,8 @@
     return cv;
   }
 
-  window.TRACKS = TRACKS;
-  window.getTrack = (id) => TRACKS.find((t) => t.id === id) || TRACKS[0];
+  window.TRACK_SETS = TRACK_SETS;
+  window.TRACKS = TRUCK_TRACKS; // default; circuits.js repoints this to the active set
+  window.getTrack = (id) => (window.TRACKS || TRUCK_TRACKS).find((t) => t.id === id) || (window.TRACKS || TRUCK_TRACKS)[0];
   window.makeTrackPreview = makeTrackPreview;
 })();

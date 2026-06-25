@@ -168,7 +168,8 @@ button.ghost { background: transparent; border: 1px solid rgba(255,255,255,.2); 
 button.ghost.danger { color: var(--bad); border-color: rgba(255,91,91,.4); }
 
 /* ---------- Garage ---------- */
-.garage-head { width: min(960px, 96vw); display: flex; justify-content: space-between; align-items: center; }
+.garage-head { width: min(960px, 96vw); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.series-badge { flex: 1; text-align: center; font-size: 14px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: #ffe9c2; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 5px 14px; }
 .cash { font-size: 22px; font-weight: bold; color: var(--accent); }
 .garage-grid {
   width: min(960px, 96vw); display: grid; gap: 14px; margin: 14px 0;

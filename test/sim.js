@@ -37,7 +37,7 @@ function loadFile(rel) {
   vm.runInContext(code, ctx, { filename: rel });
 }
 
-["js/tracks.js", "js/vehicles.js", "js/characters.js", "js/career.js", "js/input.js", "js/game.js"].forEach(loadFile);
+["js/tracks.js", "js/vehicles.js", "js/characters.js", "js/circuits.js", "js/career.js", "js/input.js", "js/game.js"].forEach(loadFile);
 
 let failures = 0;
 function assert(cond, msg) {
@@ -51,6 +51,19 @@ assert(ctx.TRACKS.length === 12, "12 tracks defined");
 assert(ctx.TRACKS.every((t) => t.points.length > 20), "all tracks have point loops");
 assert(ctx.TRACKS.every((t) => ctx.getCharacter(t.home)), "every track has a valid home driver");
 assert(new Set(ctx.TRACKS.map((t) => t.home)).size === 6, "home tracks span all 6 drivers");
+
+// ---- 1b. circuits ----
+console.log("Circuits:");
+assert(ctx.TRACK_SETS && ctx.VEHICLE_SETS, "track & vehicle sets exposed");
+["trucks", "boats", "helis"].forEach((cid) => {
+  assert(ctx.TRACK_SETS[cid] && ctx.VEHICLE_SETS[cid], cid + " circuit has tracks & vehicles");
+});
+assert(ctx.TRACK_SETS.boats.length === 6 && ctx.TRACK_SETS.helis.length === 6, "boats & helis are 6-track seasons");
+assert(ctx.VEHICLE_SETS.boats.length === 6 && ctx.VEHICLE_SETS.helis.length === 6, "boats & helis have 6 vehicles each");
+["boats", "helis"].forEach((cid) => {
+  assert(new Set(ctx.TRACK_SETS[cid].map((t) => t.home)).size === 6, cid + " homes span all 6 drivers");
+  assert(ctx.TRACK_SETS[cid].every((t) => t.points.length > 20), cid + " tracks have point loops");
+});
 
 // ---- 2. career ----
 console.log("Career:");
@@ -131,7 +144,7 @@ if (finished) {
   // record result into career
   const res = C.recordResult(finished);
   assert(typeof res.prize === "number" && res.prize > 0, "prize awarded: " + res.prize);
-  assert(C.state.season.completed.length === 1, "season recorded the completed race");
+  assert(C.cur().season.completed.length === 1, "season recorded the completed race");
   const total = C.sortedStandings().reduce((a, r) => a + r.points, 0);
   assert(total > 0, "championship points distributed");
 }
