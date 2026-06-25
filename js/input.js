@@ -16,6 +16,7 @@
   const kb = { left: false, right: false, gas: false, brake: false, nitro: false };
   const pad = { x: 0, y: 0, active: false }; // joystick vector (screen space, up = -y)
   const wheel = { steer: 0, active: false }; // relative steering wheel (3D chase mode)
+  let driveSteer = 0; // smoothed steering value for the 3D wheel (rate-limited)
   const btn = { brake: false, nitro: false };
   let autoGas = false, smart = false, control = "pad";
 
@@ -32,9 +33,13 @@
     let turn = Math.abs(steer);
 
     if (control === "drive") {
-      // relative steering wheel: left/right turns the car, independent of heading
-      // (the right control for a 3D chase camera). Keyboard still steers too.
-      if (wheel.active) { steer = clamp(wheel.steer * 1.35, -1, 1); turn = Math.abs(steer); }
+      // relative steering wheel: left/right turns the car, independent of heading.
+      // Ease-in curve (gentle near centre) + rate-limited smoothing so it isn't
+      // twitchy, then keyboard fallback.
+      let target = (kb.right ? 1 : 0) - (kb.left ? 1 : 0);
+      if (wheel.active) { const s = clamp(wheel.steer, -1, 1); target = Math.sign(s) * Math.pow(Math.abs(s), 1.8); }
+      driveSteer += clamp(target - driveSteer, -0.09, 0.09); // ~10 frames to full lock
+      steer = clamp(driveSteer, -1, 1); turn = Math.abs(steer);
     } else if (pad.active) { // directional: steer toward the pushed/dragged heading (pad or wheel)
       let diff = Math.atan2(pad.y, pad.x) - carAngle;
       while (diff > PI) diff -= 2 * PI;
@@ -54,7 +59,7 @@
 
   I.reset = function () {
     pad.x = pad.y = 0; pad.active = false;
-    wheel.steer = 0; wheel.active = false;
+    wheel.steer = 0; wheel.active = false; driveSteer = 0;
     btn.brake = btn.nitro = false;
     for (const k in kb) kb[k] = false;
     const knob = document.getElementById("stick-knob");
@@ -91,9 +96,10 @@
       const r = zone.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
       const dx = x - cx, dy = y - cy;
       if (control === "drive") {
-        // 3D chase: a proper steering wheel — horizontal drag turns left/right
-        wheel.steer = clamp(dx / (r.width * 0.42), -1, 1); wheel.active = true;
-        cv.style.transition = "none"; cv.style.transform = `rotate(${wheel.steer * 1.5}rad)`;
+        // 3D chase: a proper steering wheel — horizontal drag turns left/right.
+        // Needs a big sweep to the rim for full lock (so it's not over-sensitive).
+        wheel.steer = clamp(dx / (r.width * 0.6), -1, 1); wheel.active = true;
+        cv.style.transition = "none"; cv.style.transform = `rotate(${wheel.steer * 1.7}rad)`;
       } else if (Math.hypot(dx, dy) > 16) {
         pad.x = dx; pad.y = dy / ISO_Y; pad.active = true;
         const ang = Math.atan2(dy, dx);
