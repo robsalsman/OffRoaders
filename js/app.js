@@ -344,15 +344,18 @@
     hideOverlay();
     hud.classList.remove("hidden");
     touch.classList.toggle("hidden", !isTouch);
-    // isometric mode steers with a wheel (relative); top-down uses the directional pad
-    const isoMode = Career.graphics() === "iso";
+    // 3D chase steers with a real wheel (relative left/right); iso uses a
+    // directional wheel; flat top-down uses the directional pad.
+    const gfxNow = Career.graphics();
+    const isoMode = gfxNow === "iso", driveMode = gfxNow === "3d";
+    const wheelUI = isoMode || driveMode;
     const wheelEl = $("#wheel"), stickEl = $("#stick");
-    if (wheelEl) wheelEl.classList.toggle("hidden", !isoMode);
-    if (stickEl) stickEl.classList.toggle("hidden", isoMode);
-    if (window.Input) { // the truck auto-accelerates everywhere; you just steer
+    if (wheelEl) wheelEl.classList.toggle("hidden", !wheelUI);
+    if (stickEl) stickEl.classList.toggle("hidden", wheelUI);
+    if (window.Input) { // the vehicle auto-accelerates everywhere; you just steer
       window.Input.setAutoGas(true);
       window.Input.setSmartThrottle(Career.assist() === "smart");
-      window.Input.setControlMode(isoMode ? "wheel" : "pad");
+      window.Input.setControlMode(driveMode ? "drive" : isoMode ? "wheel" : "pad");
     }
 
     // set up lap-record tracking for this race

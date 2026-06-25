@@ -34,6 +34,7 @@ class Race3D {
     const pc = document.createElement("canvas"); pc.width = 320; pc.height = 240;
     this.sim = new window.RacePro(pc, Object.assign({}, cfg));
     this.sim._render = () => this._draw();      // hijack the per-frame draw
+    this.vehKind = this.sim.vehKind || "truck";
     this.bbox = this.sim.bbox;
     this.carMeshes = new Map();
     this._tmp = new THREE.Vector3();
@@ -86,9 +87,17 @@ class Race3D {
     scene.add(sun);
     scene.add(new THREE.HemisphereLight(0xdcefff, this._toColor(this.theme.groundDark || this.theme.ground), 0.95));
 
-    // ground
-    const gmat = new THREE.MeshStandardMaterial({ color: this._toColor(this.theme.ground), roughness: 1, metalness: 0 });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(span * 5, span * 5), gmat);
+    // ground — water for the boat circuit, solid terrain otherwise
+    let ground;
+    if (this.vehKind === "boat") {
+      const wmat = new THREE.MeshStandardMaterial({ color: this._toColor(this.theme.ground), roughness: 0.12, metalness: 0.25, envMapIntensity: 1.6 });
+      const geo = new THREE.PlaneGeometry(span * 5, span * 5, 48, 48);
+      ground = new THREE.Mesh(geo, wmat);
+      this.water = geo; this._waterBase = Float32Array.from(geo.attributes.position.array);
+    } else {
+      const gmat = new THREE.MeshStandardMaterial({ color: this._toColor(this.theme.ground), roughness: 1, metalness: 0 });
+      ground = new THREE.Mesh(new THREE.PlaneGeometry(span * 5, span * 5), gmat);
+    }
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(this._look.x, 0, this._look.z);
     ground.receiveShadow = true;
@@ -132,12 +141,13 @@ class Race3D {
   }
 
   _buildTrack() {
-    const N = this.sim.pts.length, hw = this.track.width / 2;
-    // road surface ribbon
-    const pos = [], idx = []; let v = 0;
+    const N = this.sim.pts.length, hw = this.track.width / 2, kind = this.vehKind;
+    const yTop = kind === "boat" ? 1.4 : 0.6;
+    // surface ribbon
+    const pos = [], idx = [];
     for (let i = 0; i < N; i++) {
       const L = this._edge(i, -hw), R = this._edge(i, hw);
-      pos.push(L.x, 0.6, L.y, R.x, 0.6, R.y);
+      pos.push(L.x, yTop, L.y, R.x, yTop, R.y);
     }
     for (let i = 0; i < N; i++) {
       const a = i * 2, b = ((i + 1) % N) * 2;
@@ -146,17 +156,21 @@ class Race3D {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     geo.setIndex(idx); geo.computeVertexNormals();
-    const road = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: this._toColor(this.theme.dirt), roughness: 0.96, metalness: 0 }));
+    let roadMat;
+    if (kind === "boat") roadMat = new THREE.MeshStandardMaterial({ color: this._shade(this._toColor(this.theme.dirt), 0.92), roughness: 0.16, metalness: 0.2, envMapIntensity: 1.3, transparent: true, opacity: 0.55 });
+    else roadMat = new THREE.MeshStandardMaterial({ color: this._toColor(this.theme.dirt), roughness: kind === "heli" ? 0.92 : 0.96, metalness: 0 });
+    const road = new THREE.Mesh(geo, roadMat);
     road.receiveShadow = true; this.scene.add(road);
 
-    // red/white kerb walls along both banks
-    for (const sign of [1, -1]) this.scene.add(this._kerbWall(sign, hw + 4));
+    // edges: kerb walls (trucks), low foam (boats), nothing (helis fly the maze)
+    if (kind === "truck") for (const sign of [1, -1]) this.scene.add(this._kerbWall(sign, hw + 4, 11));
+    else if (kind === "boat") for (const sign of [1, -1]) this.scene.add(this._kerbWall(sign, hw + 2, 3, "#eef4f7", "#cfe0e6"));
   }
 
-  _kerbWall(sign, off) {
-    const N = this.sim.pts.length, H = 11;
+  _kerbWall(sign, off, H, ca = "#c43326", cb = "#e9eaef") {
+    const N = this.sim.pts.length;
     const pos = [], col = [], idx = [];
-    const red = new THREE.Color("#c43326"), white = new THREE.Color("#e9eaef");
+    const red = new THREE.Color(ca), white = new THREE.Color(cb);
     for (let i = 0; i < N; i++) {
       const e = this._edge(i, sign * off);
       pos.push(e.x, 0.5, e.y, e.x, H, e.y);
@@ -184,8 +198,11 @@ class Race3D {
     return Math.sqrt(m);
   }
 
-  // 3D world dressing: boulders, trees (green tracks), grandstands, distant ranges
+  // 3D world dressing
   _buildEnvironment() {
+    // boats & helis: the sim already placed buoys/islands/docks/ships/buildings/
+    // trees/buttes/peaks (this.sim._props) — build them in 3D.
+    if (this.vehKind === "boat" || this.vehKind === "heli") { this._make3DProps(); return; }
     const b = this.bbox, Wd = this.track.width, span = Math.max(b.w, b.h);
     const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
     const ground = this._toColor(this.theme.ground);
@@ -253,13 +270,77 @@ class Race3D {
     mtns.instanceMatrix.needsUpdate = true; this.scene.add(mtns);
   }
 
+  // 3D versions of the buoys/islands/docks/ships (boats) and buildings/trees/
+  // buttes/peaks (helis) that the 2D sim already placed in this.sim._props.
+  _make3DProps() {
+    const props = this.sim._props || [], ground = this._toColor(this.theme.ground);
+    const bMat = ["#2b3450", "#39426a", "#222a48", "#3b4566"].map((c) => new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: 0.18, metalness: 0.5, envMapIntensity: 1.6 }));
+    const rock = new THREE.MeshStandardMaterial({ color: this._shade(this.theme.groundDark ? this._toColor(this.theme.groundDark) : ground, 0.85), roughness: 1, flatShading: true });
+    const snow = new THREE.MeshStandardMaterial({ color: 0xeef3f8, roughness: 0.7, flatShading: true });
+    const bark = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 1 });
+    const leaf = new THREE.MeshStandardMaterial({ color: 0x2f6b2f, roughness: 0.9, flatShading: true });
+    const sand = new THREE.MeshStandardMaterial({ color: 0xd9c27e, roughness: 1 });
+    const grass = new THREE.MeshStandardMaterial({ color: 0x3f7a3a, roughness: 0.95, flatShading: true });
+    const wood = new THREE.MeshStandardMaterial({ color: 0x7a5a36, roughness: 0.9 });
+    const hullM = new THREE.MeshStandardMaterial({ color: 0x6b7682, roughness: 0.55, metalness: 0.35 });
+    const cont = ["#c8431f", "#1f7ec8", "#3a9a3a", "#d2a23a"].map((c) => new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: 0.7 }));
+    const half = new THREE.PlaneGeometry(0, 0); // unused placeholder
+    const addM = (mesh, x, y, z) => { mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; this.scene.add(mesh); return mesh; };
+
+    const hk = this.vehKind === "heli" ? 0.5 : 1; // shorter obstacles read better from the chase cam
+    for (const p of props) {
+      const t = p.type, h = p.height * hk;
+      if (t === "tower") {
+        addM(new THREE.Mesh(rbox(p.w, h, p.d, 2), bMat[Math.floor(p.hue * 4) % 4]), p.x, h / 2, p.y);
+        const cap = new THREE.Mesh(rbox(p.w * 0.5, 8, p.d * 0.5, 1.5), bMat[(Math.floor(p.hue * 4) + 1) % 4]); cap.position.set(p.x, h + 4, p.y); cap.castShadow = true; this.scene.add(cap); // rooftop unit
+      } else if (t === "butte") {
+        // angular flat-top mesa (tapered hexagonal prism) reads as rock, not a pillow
+        const m = addM(new THREE.Mesh(new THREE.CylinderGeometry(Math.max(p.w, p.d) * 0.38, Math.max(p.w, p.d) * 0.5, h, 6), rock), p.x, h / 2, p.y);
+        m.rotation.y = (p.poly ? p.poly[0] : 0.3) * 2;
+      } else if (t === "peak") {
+        addM(new THREE.Mesh(new THREE.ConeGeometry(p.w / 2, h, 6), rock), p.x, h / 2, p.y);
+        const cap = new THREE.Mesh(new THREE.ConeGeometry(p.w / 2 * 0.42, h * 0.34, 6), snow); cap.position.set(p.x, h * 0.83, p.y); cap.castShadow = true; this.scene.add(cap);
+      } else if (t === "tree") {
+        const s = p.w / 55;
+        addM(new THREE.Mesh(new THREE.CylinderGeometry(3 * s, 4.5 * s, 26 * s, 6), bark), p.x, 13 * s, p.y);
+        addM(new THREE.Mesh(new THREE.IcosahedronGeometry(p.w * 0.55, 0), leaf), p.x, 26 * s + p.w * 0.45, p.y);
+      } else if (t === "island") {
+        const r = Math.max(p.w, p.d) / 2;
+        const d = addM(new THREE.Mesh(new THREE.SphereGeometry(r, 18, 10, 0, 6.283, 0, Math.PI / 2), sand), p.x, 0.5, p.y); d.scale.y = 0.26;
+        const g2 = addM(new THREE.Mesh(new THREE.SphereGeometry(r * 0.66, 14, 8, 0, 6.283, 0, Math.PI / 2), grass), p.x, r * 0.12, p.y); g2.scale.y = 0.3;
+      } else if (t === "buoy") {
+        addM(new THREE.Mesh(new THREE.ConeGeometry(7, 26, 8), new THREE.MeshStandardMaterial({ color: p.hue > 0.5 ? 0xe23b2f : 0xf2c33a, roughness: 0.5, emissive: p.hue > 0.5 ? 0x3a0c08 : 0x3a3008, emissiveIntensity: 0.4 })), p.x, 13, p.y);
+      } else if (t === "dock") {
+        addM(new THREE.Mesh(rbox(p.w, 8, p.d, 1.5), wood), p.x, 4, p.y);
+      } else if (t === "ship") {
+        const grp = new THREE.Group(); grp.position.set(p.x, 0, p.y);
+        const hl = new THREE.Mesh(rbox(p.w, h, p.d, 3), hullM); hl.position.y = h / 2; hl.castShadow = true; grp.add(hl);
+        for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(p.w * 0.13, 10, p.d * 0.5), cont[i % 4]); c.position.set(-p.w * 0.24 + i * p.w * 0.16, h + 5, 0); c.castShadow = true; grp.add(c); }
+        this.scene.add(grp);
+      }
+    }
+  }
+
   // ---- vehicles ----
   _buildCars() {
     for (const car of this.sim.cars) {
-      const m = this._makeTruck(this._toColor(car.color), car.isPlayer);
+      const col = this._toColor(car.color);
+      const m = this.vehKind === "boat" ? this._makeBoat(col, car.isPlayer)
+        : this.vehKind === "heli" ? this._makeHeli(col, car.isPlayer)
+          : this._makeTruck(col, car.isPlayer);
+      m.kind = this.vehKind;
       this.scene.add(m.group);
       this.carMeshes.set(car, m);
     }
+  }
+
+  _vmats(color) {
+    return {
+      paint: new THREE.MeshStandardMaterial({ color, metalness: 0.5, roughness: 0.3, envMapIntensity: 1.3 }),
+      dark: new THREE.MeshStandardMaterial({ color: 0x14181f, metalness: 0.45, roughness: 0.5 }),
+      glass: new THREE.MeshStandardMaterial({ color: 0x243246, metalness: 0.55, roughness: 0.07, envMapIntensity: 1.8 }),
+      chrome: new THREE.MeshStandardMaterial({ color: 0xcfd4da, metalness: 0.95, roughness: 0.2 }),
+    };
   }
 
   _makeTruck(color, isPlayer) {
@@ -313,6 +394,56 @@ class Race3D {
     return { group: g, wheels };
   }
 
+  _makeBoat(color, isPlayer) {
+    const g = new THREE.Group();
+    const { paint, dark, glass, chrome } = this._vmats(color);
+    const white = new THREE.MeshStandardMaterial({ color: 0xf2f5f7, roughness: 0.4, metalness: 0.1 });
+    const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+
+    add(rbox(34, 9, 19, 5), paint, -1, 6, 0);        // hull
+    add(rbox(10, 7, 15, 4), paint, 16, 5.5, 0);      // tapered bow
+    add(rbox(6, 6, 9, 3), paint, 21.5, 5, 0);        // bow point
+    add(rbox(30, 3, 17, 2), white, -2, 11, 0);       // deck
+    add(rbox(12, 5, 13, 3), dark, -7, 11, 0);        // cockpit well
+    const ws = add(rbox(2, 6, 12, 1), glass, 3, 13, 0); ws.rotation.z = -0.4;  // windshield
+    add(rbox(7, 6, 9, 2), dark, -19, 7, 0);          // outboard motor
+    add(new THREE.CylinderGeometry(1.6, 1.6, 8, 8), chrome, -23, 4, 0).rotation.z = Math.PI / 2;
+    for (const z of [9.4, -9.4]) add(rbox(36, 1.6, 1.6, 0.6), white, -2, 8, z); // rub-rails
+    // wake plane on the water behind the transom
+    const wake = new THREE.Mesh(new THREE.PlaneGeometry(26, 40), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, roughness: 0.6, depthWrite: false }));
+    wake.rotation.x = -Math.PI / 2; wake.position.set(-40, 1.5, 0); g.add(wake);
+    if (isPlayer) { const ring = new THREE.Mesh(new THREE.TorusGeometry(15, 1.7, 10, 30), new THREE.MeshStandardMaterial({ color: 0xffe000, emissive: 0xffe000, emissiveIntensity: 1.6 })); ring.rotation.x = -Math.PI / 2; ring.position.y = 40; g.add(ring); g._marker = ring; }
+    return { group: g, wheels: [], wake };
+  }
+
+  _makeHeli(color, isPlayer) {
+    const g = new THREE.Group();
+    const { paint, dark, glass, chrome } = this._vmats(color);
+    const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+
+    add(rbox(30, 13, 16, 6), paint, 0, 6, 0);         // fuselage pod
+    add(rbox(10, 10, 12, 4), paint, 16, 5, 0);        // nose
+    add(rbox(13, 9, 13, 4), glass, 9, 7, 0);          // canopy bubble
+    // tail boom + fin
+    const boom = add(new THREE.CylinderGeometry(2.6, 1.8, 30, 8), dark, -23, 8, 0); boom.rotation.z = Math.PI / 2;
+    add(rbox(7, 11, 2, 1), paint, -37, 11, 0);        // tail fin
+    // skids
+    for (const z of [9, -9]) add(new THREE.CylinderGeometry(1.2, 1.2, 34, 6), chrome, -2, -7, z).rotation.z = Math.PI / 2;
+    for (const [x, z] of [[8, 9], [-10, 9], [8, -9], [-10, -9]]) { const s = add(new THREE.CylinderGeometry(0.9, 0.9, 9, 6), dark, x, -2, z); }
+    // main rotor (spins): hub + 4 blades + faint disc
+    const rotor = new THREE.Group(); rotor.position.set(0, 16, 0);
+    rotor.add(new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 4, 8), chrome));
+    for (let i = 0; i < 2; i++) { const bl = new THREE.Mesh(rbox(60, 1.2, 4.5, 0.4), dark); bl.rotation.y = i * Math.PI / 2; rotor.add(bl); }
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(30, 24), new THREE.MeshStandardMaterial({ color: 0xdfe6f0, transparent: true, opacity: 0.12, roughness: 1, depthWrite: false })); disc.rotation.x = -Math.PI / 2; disc.position.y = 1.5; rotor.add(disc);
+    g.add(rotor);
+    // tail rotor (spins) on the fin
+    const tailRotor = new THREE.Group(); tailRotor.position.set(-38, 11, 2);
+    for (let i = 0; i < 2; i++) { const bl = new THREE.Mesh(rbox(2, 16, 1.4, 0.4), dark); bl.rotation.x = i * Math.PI / 2; tailRotor.add(bl); }
+    g.add(tailRotor);
+    if (isPlayer) { const ring = new THREE.Mesh(new THREE.TorusGeometry(15, 1.7, 10, 30), new THREE.MeshStandardMaterial({ color: 0xffe000, emissive: 0xffe000, emissiveIntensity: 1.6 })); ring.rotation.x = -Math.PI / 2; ring.position.y = 30; g.add(ring); g._marker = ring; }
+    return { group: g, wheels: [], rotor, tailRotor };
+  }
+
   // ---- per-frame ----
   _resize() {
     const c = this.canvas, w = c.clientWidth || c.width || 800, h = c.clientHeight || c.height || 600;
@@ -324,14 +455,34 @@ class Race3D {
 
   _draw() {
     if (this.canvas.clientWidth && this.canvas.width !== Math.floor(this.canvas.clientWidth * Math.min(window.devicePixelRatio || 1, 2))) this._resize();
+    const t = this.sim.time, kind = this.vehKind; let ci = 0;
     for (const car of this.sim.cars) {
-      const m = this.carMeshes.get(car); if (!m) continue;
-      m.group.position.set(car.x, 0, car.y);
+      const m = this.carMeshes.get(car); if (!m) continue; ci++;
       m.group.rotation.y = -car.angle;
-      m.group.rotation.z = -(car.slip || 0) * 0.0009; // lean into a drift
-      const spin = (car.speedApprox || 0) * 0.0016;
-      for (const w of m.wheels) w.rotation.z -= spin;
-      if (m.group._marker) { m.group._marker.position.y = 46 + Math.sin(this.sim.time * 6) * 3; m.group._marker.rotation.z += 0.05; }
+      if (kind === "heli") {
+        m.group.position.set(car.x, 24 + Math.sin(t * 2.4 + ci) * 2.4, car.y);
+        m.group.rotation.z = -(car.slip || 0) * 0.0013;                 // bank into turns
+        m.group.rotation.x = -Math.min(0.16, (car.speedApprox || 0) * 0.0007); // nose-down with speed
+        if (m.rotor) m.rotor.rotation.y += 1.1;
+        if (m.tailRotor) m.tailRotor.rotation.x += 1.6;
+      } else if (kind === "boat") {
+        m.group.position.set(car.x, Math.sin(t * 3 + ci) * 1.3, car.y);
+        m.group.rotation.z = -(car.slip || 0) * 0.0012 + Math.sin(t * 2 + ci) * 0.03;
+        m.group.rotation.x = Math.sin(t * 2.4 + ci) * 0.02 - Math.min(0.13, (car.speedApprox || 0) * 0.0006); // bow lifts with speed
+        if (m.wake) m.wake.scale.y = 0.5 + Math.min(2.6, (car.speedApprox || 0) / 90);
+      } else {
+        m.group.position.set(car.x, (car.z || 0), car.y);
+        m.group.rotation.z = -(car.slip || 0) * 0.0009;
+        const spin = (car.speedApprox || 0) * 0.0016;
+        for (const w of m.wheels) w.rotation.z -= spin;
+      }
+      if (m.group._marker) { m.group._marker.rotation.z += 0.05; }
+    }
+    // gentle animated swell on the water
+    if (this.water) {
+      const pos = this.water.attributes.position, base = this._waterBase;
+      for (let i = 0; i < pos.count; i++) { const x = base[i * 3], y = base[i * 3 + 1]; pos.array[i * 3 + 2] = Math.sin(x * 0.012 + t * 1.5) * 3 + Math.cos(y * 0.015 + t * 1.2) * 3; }
+      pos.needsUpdate = true; this.water.computeVertexNormals();
     }
     // portrait/orbit mode (for showcasing a vehicle)
     if (this.portrait) {
@@ -344,10 +495,12 @@ class Race3D {
     const p = this.sim.player;
     if (p) {
       const a = p.angle, fx = Math.cos(a), fz = Math.sin(a);
-      const dist = this.chaseDist || 210, hgt = this.camHeight || 132;
+      const dist = this.chaseDist || (kind === "heli" ? 200 : 210);
+      const hgt = this.camHeight || (kind === "heli" ? 150 : kind === "boat" ? 118 : 132);
+      const ly = kind === "heli" ? 26 : 20;
       const desired = new THREE.Vector3(p.x - fx * dist, hgt, p.y - fz * dist);
       this.camera.position.lerp(desired, 0.06);
-      this._look.lerp(new THREE.Vector3(p.x + fx * 24, 20, p.y + fz * 24), 0.08);
+      this._look.lerp(new THREE.Vector3(p.x + fx * 24, ly, p.y + fz * 24), 0.08);
       this.camera.lookAt(this._look);
       // speed/nitro FOV punch for a sense of pace
       const tFov = 55 + (p.nitroActive ? 9 : 0) + Math.min(7, (p.speedApprox || 0) / 60);

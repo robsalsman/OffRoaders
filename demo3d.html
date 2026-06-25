@@ -20,7 +20,7 @@ const params = new URLSearchParams(location.search);
 const trackId = params.get("track") || "bigdukes";
 const cv = document.getElementById("game3d");
 cv.width = cv.clientWidth; cv.height = cv.clientHeight;
-window.Career.load(); window.Career.setCircuit("trucks");
+window.Career.load(); window.Career.setCircuit(params.get("circuit") || "trucks");
 const track = window.getTrack(trackId);
 const race = new window.Race3D(cv, { track, touch: false, roster: window.Career.buildRoster(track.id), onUpdate(){}, onFinish(){} });
 race.sim.countdown = parseFloat(params.get("cd") || "0");

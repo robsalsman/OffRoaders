@@ -15,12 +15,13 @@
   const I = { steer: 0, throttle: 0, brake: 0, nitro: false };
   const kb = { left: false, right: false, gas: false, brake: false, nitro: false };
   const pad = { x: 0, y: 0, active: false }; // joystick vector (screen space, up = -y)
+  const wheel = { steer: 0, active: false }; // relative steering wheel (3D chase mode)
   const btn = { brake: false, nitro: false };
   let autoGas = false, smart = false, control = "pad";
 
   I.setAutoGas = function (on) { autoGas = !!on; };
   I.setSmartThrottle = function (on) { smart = !!on; };
-  I.setControlMode = function (m) { control = m; }; // "pad" or "wheel"
+  I.setControlMode = function (m) { control = m; }; // "pad" | "wheel" (directional) | "drive" (relative)
 
   // Convert raw inputs into a control command for a car at the given heading.
   I.resolve = function (carAngle) {
@@ -30,7 +31,11 @@
     let steer = (kb.right ? 1 : 0) - (kb.left ? 1 : 0);
     let turn = Math.abs(steer);
 
-    if (pad.active) { // directional: steer toward the pushed/dragged heading (pad or wheel)
+    if (control === "drive") {
+      // relative steering wheel: left/right turns the car, independent of heading
+      // (the right control for a 3D chase camera). Keyboard still steers too.
+      if (wheel.active) { steer = clamp(wheel.steer * 1.35, -1, 1); turn = Math.abs(steer); }
+    } else if (pad.active) { // directional: steer toward the pushed/dragged heading (pad or wheel)
       let diff = Math.atan2(pad.y, pad.x) - carAngle;
       while (diff > PI) diff -= 2 * PI;
       while (diff < -PI) diff += 2 * PI;
@@ -49,6 +54,7 @@
 
   I.reset = function () {
     pad.x = pad.y = 0; pad.active = false;
+    wheel.steer = 0; wheel.active = false;
     btn.brake = btn.nitro = false;
     for (const k in kb) kb[k] = false;
     const knob = document.getElementById("stick-knob");
@@ -84,7 +90,11 @@
     const apply = (x, y) => {
       const r = zone.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
       const dx = x - cx, dy = y - cy;
-      if (Math.hypot(dx, dy) > 16) {
+      if (control === "drive") {
+        // 3D chase: a proper steering wheel — horizontal drag turns left/right
+        wheel.steer = clamp(dx / (r.width * 0.42), -1, 1); wheel.active = true;
+        cv.style.transition = "none"; cv.style.transform = `rotate(${wheel.steer * 1.5}rad)`;
+      } else if (Math.hypot(dx, dy) > 16) {
         pad.x = dx; pad.y = dy / ISO_Y; pad.active = true;
         const ang = Math.atan2(dy, dx);
         cv.style.transition = "none";
@@ -92,7 +102,11 @@
       } else { pad.active = false; }
     };
     const release = () => {
-      id = null; // hold the last heading — no auto-centre
+      id = null;
+      if (control === "drive") { // steering wheel springs back to centre
+        wheel.steer = 0; wheel.active = false;
+        cv.style.transition = "transform 0.16s ease-out"; cv.style.transform = "rotate(0deg)";
+      } // else (directional wheel): hold the last heading — no auto-centre
     };
     if (window.PointerEvent) {
       zone.addEventListener("pointerdown", (e) => { id = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch (_) {} apply(e.clientX, e.clientY); e.preventDefault(); }, { passive: false });
