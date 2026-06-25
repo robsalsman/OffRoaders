@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#game3d{width:100vw;height:100vh;display:block}</style>
+</head><body>
+<canvas id="game3d"></canvas>
+<script src="js/tracks.js"></script>
+<script src="js/vehicles.js"></script>
+<script src="js/characters.js"></script>
+<script src="js/circuits.js"></script>
+<script src="js/career.js"></script>
+<script src="js/input.js"></script>
+<script src="js/game.js"></script>
+<script src="js/gamepro.js"></script>
+<script type="module">
+import "./js/game3d.js";
+const params = new URLSearchParams(location.search);
+const trackId = params.get("track") || "bigdukes";
+const cv = document.getElementById("game3d");
+cv.width = cv.clientWidth; cv.height = cv.clientHeight;
+window.Career.load(); window.Career.setCircuit("trucks");
+const track = window.getTrack(trackId);
+const race = new window.Race3D(cv, { track, touch: false, roster: window.Career.buildRoster(track.id), onUpdate(){}, onFinish(){} });
+race.sim.countdown = parseFloat(params.get("cd") || "0");
+race.start();
+window.__race = race;
+(function ai(){
+  const p = race.player;
+  if (p) {
+    const N = race.sim.N, look = (((p.lapProgRaw + 3) % N) + N) % N, i = Math.floor(look) % N;
+    const a = race.sim.pts[i], b = race.sim.pts[(i + 1) % N], tt = look - Math.floor(look);
+    const tx = a.x + (b.x - a.x) * tt, ty = a.y + (b.y - a.y) * tt;
+    let d = Math.atan2(ty - p.y, tx - p.x) - p.angle;
+    while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    window.Input.override = true; window.Input.throttle = 1;
+    window.Input.steer = d < -0.05 ? -1 : d > 0.05 ? 1 : 0; window.Input.brake = 0; window.Input.nitro = false;
+  }
+  requestAnimationFrame(ai);
+})();
+</script>
+</body></html>

@@ -26,6 +26,11 @@ html = html.replace(
   html = html.replace(tag, () => `<script>\n${code}\n</script>`);
 });
 
+// the 3D renderer is an ES module with external Three.js assets — it can't be
+// inlined into the standalone file, so drop the script (the hidden #game3d
+// canvas stays but is unused). offroaders.html is the 2D fallback build.
+html = html.replace(/\s*<script type="module" src="js\/game3d\.js(?:\?[^"]*)?"><\/script>/, "");
+
 // sanity: make sure nothing was left un-inlined
 if (/<link rel="stylesheet"|<script src="js\//.test(html)) {
   console.error("ERROR: some assets were not inlined.");

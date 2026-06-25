@@ -178,7 +178,8 @@
     // ---- graphics ----
     graphics() { return this.state.graphics || "enhanced"; },
     toggleGraphics() {
-      const order = ["enhanced", "iso", "classic"];
+      // 3D only where WebGL/Three is available; otherwise cycle the 2D modes
+      const order = (window.Race3D ? ["3d", "enhanced", "iso", "classic"] : ["enhanced", "iso", "classic"]);
       const i = order.indexOf(this.graphics());
       this.state.graphics = order[(i + 1) % order.length];
       this.save(); return this.state.graphics;

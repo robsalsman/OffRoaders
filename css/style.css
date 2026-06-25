@@ -26,7 +26,8 @@ html, body {
 }
 
 #app { position: fixed; inset: 0; }
-#game { display: block; width: 100%; height: 100%; background: var(--grass); }
+#game, #game3d { display: block; width: 100%; height: 100%; background: var(--grass); }
+#game3d.hidden, #game.hidden { display: none; }
 .hidden { display: none !important; }
 
 /* ---------- HUD ---------- */

@@ -18,6 +18,7 @@
   const hud = $("#hud");
   const touch = $("#touch");
   const canvas = $("#game");
+  const canvas3d = $("#game3d");
 
   let race = null;
   let lastResult = null;
@@ -103,7 +104,7 @@
 
     // graphics toggle label
     const g = Career.graphics();
-    $("#btn-graphics").textContent = "Graphics: " + (g === "enhanced" ? "Enhanced ✨" : g === "iso" ? "Isometric 🅱" : "Classic");
+    $("#btn-graphics").textContent = "Graphics: " + (g === "3d" ? "3D 🎮" : g === "enhanced" ? "Enhanced ✨" : g === "iso" ? "Isometric 🅱" : "Classic");
     $("#btn-throttle").textContent = "Throttle: " + (Career.assist() === "smart" ? "Smart 🅰" : "Full");
 
     renderDriverPanel();
@@ -367,8 +368,14 @@
     ic.appendChild(window.makeVehiclePortrait(Career.vehicleId(), 34));
 
     const gfx = Career.graphics();
-    const Engine = (gfx === "classic" || !window.RacePro) ? Race : RacePro;
-    race = new Engine(canvas, {
+    // pick renderer: 3D (WebGL) needs its own canvas; the 2D engines share #game
+    const use3d = gfx === "3d" && window.Race3D;
+    canvas.classList.toggle("hidden", use3d);
+    canvas3d.classList.toggle("hidden", !use3d);
+    let Engine;
+    if (use3d) Engine = window.Race3D;
+    else Engine = (gfx === "classic" || !window.RacePro) ? Race : RacePro;
+    race = new Engine(use3d ? canvas3d : canvas, {
       track,
       touch: isTouch,
       iso: gfx === "iso",
@@ -411,6 +418,8 @@
     if (race) { race.stop(); race = null; }
     hud.classList.add("hidden");
     touch.classList.add("hidden");
+    canvas3d.classList.add("hidden");
+    canvas.classList.remove("hidden");
   }
 
   function onRaceFinish(order) {

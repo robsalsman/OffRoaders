@@ -34,7 +34,8 @@ html, body {
 }
 
 #app { position: fixed; inset: 0; }
-#game { display: block; width: 100%; height: 100%; background: var(--grass); }
+#game, #game3d { display: block; width: 100%; height: 100%; background: var(--grass); }
+#game3d.hidden, #game.hidden { display: none; }
 .hidden { display: none !important; }
 
 /* ---------- HUD ---------- */
@@ -264,8 +265,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 </head>
 <body>
   <div id="app">
-    <!-- The race canvas -->
+    <!-- The race canvas (2D engines) + the WebGL canvas (3D mode) -->
     <canvas id="game"></canvas>
+    <canvas id="game3d" class="hidden"></canvas>
 
     <!-- In-race HUD -->
     <div id="hud" class="hidden">
@@ -1569,7 +1571,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     // ---- graphics ----
     graphics() { return this.state.graphics || "enhanced"; },
     toggleGraphics() {
-      const order = ["enhanced", "iso", "classic"];
+      // 3D only where WebGL/Three is available; otherwise cycle the 2D modes
+      const order = (window.Race3D ? ["3d", "enhanced", "iso", "classic"] : ["enhanced", "iso", "classic"]);
       const i = order.indexOf(this.graphics());
       this.state.graphics = order[(i + 1) % order.length];
       this.save(); return this.state.graphics;
@@ -4499,6 +4502,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   const hud = $("#hud");
   const touch = $("#touch");
   const canvas = $("#game");
+  const canvas3d = $("#game3d");
 
   let race = null;
   let lastResult = null;
@@ -4584,7 +4588,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 
     // graphics toggle label
     const g = Career.graphics();
-    $("#btn-graphics").textContent = "Graphics: " + (g === "enhanced" ? "Enhanced ✨" : g === "iso" ? "Isometric 🅱" : "Classic");
+    $("#btn-graphics").textContent = "Graphics: " + (g === "3d" ? "3D 🎮" : g === "enhanced" ? "Enhanced ✨" : g === "iso" ? "Isometric 🅱" : "Classic");
     $("#btn-throttle").textContent = "Throttle: " + (Career.assist() === "smart" ? "Smart 🅰" : "Full");
 
     renderDriverPanel();
@@ -4848,8 +4852,14 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     ic.appendChild(window.makeVehiclePortrait(Career.vehicleId(), 34));
 
     const gfx = Career.graphics();
-    const Engine = (gfx === "classic" || !window.RacePro) ? Race : RacePro;
-    race = new Engine(canvas, {
+    // pick renderer: 3D (WebGL) needs its own canvas; the 2D engines share #game
+    const use3d = gfx === "3d" && window.Race3D;
+    canvas.classList.toggle("hidden", use3d);
+    canvas3d.classList.toggle("hidden", !use3d);
+    let Engine;
+    if (use3d) Engine = window.Race3D;
+    else Engine = (gfx === "classic" || !window.RacePro) ? Race : RacePro;
+    race = new Engine(use3d ? canvas3d : canvas, {
       track,
       touch: isTouch,
       iso: gfx === "iso",
@@ -4892,6 +4902,8 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     if (race) { race.stop(); race = null; }
     hud.classList.add("hidden");
     touch.classList.add("hidden");
+    canvas3d.classList.add("hidden");
+    canvas.classList.remove("hidden");
   }
 
   function onRaceFinish(order) {
@@ -5000,5 +5012,6 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
 })();
 
 </script>
+  <!-- 3D renderer (WebGL/Three.js) — optional module; the 2D engines above run without it -->
 </body>
 </html>
