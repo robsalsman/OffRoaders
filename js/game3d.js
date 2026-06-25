@@ -7,7 +7,19 @@
  *
  * This is the truck-circuit vertical slice; boats & helicopters layer in after.
  */
-import * as THREE from "./vendor/three/three.module.min.js";
+import * as THREE from "three";
+import { RoundedBoxGeometry } from "./vendor/three/addons/geometries/RoundedBoxGeometry.js";
+import { EffectComposer } from "./vendor/three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "./vendor/three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "./vendor/three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "./vendor/three/addons/postprocessing/OutputPass.js";
+
+// rounded box helper (cached geometries by dims for reuse)
+const _rbox = {};
+function rbox(w, h, d, r = 1.6) {
+  const k = `${w}_${h}_${d}_${r}`;
+  return _rbox[k] || (_rbox[k] = new RoundedBoxGeometry(w, h, d, 3, r));
+}
 
 const hexToCss = (h) => (typeof h === "string" ? h : "#" + h.toString(16).padStart(6, "0"));
 
@@ -43,7 +55,7 @@ class Race3D {
   _buildScene() {
     const r = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: "high-performance" });
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
-    r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.18;
+    r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.08;
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer = r;
@@ -80,6 +92,15 @@ class Race3D {
     ground.position.set(this._look.x, 0, this._look.z);
     ground.receiveShadow = true;
     scene.add(ground);
+
+    // post-processing: bloom + ACES output for the "modern" sheen, MSAA target
+    const ds = r.getDrawingBufferSize(new THREE.Vector2());
+    const rt = new THREE.WebGLRenderTarget(Math.max(2, ds.x), Math.max(2, ds.y), { type: THREE.HalfFloatType, samples: 4 });
+    this.composer = new EffectComposer(r, rt);
+    this.composer.addPass(new RenderPass(scene, this.camera));
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(ds.x, ds.y), 0.28, 0.5, 0.9); // strength, radius, threshold
+    this.composer.addPass(this.bloom);
+    this.composer.addPass(new OutputPass());
   }
 
   _skyTexture() {
@@ -87,12 +108,12 @@ class Race3D {
     const g = c.getContext("2d");
     const grd = g.createLinearGradient(0, 0, 0, 256);
     grd.addColorStop(0.0, "#1d5fa8");   // zenith
-    grd.addColorStop(0.45, "#7db4e6");  // sky
-    grd.addColorStop(0.55, "#cfe2f2");  // horizon haze
-    grd.addColorStop(0.56, "#b9c2c0");
-    grd.addColorStop(1.0, "#6b5a44");   // ground bounce
+    grd.addColorStop(0.45, "#6fa8db");  // sky
+    grd.addColorStop(0.54, "#a9c4d8");  // horizon haze (kept below bloom threshold)
+    grd.addColorStop(0.56, "#9aa6a4");
+    grd.addColorStop(1.0, "#5f5340");   // ground bounce
     g.fillStyle = grd; g.fillRect(0, 0, 16, 256);
-    this._horizon = "#cfe2f2";
+    this._horizon = "#a9c4d8";
     const tex = new THREE.CanvasTexture(c);
     tex.mapping = THREE.EquirectangularReflectionMapping;
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -166,36 +187,51 @@ class Race3D {
 
   _makeTruck(color, isPlayer) {
     const g = new THREE.Group();
-    const paint = new THREE.MeshStandardMaterial({ color, metalness: 0.45, roughness: 0.36 });
-    const dark = new THREE.MeshStandardMaterial({ color: 0x10141c, metalness: 0.3, roughness: 0.45 });
-    const glass = new THREE.MeshStandardMaterial({ color: 0x1a2330, metalness: 0.6, roughness: 0.1 });
+    const paint = new THREE.MeshStandardMaterial({ color, metalness: 0.5, roughness: 0.3, envMapIntensity: 1.3 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x14181f, metalness: 0.45, roughness: 0.5 });
+    const matte = new THREE.MeshStandardMaterial({ color: 0x23262c, metalness: 0.2, roughness: 0.85 });
+    const glass = new THREE.MeshStandardMaterial({ color: 0x243246, metalness: 0.55, roughness: 0.07, envMapIntensity: 1.8 });
+    const chrome = new THREE.MeshStandardMaterial({ color: 0xcfd4da, metalness: 0.95, roughness: 0.2 });
     const rubber = new THREE.MeshStandardMaterial({ color: 0x141109, metalness: 0, roughness: 0.95 });
-    const rim = new THREE.MeshStandardMaterial({ color: 0x9aa0a8, metalness: 0.85, roughness: 0.3 });
-    const emis = new THREE.MeshStandardMaterial({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 1.6 });
-    const box = (mat, w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+    const emis = new THREE.MeshStandardMaterial({ color: 0xfff3c8, emissive: 0xfff0b0, emissiveIntensity: 1.5 });
+    const taill = new THREE.MeshStandardMaterial({ color: 0xff6a5a, emissive: 0xff2a14, emissiveIntensity: 1.1 });
+    const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
 
-    box(dark, 40, 7, 21, 0, 7, 0);          // chassis
-    box(paint, 41, 11, 19, -1, 14, 0);      // main body
-    box(paint, 13, 8, 19, 15, 12.5, 0);     // hood / nose
-    box(dark, 17, 9, 17, -12, 16, 0);       // bed box
-    box(glass, 15, 11, 16, -2, 21, 0);      // cabin glass
-    box(paint, 16, 3.5, 16.5, -2, 26, 0);   // roof
-    box(dark, 2.4, 9, 16, -10, 25, 0);      // roll bar
-    box(dark, 2.4, 1.6, 16, -10, 29, 0);
-    for (const z of [6.5, -6.5]) box(emis, 2.5, 3.2, 3.2, 21, 12, z);  // headlights
+    add(rbox(40, 8, 22, 2.5), matte, 0, 7, 0);                 // skid plate / chassis
+    add(rbox(40, 12, 19, 3), paint, -1, 14.5, 0);              // main body
+    add(rbox(15, 9, 19, 3), paint, 14, 12.5, 0);               // hood
+    add(rbox(17, 11, 17.5, 2.5), paint, -12, 17, 0);           // rear bed block
+    for (const [x, z] of [[13, 10.8], [13, -10.8], [-13, 10.8], [-13, -10.8]]) add(rbox(15, 7, 5, 2), paint, x, 11, z); // fenders
+    add(rbox(15, 10, 16, 2.5), glass, -2, 22, 0);              // cabin glass
+    add(rbox(16.5, 4, 16.5, 2), paint, -2, 27.5, 0);           // roof
+    // roll cage
+    for (const z of [6.5, -6.5]) { const p = add(new THREE.CylinderGeometry(0.9, 0.9, 11, 8), chrome, -9, 24, z); }
+    const topbar = add(new THREE.CylinderGeometry(0.9, 0.9, 16, 8), chrome, -9, 29, 0); topbar.rotation.x = Math.PI / 2;
+    // bumper + grille
+    add(rbox(3, 7, 20, 1.2), chrome, 21.4, 9, 0);
+    add(rbox(2, 6, 13, 0.8), dark, 22, 13, 0);
+    for (const z of [6.5, -6.5]) add(new THREE.SphereGeometry(2.2, 14, 10), emis, 21.4, 13, z);   // headlights
+    for (const z of [6, -6]) add(rbox(1.6, 2.6, 3, 0.6), taill, -20.6, 15, z);                    // taillights
+    for (const z of [9.6, -9.6]) add(rbox(1.2, 1.6, 4, 0.4), dark, 6, 22, z);                      // mirrors
+    add(rbox(3, 2, 15, 0.8), dark, 0, 30.5, 0);                                                    // light bar
+    for (let i = -2; i <= 2; i++) add(new THREE.SphereGeometry(1.1, 10, 8), emis, 1.6, 31, i * 2.7);
+    const exh = add(new THREE.CylinderGeometry(1, 1, 7, 8), chrome, -18, 9, 7); exh.rotation.z = Math.PI / 2;
 
+    // detailed wheels: tyre + chromed rim + spokes
     const wheels = [];
-    const wgeo = new THREE.CylinderGeometry(7, 7, 7.5, 22); wgeo.rotateX(Math.PI / 2);
-    const rgeo = new THREE.CylinderGeometry(3.4, 3.4, 7.8, 14); rgeo.rotateX(Math.PI / 2);
+    const tireGeo = new THREE.CylinderGeometry(7, 7, 7.6, 26); tireGeo.rotateX(Math.PI / 2);
+    const rimGeo = new THREE.CylinderGeometry(3.9, 3.9, 7.9, 18); rimGeo.rotateX(Math.PI / 2);
+    const spokeGeo = rbox(1.5, 7.4, 1.5, 0.4);
     for (const [x, z] of [[13, 10.5], [13, -10.5], [-13, 10.5], [-13, -10.5]]) {
       const w = new THREE.Group();
-      const tire = new THREE.Mesh(wgeo, rubber); tire.castShadow = true; w.add(tire);
-      w.add(new THREE.Mesh(rgeo, rim));
+      const t = new THREE.Mesh(tireGeo, rubber); t.castShadow = true; w.add(t);
+      w.add(new THREE.Mesh(rimGeo, chrome));
+      for (let s = 0; s < 3; s++) { const sp = new THREE.Mesh(spokeGeo, chrome); sp.rotation.z = s * Math.PI / 3; w.add(sp); }
       w.position.set(x, 7, z); g.add(w); wheels.push(w);
     }
-    if (isPlayer) { // little floating marker so you spot your truck
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(15, 1.6, 8, 28), new THREE.MeshStandardMaterial({ color: 0xffe000, emissive: 0xffe000, emissiveIntensity: 1.2 }));
-      ring.rotation.x = -Math.PI / 2; ring.position.y = 46; g.add(ring); g._marker = ring;
+    if (isPlayer) { // floating ring so you spot your truck
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(15, 1.7, 10, 30), new THREE.MeshStandardMaterial({ color: 0xffe000, emissive: 0xffe000, emissiveIntensity: 1.6 }));
+      ring.rotation.x = -Math.PI / 2; ring.position.y = 48; g.add(ring); g._marker = ring;
     }
     return { group: g, wheels };
   }
@@ -204,6 +240,8 @@ class Race3D {
   _resize() {
     const c = this.canvas, w = c.clientWidth || c.width || 800, h = c.clientHeight || c.height || 600;
     this.renderer.setSize(w, h, false);
+    if (this.composer) this.composer.setSize(w, h);
+    if (this.bloom) this.bloom.setSize(w, h);
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
 
@@ -218,17 +256,24 @@ class Race3D {
       for (const w of m.wheels) w.rotation.z -= spin;
       if (m.group._marker) { m.group._marker.position.y = 46 + Math.sin(this.sim.time * 6) * 3; m.group._marker.rotation.z += 0.05; }
     }
+    // portrait/orbit mode (for showcasing a vehicle)
+    if (this.portrait) {
+      const car = this.sim.cars[0], t = this.sim.time, ang = 0.7 + t * 0.35, r = 64;
+      this.camera.position.set(car.x + Math.cos(ang) * r, 34, car.y + Math.sin(ang) * r);
+      this.camera.lookAt(car.x, 15, car.y);
+      this.composer.render(); return;
+    }
     // damped chase camera behind the player
     const p = this.sim.player;
     if (p) {
       const a = p.angle, fx = Math.cos(a), fz = Math.sin(a);
-      const tgt = this._tmp.set(p.x, 12, p.y);
-      const desired = new THREE.Vector3(p.x - fx * 230, 150, p.y - fz * 230);
+      const dist = this.chaseDist || 210, hgt = this.camHeight || 132;
+      const desired = new THREE.Vector3(p.x - fx * dist, hgt, p.y - fz * dist);
       this.camera.position.lerp(desired, 0.06);
-      this._look.lerp(new THREE.Vector3(p.x + fx * 80, 14, p.y + fz * 80), 0.08);
+      this._look.lerp(new THREE.Vector3(p.x + fx * 24, 20, p.y + fz * 24), 0.08);
       this.camera.lookAt(this._look);
     }
-    this.renderer.render(this.scene, this.camera);
+    this.composer.render();
   }
 }
 
