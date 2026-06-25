@@ -610,7 +610,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     {
       // open-water sprint — fast flowing oval
       id: "tiderun", name: "Tide Run", home: "atrain",
-      laps: 5, width: 150, difficulty: 2, feature: "Open-water sprint",
+      laps: 5, width: 150, difficulty: 2, feature: "Open-water sprint", env: "open",
       theme: { ground: "#10405f", groundDark: "#0c3049", dirt: "#2f7ea8", dirtDark: "#1a5274", rut: "#3f93bd" },
       ramps: [0.25, 0.75], mud: [], surface: "water", whoops: [],
       points: wave(580, 120, (t) => 1 + 0.05 * Math.sin(t * 2), 1.2, 1.22),
@@ -618,7 +618,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     {
       // buoy slalom — tall weaving maze marked by buoys
       id: "buoymaze", name: "Buoy Maze", home: "olddog",
-      laps: 4, width: 92, difficulty: 4, feature: "Buoy slalom",
+      laps: 4, width: 92, difficulty: 4, feature: "Buoy slalom", env: "lagoon",
       theme: { ground: "#0f4a5a", groundDark: "#0b3845", dirt: "#36a3a0", dirtDark: "#1c5e5c", rut: "#48b8b4" },
       ramps: [], mud: [0.4], surface: "water", whoops: [0.2, 0.7],
       points: spline(maze({ x0: -360, x1: 380, yT: -620, yB: 620, dT: -160, dB: 160, top: [[-240, -90], [120, 260]], bot: [[260, 120], [-90, -240]] }), 210),
@@ -626,7 +626,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     {
       // delta channels — horizontal switchback waterways
       id: "deltaweave", name: "Delta Weave", home: "west",
-      laps: 4, width: 95, difficulty: 4, feature: "Delta channels",
+      laps: 4, width: 95, difficulty: 4, feature: "Delta channels", env: "delta",
       theme: { ground: "#1d5040", groundDark: "#143a2e", dirt: "#3a93a0", dirtDark: "#1f5560", rut: "#4aa6b2" },
       ramps: [0.5], mud: [0.18, 0.66], surface: "water", whoops: [],
       points: spline(rot(maze({ x0: -420, x1: 440, yT: -540, yB: 540, dT: -120, dB: 120, top: [[-300, -150], [150, 300]], bot: [[300, 150], [-150, -300]] })), 200),
@@ -634,7 +634,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     {
       // figure-8 with a lock/overpass — one pass goes under, one over
       id: "lagoon8", name: "Lagoon Eight", home: "rob",
-      laps: 4, width: 190, difficulty: 3, feature: "Figure-8 locks",
+      laps: 4, width: 190, difficulty: 3, feature: "Figure-8 locks", env: "harbor",
       theme: { ground: "#123a66", groundDark: "#0d2b4c", dirt: "#3f7bbf", dirtDark: "#21487a", rut: "#5a90cf" },
       ramps: [0.1, 0.55], mud: [], surface: "water", bridge: [0.69, 0.81], figure8: true, whoops: [0.3],
       points: gerono(1040, 820, 132),
@@ -642,7 +642,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     {
       // weaving rip — a true serpentine of narrow channels
       id: "riptide", name: "Riptide", home: "hotrod",
-      laps: 4, width: 100, difficulty: 4, feature: "Weaving rip",
+      laps: 4, width: 100, difficulty: 4, feature: "Weaving rip", env: "open",
       theme: { ground: "#0e4458", groundDark: "#0a3342", dirt: "#2f8fb0", dirtDark: "#195a72", rut: "#41a3c4" },
       ramps: [0.5], mud: [], surface: "water", whoops: [0.25, 0.75],
       points: spline(W([
@@ -654,7 +654,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     {
       // whirlpool — strong scalloped spiral bends
       id: "whirlpool", name: "Whirlpool", home: "drg",
-      laps: 5, width: 150, difficulty: 5, feature: "Spiralling bends",
+      laps: 5, width: 150, difficulty: 5, feature: "Spiralling bends", env: "lagoon",
       theme: { ground: "#1a3a5e", groundDark: "#122a45", dirt: "#3a78a8", dirtDark: "#1f4d72", rut: "#4c8cbe" },
       ramps: [0.5], mud: [0.3, 0.8], surface: "water", whoops: [0.1],
       points: wave(540, 130, (t) => 1 + 0.2 * Math.sin(t * 3 + 0.5), 1.1, 1.06, 0.4),
@@ -664,42 +664,42 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
   // ---- Chopper Cup — 6 aerial courses (canyon / sky themes) ----
   const HELI_TRACKS = [
     {
-      // high-speed gates — fast aerial oval
-      id: "skygate", name: "Sky Gate", home: "drg",
-      laps: 5, width: 150, difficulty: 2, feature: "High-speed gates",
-      theme: { ground: "#2b3f63", groundDark: "#1f2f4c", dirt: "#7c8fb8", dirtDark: "#3d4a6a", rut: "#94a6cc" },
+      // high-speed gates — weaving between downtown skyscrapers at dusk
+      id: "skygate", name: "Skyline Dash", home: "drg",
+      laps: 5, width: 150, difficulty: 2, feature: "City skyline sprint", env: "urban",
+      theme: { ground: "#1b2233", groundDark: "#141a28", dirt: "#6b7186", dirtDark: "#3a4052", rut: "#828aa0" },
       ramps: [0.25, 0.75], mud: [], whoops: [],
       points: wave(580, 120, (t) => 1 + 0.05 * Math.sin(t * 2), 1.2, 1.22),
     },
     {
-      // canyon switchbacks — horizontal maze between rock walls
+      // canyon switchbacks — threading between red-rock mesas and buttes
       id: "canyonrun", name: "Canyon Run", home: "west",
-      laps: 4, width: 95, difficulty: 4, feature: "Canyon switchbacks",
+      laps: 4, width: 95, difficulty: 4, feature: "Mesa switchbacks", env: "mesa",
       theme: { ground: "#7a4a2c", groundDark: "#5e3820", dirt: "#c98f55", dirtDark: "#6e4a28", rut: "#8a5e30" },
       ramps: [0.5], mud: [], whoops: [0.3, 0.8],
       points: spline(rot(maze({ x0: -420, x1: 440, yT: -540, yB: 540, dT: -120, dB: 120, top: [[-300, -150], [150, 300]], bot: [[300, 150], [-150, -300]] })), 200),
     },
     {
-      // mesa weave — a vertical maze across the mesa tops
+      // mesa weave — a vertical maze across towering flat-topped mesas
       id: "mesamaze", name: "Mesa Maze", home: "hotrod",
-      laps: 4, width: 105, difficulty: 4, feature: "Mesa weave",
+      laps: 4, width: 105, difficulty: 4, feature: "Mesa weave", env: "mesa",
       theme: { ground: "#8a4a26", groundDark: "#6e3819", dirt: "#d98c4a", dirtDark: "#6e3a18", rut: "#7a4520" },
       ramps: [0.1, 0.6], mud: [], whoops: [0.85],
       points: spline(maze({ x0: -440, x1: 460, yT: -540, yB: 540, dT: -130, dB: 130, top: [[-300, -130], [130, 300]], bot: [[300, 130], [-130, -300]] }), 200),
     },
     {
-      // aerial figure-8 with a flyover deck
-      id: "loop8", name: "Loop Eight", home: "atrain",
-      laps: 4, width: 190, difficulty: 3, feature: "Aerial figure-8",
-      theme: { ground: "#243a55", groundDark: "#1a2c42", dirt: "#6f86ad", dirtDark: "#3a4a68", rut: "#8295bd" },
+      // downtown figure-8 — a flyover loop through a dense city block
+      id: "loop8", name: "Metro Loop", home: "atrain",
+      laps: 4, width: 190, difficulty: 3, feature: "Downtown figure-8", env: "urban",
+      theme: { ground: "#202636", groundDark: "#171c29", dirt: "#6e7488", dirtDark: "#3c4256", rut: "#858ba2" },
       ramps: [0.1, 0.55], mud: [], bridge: [0.69, 0.81], figure8: true, whoops: [0.3],
       points: gerono(1040, 820, 132),
     },
     {
-      // tight updrafts — narrow serpentine slot canyon
-      id: "updraft", name: "Updraft", home: "olddog",
-      laps: 4, width: 100, difficulty: 5, feature: "Slot-canyon weave",
-      theme: { ground: "#6e4030", groundDark: "#542f22", dirt: "#b87a4e", dirtDark: "#6a4230", rut: "#8a5638" },
+      // jungle updraft — a narrow serpentine over dense rainforest canopy
+      id: "updraft", name: "Jungle Updraft", home: "olddog",
+      laps: 4, width: 100, difficulty: 5, feature: "Jungle slot-weave", env: "jungle",
+      theme: { ground: "#1f3a22", groundDark: "#163019", dirt: "#9aa05a", dirtDark: "#4a5a2a", rut: "#6a7a3a" },
       ramps: [0.5], mud: [], whoops: [0.25, 0.75],
       points: spline(W([
         [-420, -560], [-300, -560], [-300, -120], [-150, -120], [-150, -560], [150, -560],
@@ -708,10 +708,10 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       ]), 200),
     },
     {
-      // thunderhead — storm-tossed scalloped spiral
-      id: "thunderhead", name: "Thunderhead", home: "rob",
-      laps: 5, width: 150, difficulty: 5, feature: "Storm bends",
-      theme: { ground: "#2e3550", groundDark: "#22283e", dirt: "#6b7196", dirtDark: "#3a3f5e", rut: "#7e84a8" },
+      // storm peaks — scalloped spiral weaving between snow-capped summits
+      id: "thunderhead", name: "Storm Peaks", home: "rob",
+      laps: 5, width: 150, difficulty: 5, feature: "Mountain storm bends", env: "mountain",
+      theme: { ground: "#3a4250", groundDark: "#2a313c", dirt: "#7e8694", dirtDark: "#444c58", rut: "#929aa8" },
       ramps: [0.5], mud: [], whoops: [0.1, 0.6],
       points: wave(540, 130, (t) => 1 + 0.2 * Math.sin(t * 3 + 0.5), 1.1, 1.06, 0.4),
     },
@@ -3067,8 +3067,18 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     }
 
     // red & white striped barrier walls along the track-region boundary
+    _isWater() { return !!{ open: 1, lagoon: 1, delta: 1, harbor: 1 }[this.track.env]; }
+
     _paintBarriers(g) {
       g.lineCap = "round"; g.lineJoin = "round";
+      if (this._isWater()) { // waterway: a foamy channel edge, not a striped kerb
+        const th = this.track.theme;
+        g.strokeStyle = shade(th.ground, 0.5); g.lineWidth = 13;
+        for (const e of this._wallEdges) { g.beginPath(); g.moveTo(e.x1, e.y1); g.lineTo(e.x2, e.y2); g.stroke(); }
+        g.strokeStyle = "rgba(235,245,255,0.7)"; g.lineWidth = 5; // foam line
+        for (const e of this._wallEdges) { g.beginPath(); g.moveTo(e.x1, e.y1); g.lineTo(e.x2, e.y2); g.stroke(); }
+        return;
+      }
       // dark base first (so the kerb sits on a continuous shadow)
       g.strokeStyle = "rgba(0,0,0,0.5)"; g.lineWidth = 20;
       for (const e of this._wallEdges) { g.beginPath(); g.moveTo(e.x1, e.y1); g.lineTo(e.x2, e.y2); g.stroke(); }
@@ -3143,6 +3153,9 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     _paintScenery(g) {
       const cx = (this.bbox.minX + this.bbox.maxX) / 2, cy = (this.bbox.minY + this.bbox.maxY) / 2;
       this._cx = cx; this._cy = cy;
+      // aerial circuits get a real environment (city / mesa / jungle / mountains)
+      // instead of the stadium grandstands & paddock.
+      if (this.track.env) { this._paintEnvScenery(g); return; }
       const rx = this.bbox.w / 2 + 150, ry = this.bbox.h / 2 + 150;
       const spots = [0.35, 1.25, 2.4, 3.5, 4.4, 5.3];
       this._stands = [];
@@ -3158,6 +3171,119 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       [0.1, 0.45, 0.82].forEach((f) => this._hayCluster(g, f));
       // parked rigs paddock in the infield near the start line
       this._paddock(g);
+    }
+
+    // ---- environment scenery (aerial & waterway circuits) ----
+    _buildEnvProps() {
+      const env = this.track.env, b = this.bbox, Wd = this.track.width, R = () => Math.random();
+      const poly = () => Array.from({ length: 8 }, () => 0.78 + R() * 0.44);
+      const island = () => ({ type: "island", w: 120 + R() * 170, d: 120 + R() * 150, height: 22 + R() * 22, hue: R(), poly: poly() });
+      const big = {
+        urban: () => ({ type: "tower", w: 60 + R() * 74, d: 60 + R() * 74, height: 150 + R() * 250, hue: R() }),
+        mesa: () => ({ type: "butte", w: 96 + R() * 120, d: 96 + R() * 120, height: 72 + R() * 120, hue: R(), poly: poly() }),
+        mountain: () => ({ type: "peak", w: 150 + R() * 150, d: 150 + R() * 150, height: 170 + R() * 200, hue: R(), poly: poly() }),
+        jungle: () => ({ type: "tree", w: 52 + R() * 64, d: 52 + R() * 64, height: 64 + R() * 74, hue: R() }),
+        open: island, lagoon: island, delta: island,
+        harbor: () => (R() < 0.5
+          ? { type: "dock", w: 80 + R() * 60, d: 46 + R() * 28, height: 10 + R() * 6, hue: R() }
+          : { type: "ship", w: 130 + R() * 90, d: 46 + R() * 20, height: 22 + R() * 16, hue: R() }),
+      }[env];
+      const water = !!{ open: 1, lagoon: 1, delta: 1, harbor: 1 }[env];
+      const clearance = (water ? Wd * 0.62 + 96 : Wd * 0.6 + 64);
+      const step = env === "urban" ? 184 : env === "jungle" ? 150 : water ? 300 : 244;
+      const jit = env === "urban" ? 34 : 110;
+      const props = [];
+      for (let gx = b.minX - 130; gx <= b.maxX + 120; gx += step) {
+        for (let gy = b.minY - 130; gy <= b.maxY + 120; gy += step) {
+          const x = gx + (R() * 2 - 1) * jit, y = gy + (R() * 2 - 1) * jit;
+          if (closestOnLoop(this.pts, x, y).dist < clearance) continue;
+          props.push(Object.assign({ x, y }, big()));
+        }
+      }
+      // waterways: line the channel with red/green marker buoys on both banks
+      if (water) {
+        const off = Wd / 2 + 22, n = this.N;
+        for (let f = 0; f < 1; f += 0.05) {
+          const prog = f * n, p = pointAtProgress(this.pts, prog), tan = tangentAtProgress(this.pts, prog);
+          const nx = -Math.sin(tan), ny = Math.cos(tan);
+          props.push({ type: "buoy", x: p.x + nx * off, y: p.y + ny * off, w: 14, d: 14, height: 26, hue: 0.8 });
+          props.push({ type: "buoy", x: p.x - nx * off, y: p.y - ny * off, w: 14, d: 14, height: 26, hue: 0.2 });
+        }
+      }
+      this._props = props;
+    }
+
+    _paintEnvScenery(g) {
+      this._stands = null; // no grandstands on an aerial course
+      this._buildEnvProps();
+      // far -> near so nearer props overlap correctly in the baked top-down image
+      const list = [...this._props].sort((a, b) => a.y - b.y);
+      for (const p of list) this._propTopDown(g, p);
+    }
+
+    _fillBlob(g, x, y, r, poly, sqY) {
+      g.beginPath();
+      for (let i = 0; i < poly.length; i++) {
+        const a = (i / poly.length) * Math.PI * 2, rr = r * poly[i];
+        const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr * (sqY || 1);
+        if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.closePath(); g.fill();
+    }
+
+    _propTopDown(g, p) {
+      const th = this.track.theme;
+      if (p.type === "tower") {
+        const w = p.w, d = p.d, base = ["#39415a", "#454d68", "#2e3650", "#4c5470"][Math.floor(p.hue * 4) % 4];
+        g.fillStyle = "rgba(0,0,0,0.3)"; g.fillRect(p.x - w / 2 + 12, p.y - d / 2 + 14, w, d); // long shadow
+        g.fillStyle = base; g.fillRect(p.x - w / 2, p.y - d / 2, w, d);
+        g.strokeStyle = "rgba(255,255,255,0.12)"; g.lineWidth = 3; g.strokeRect(p.x - w / 2 + 2, p.y - d / 2 + 2, w - 4, d - 4);
+        g.fillStyle = "rgba(0,0,0,0.3)"; g.fillRect(p.x - w * 0.2, p.y - d * 0.2, w * 0.28, d * 0.28); // rooftop unit
+        g.fillStyle = shade(base, 1.22); g.fillRect(p.x - w * 0.22, p.y - d * 0.22, w * 0.28, d * 0.28);
+        g.fillStyle = "rgba(255,255,255,0.12)"; g.fillRect(p.x + w * 0.04, p.y - d * 0.32, 6, d * 0.64); // vent strip
+      } else if (p.type === "butte") {
+        const r = Math.max(p.w, p.d) / 2;
+        g.fillStyle = "rgba(0,0,0,0.26)"; this._fillBlob(g, p.x + 12, p.y + 15, r * 1.02, p.poly);
+        g.fillStyle = shade(th.ground, 0.58); this._fillBlob(g, p.x, p.y, r, p.poly);            // cliff base
+        g.fillStyle = shade(th.dirt, 0.92); this._fillBlob(g, p.x - 3, p.y - 4, r * 0.82, p.poly); // sunlit plateau
+        g.fillStyle = shade(th.dirt, 1.16); this._fillBlob(g, p.x - 6, p.y - 8, r * 0.5, p.poly);
+      } else if (p.type === "peak") {
+        const r = Math.max(p.w, p.d) / 2;
+        g.fillStyle = "rgba(0,0,0,0.3)"; this._fillBlob(g, p.x + 16, p.y + 18, r, p.poly);
+        g.fillStyle = shade(th.ground, 0.5); this._fillBlob(g, p.x, p.y, r, p.poly);              // shaded base
+        g.fillStyle = shade(th.ground, 0.92); this._fillBlob(g, p.x - r * 0.12, p.y - r * 0.14, r * 0.68, p.poly);
+        g.fillStyle = "#e9eef5"; this._fillBlob(g, p.x - r * 0.2, p.y - r * 0.24, r * 0.3, p.poly); // snow cap
+      } else if (p.type === "tree") { // tree canopy cluster
+        const r = Math.max(p.w, p.d) / 2, greens = ["#2f6b2f", "#357a33", "#2a5e2a", "#3f8a3a"], gi = Math.floor(p.hue * 4) % 4;
+        g.fillStyle = "rgba(0,0,0,0.26)"; g.beginPath(); g.ellipse(p.x + 8, p.y + 10, r, r * 0.92, 0, 0, 7); g.fill();
+        for (const [ox, oy, rr, s] of [[-r * 0.32, -r * 0.18, r * 0.72, 0], [r * 0.32, -r * 0.08, r * 0.64, 1], [0, r * 0.28, r * 0.6, 2], [0, -r * 0.12, r * 0.56, 3]]) {
+          g.fillStyle = greens[(gi + s) % 4]; g.beginPath(); g.ellipse(p.x + ox, p.y + oy, rr, rr, 0, 0, 7); g.fill();
+        }
+        g.fillStyle = "rgba(220,240,170,0.34)"; g.beginPath(); g.ellipse(p.x - r * 0.22, p.y - r * 0.22, r * 0.32, r * 0.3, 0, 0, 7); g.fill();
+      } else if (p.type === "island") {
+        const r = Math.max(p.w, p.d) / 2;
+        g.fillStyle = "rgba(30,60,90,0.4)"; this._fillBlob(g, p.x + 10, p.y + 12, r * 1.08, p.poly); // shallow-water shadow
+        g.fillStyle = "rgba(228,212,150,0.92)"; this._fillBlob(g, p.x, p.y, r, p.poly);               // sandy shore
+        g.fillStyle = "#3f7a3a"; this._fillBlob(g, p.x - 2, p.y - 3, r * 0.72, p.poly);                // greenery
+        g.fillStyle = shade("#3f7a3a", 1.2); this._fillBlob(g, p.x - 4, p.y - 5, r * 0.4, p.poly);
+      } else if (p.type === "buoy") {
+        g.fillStyle = "rgba(0,0,0,0.22)"; g.beginPath(); g.ellipse(p.x + 3, p.y + 3, 9, 9, 0, 0, 7); g.fill();
+        g.fillStyle = p.hue > 0.5 ? "#e23b2f" : "#f2c33a"; g.beginPath(); g.arc(p.x, p.y, 8, 0, 7); g.fill();
+        g.fillStyle = "#fff"; g.beginPath(); g.arc(p.x, p.y, 3.4, 0, 7); g.fill();
+      } else if (p.type === "dock") {
+        const w = p.w, d = p.d;
+        g.fillStyle = "rgba(0,0,0,0.28)"; g.fillRect(p.x - w / 2 + 6, p.y - d / 2 + 8, w, d);
+        g.fillStyle = "#7a5a36"; g.fillRect(p.x - w / 2, p.y - d / 2, w, d);
+        g.strokeStyle = "rgba(0,0,0,0.3)"; g.lineWidth = 2;
+        for (let i = 1; i < 5; i++) { g.beginPath(); g.moveTo(p.x - w / 2 + (w / 5) * i, p.y - d / 2); g.lineTo(p.x - w / 2 + (w / 5) * i, p.y + d / 2); g.stroke(); }
+      } else { // ship
+        const w = p.w, d = p.d, cols = ["#c8431f", "#1f7ec8", "#3a9a3a", "#d2a23a"];
+        g.fillStyle = "rgba(0,0,0,0.3)"; g.fillRect(p.x - w / 2 + 8, p.y - d / 2 + 9, w, d);
+        g.fillStyle = "#6b7682"; g.beginPath();
+        g.moveTo(p.x + w / 2, p.y); g.lineTo(p.x + w * 0.32, p.y - d / 2); g.lineTo(p.x - w / 2, p.y - d / 2);
+        g.lineTo(p.x - w / 2, p.y + d / 2); g.lineTo(p.x + w * 0.32, p.y + d / 2); g.closePath(); g.fill();
+        for (let i = 0; i < 5; i++) { g.fillStyle = cols[i % 4]; g.fillRect(p.x - w * 0.3 + i * w * 0.12, p.y - d * 0.22, w * 0.1, d * 0.44); }
+      }
     }
 
     _banner(g, frac, text, color) {
@@ -3740,16 +3866,20 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
       this._drawMoundsIso(ctx, pg, zoom, ISO);
       this._drawPickupsIso(ctx, pg, zoom);
       this._drawStandsIso(ctx, pg, zoom);
+      this._drawPropsIso(ctx, pg, zoom, ISO);
 
-      // extruded red/white wall blocks from the track-region boundary, depth-sorted
+      // track-region boundary: tall red/white kerb walls on land, a low foamy
+      // channel edge on the water (so boat courses read as waterways, not kerbs).
+      const water = this._isWater();
+      const wallH = water ? 8 : 44, edgeDark = shade(theme.ground, 0.45);
       const segs = this._wallEdges.map((e) => ({ a: { x: e.x1, y: e.y1 }, b: { x: e.x2, y: e.y2 }, red: (Math.floor((e.mx + e.my) / 30) % 2) === 0 }));
       segs.sort((p, q) => (pg(p.a.x, p.a.y)[1] + pg(p.b.x, p.b.y)[1]) - (pg(q.a.x, q.a.y)[1] + pg(q.b.x, q.b.y)[1]));
       for (const s of segs) {
         const b0 = pg(s.a.x, s.a.y), b1 = pg(s.b.x, s.b.y);
-        const t0 = [b0[0], b0[1] - 44 * zoom * b0[2]], t1 = [b1[0], b1[1] - 44 * zoom * b1[2]];
-        ctx.fillStyle = s.red ? "#a8281f" : "#b9b9c4"; // front face
+        const t0 = [b0[0], b0[1] - wallH * zoom * b0[2]], t1 = [b1[0], b1[1] - wallH * zoom * b1[2]];
+        ctx.fillStyle = water ? edgeDark : (s.red ? "#a8281f" : "#b9b9c4"); // front face
         ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(b1[0], b1[1]); ctx.lineTo(t1[0], t1[1]); ctx.lineTo(t0[0], t0[1]); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = s.red ? "#e8483a" : "#f2f2f7"; ctx.lineWidth = 3; // bright top edge
+        ctx.strokeStyle = water ? "rgba(235,245,255,0.7)" : (s.red ? "#e8483a" : "#f2f2f7"); ctx.lineWidth = 3; // foam / bright top edge
         ctx.beginPath(); ctx.moveTo(t0[0], t0[1]); ctx.lineTo(t1[0], t1[1]); ctx.stroke();
       }
 
@@ -3767,6 +3897,7 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
     // off-track dirt mounds for relief (drawn in 3D in iso mode)
     _buildMounds() {
       this.mounds = [];
+      if (this.track.env) return; // env props provide the relief instead
       const b = this.bbox, Wd = this.track.width;
       for (let gx = b.minX - 40; gx <= b.maxX + 40; gx += 240) {
         for (let gy = b.minY - 40; gy <= b.maxY + 40; gy += 230) {
@@ -3842,6 +3973,159 @@ kbd { background: var(--panel-2); border: 1px solid rgba(255,255,255,.2); border
           ctx.fillStyle = CROWD[(r * 7 + s.i) % CROWD.length]; ctx.fillRect(tx - 2, ty - 4, 4, 5);
         }
       }
+    }
+
+    // extruded biome props for the aerial / waterway circuits
+    _drawPropsIso(ctx, pg, zoom, ISO) {
+      if (!this._props) return;
+      const list = [...this._props].sort((a, b) => pg(a.x, a.y)[1] - pg(b.x, b.y)[1]);
+      for (const p of list) {
+        if (p.type === "tower") this._isoTower(ctx, p, pg, zoom);
+        else if (p.type === "butte") this._isoButte(ctx, p, pg, zoom);
+        else if (p.type === "peak") this._isoPeak(ctx, p, pg, zoom);
+        else if (p.type === "tree") this._isoTree(ctx, p, pg, zoom);
+        else if (p.type === "island") this._isoIsland(ctx, p, pg, zoom, ISO);
+        else if (p.type === "buoy") this._isoBuoy(ctx, p, pg, zoom, ISO);
+        else if (p.type === "dock") this._isoDock(ctx, p, pg, zoom);
+        else if (p.type === "ship") this._isoShip(ctx, p, pg, zoom);
+      }
+    }
+
+    // square-footprint extruded prism with depth-sorted side faces
+    _isoBox(ctx, p, pg, zoom, hMul) {
+      const w = p.w / 2, d = p.d / 2;
+      const corn = [[-w, -d], [w, -d], [w, d], [-w, d]].map(([a, o]) => pg(p.x + a, p.y + o));
+      const persp = corn[0][2], h = p.height * zoom * persp * (hMul || 1);
+      const top = corn.map((q) => [q[0], q[1] - h]);
+      const faces = [0, 1, 2, 3].map((i) => ({ i, depth: (corn[i][1] + corn[(i + 1) % 4][1]) / 2 })).sort((a, b) => a.depth - b.depth);
+      return { corn, top, faces, persp, h };
+    }
+
+    _isoTower(ctx, p, pg, zoom) {
+      const base = ["#39415a", "#454d68", "#2e3650", "#4c5470"][Math.floor(p.hue * 4) % 4];
+      const { corn, top, faces } = this._isoBox(ctx, p, pg, zoom);
+      for (const f of faces.slice(1)) { // skip the rear-most (hidden) face
+        const i = f.i, a = corn[i], b = corn[(i + 1) % 4], c = top[(i + 1) % 4], d = top[i];
+        const lit = (f.depth > (corn[0][1] + corn[2][1]) / 2) ? 0.92 : 0.66;
+        ctx.fillStyle = shade(base, lit);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.closePath(); ctx.fill();
+        // window grid on the face
+        const cols = 4, rows = Math.max(4, Math.round(p.height / 40));
+        for (let r = 0; r < rows; r++) for (let cc = 0; cc < cols; cc++) {
+          const u = (cc + 0.5) / cols, v = (r + 0.6) / rows;
+          const bx = a[0] + (b[0] - a[0]) * u, by = a[1] + (b[1] - a[1]) * u;
+          const tx = d[0] + (c[0] - d[0]) * u, ty = d[1] + (c[1] - d[1]) * u;
+          const x = bx + (tx - bx) * v, y = by + (ty - by) * v;
+          const onLit = ((r * 7 + cc * 13 + (i + 1) * 5 + Math.floor(p.hue * 97)) % 5) > 1;
+          ctx.fillStyle = onLit ? "rgba(255,230,150,0.85)" : "rgba(20,28,44,0.7)";
+          ctx.fillRect(x - 2.4, y - 3.2, 4.8, 5.2);
+        }
+      }
+      ctx.fillStyle = shade(base, 1.12);
+      ctx.beginPath(); ctx.moveTo(top[0][0], top[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(top[i][0], top[i][1]); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+
+    // extruded organic prism (octagon footprint), used for buttes
+    _isoPrismOrganic(ctx, p, pg, zoom, hMul, sideF, topLo, topHi) {
+      const n = p.poly.length, r = Math.max(p.w, p.d) / 2, pts = [];
+      for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, rr = r * p.poly[i]; pts.push(pg(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr)); }
+      const persp = pts[0][2], h = p.height * zoom * persp * (hMul || 1), top = pts.map((q) => [q[0], q[1] - h]);
+      const faces = pts.map((_, i) => ({ i, depth: (pts[i][1] + pts[(i + 1) % n][1]) / 2 })).sort((a, b) => a.depth - b.depth);
+      for (const f of faces) {
+        const i = f.i, a = pts[i], b = pts[(i + 1) % n], c = top[(i + 1) % n], d = top[i];
+        ctx.fillStyle = shade(this.track.theme.ground, sideF * (f.depth > pts[0][1] ? 1.12 : 0.86));
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.closePath(); ctx.fill();
+      }
+      const tg = ctx.createLinearGradient(top[0][0], top[0][1], top[(n >> 1)][0], top[(n >> 1)][1]);
+      tg.addColorStop(0, topHi); tg.addColorStop(1, topLo);
+      ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(top[0][0], top[0][1]); for (let i = 1; i < n; i++) ctx.lineTo(top[i][0], top[i][1]); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1.4; ctx.stroke();
+      return { top, persp, h };
+    }
+
+    _isoButte(ctx, p, pg, zoom) {
+      const th = this.track.theme;
+      this._isoPrismOrganic(ctx, p, pg, zoom, 1, 0.5, shade(th.dirt, 0.86), shade(th.dirt, 1.18));
+    }
+
+    _isoPeak(ctx, p, pg, zoom) {
+      const th = this.track.theme, n = p.poly.length, r = Math.max(p.w, p.d) / 2, pts = [];
+      for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, rr = r * p.poly[i]; pts.push(pg(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr)); }
+      const c0 = pg(p.x, p.y), persp = c0[2], h = p.height * zoom * persp, apex = [c0[0], c0[1] - h];
+      const faces = pts.map((_, i) => ({ i, depth: (pts[i][1] + pts[(i + 1) % n][1]) / 2 })).sort((a, b) => a.depth - b.depth);
+      for (const f of faces) {
+        const i = f.i, a = pts[i], b = pts[(i + 1) % n];
+        const lit = (f.depth > c0[1]) ? 1.0 : 0.58;
+        ctx.fillStyle = shade(th.ground, lit);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(apex[0], apex[1]); ctx.closePath(); ctx.fill();
+        // snow cap on the near faces
+        if (f.depth > c0[1]) {
+          const sa = [a[0] + (apex[0] - a[0]) * 0.62, a[1] + (apex[1] - a[1]) * 0.62];
+          const sb = [b[0] + (apex[0] - b[0]) * 0.62, b[1] + (apex[1] - b[1]) * 0.62];
+          ctx.fillStyle = "#eef3f8"; ctx.beginPath(); ctx.moveTo(sa[0], sa[1]); ctx.lineTo(sb[0], sb[1]); ctx.lineTo(apex[0], apex[1]); ctx.closePath(); ctx.fill();
+        }
+      }
+    }
+
+    _isoTree(ctx, p, pg, zoom) {
+      const g0 = pg(p.x, p.y), z = zoom * g0[2], h = p.height * z;
+      ctx.strokeStyle = "#5a3a22"; ctx.lineWidth = Math.max(3, p.w * 0.14 * z); ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(g0[0], g0[1]); ctx.lineTo(g0[0], g0[1] - h * 0.5); ctx.stroke();
+      const cx = g0[0], cy = g0[1] - h * 0.58, r = p.w * 0.5 * z, greens = ["#2f6b2f", "#357a33", "#2a5e2a", "#3f8a3a"], gi = Math.floor(p.hue * 4) % 4;
+      ctx.fillStyle = greens[gi]; ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.92, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = greens[(gi + 1) % 4]; ctx.beginPath(); ctx.ellipse(cx - r * 0.42, cy + r * 0.2, r * 0.6, r * 0.55, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx + r * 0.42, cy + r * 0.12, r * 0.6, r * 0.55, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = "rgba(220,240,170,0.4)"; ctx.beginPath(); ctx.ellipse(cx - r * 0.28, cy - r * 0.34, r * 0.34, r * 0.3, 0, 0, 7); ctx.fill();
+    }
+
+    // ---- waterway props (boat circuit) ----
+    _isoIsland(ctx, p, pg, zoom, ISO) {
+      const n = p.poly.length, r = Math.max(p.w, p.d) / 2, pts = [];
+      for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, rr = r * p.poly[i]; pts.push(pg(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr)); }
+      const persp = pts[0][2], h = p.height * zoom * persp, top = pts.map((q) => [q[0], q[1] - h]);
+      // sandy shore ring on the water
+      ctx.fillStyle = "rgba(225,210,150,0.5)";
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1] + 5); for (let i = 1; i < n; i++) ctx.lineTo(pts[i][0], pts[i][1] + 5); ctx.closePath(); ctx.fill();
+      const faces = pts.map((_, i) => ({ i, depth: (pts[i][1] + pts[(i + 1) % n][1]) / 2 })).sort((a, b) => a.depth - b.depth);
+      for (const f of faces) { const i = f.i, a = pts[i], b = pts[(i + 1) % n], c = top[(i + 1) % n], d = top[i];
+        ctx.fillStyle = shade("#caa85e", f.depth > pts[0][1] ? 1.0 : 0.78);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = "#3f7a3a"; ctx.beginPath(); ctx.moveTo(top[0][0], top[0][1]); for (let i = 1; i < n; i++) ctx.lineTo(top[i][0], top[i][1]); ctx.closePath(); ctx.fill();
+      // a palm or two
+      if (p.hue > 0.4) this._isoTree(ctx, { x: p.x, y: p.y, w: p.w * 0.5, height: p.height + 40, hue: 0.2 }, pg, zoom);
+    }
+
+    _isoBuoy(ctx, p, pg, zoom, ISO) {
+      const g0 = pg(p.x, p.y), z = zoom * g0[2], h = 26 * z;
+      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(g0[0], g0[1], 11 * z, 6 * z, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = p.hue > 0.5 ? "#e23b2f" : "#f2c33a";
+      ctx.beginPath(); ctx.moveTo(g0[0] - 7 * z, g0[1]); ctx.lineTo(g0[0] + 7 * z, g0[1]); ctx.lineTo(g0[0] + 4 * z, g0[1] - h); ctx.lineTo(g0[0] - 4 * z, g0[1] - h); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.fillRect(g0[0] - 5 * z, g0[1] - h * 0.55, 10 * z, 4 * z);
+      ctx.fillStyle = "#222"; ctx.beginPath(); ctx.ellipse(g0[0], g0[1] - h, 3 * z, 2 * z, 0, 0, 7); ctx.fill();
+    }
+
+    _isoDock(ctx, p, pg, zoom) {
+      const th = this.track.theme;
+      const { corn, top, faces } = this._isoBox(ctx, p, pg, zoom);
+      for (const f of faces.slice(1)) { const i = f.i, a = corn[i], b = corn[(i + 1) % 4], c = top[(i + 1) % 4], d = top[i];
+        ctx.fillStyle = shade("#7a5a36", f.depth > (corn[0][1] + corn[2][1]) / 2 ? 1.0 : 0.72);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = "#8a6a44"; ctx.beginPath(); ctx.moveTo(top[0][0], top[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(top[i][0], top[i][1]); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+
+    _isoShip(ctx, p, pg, zoom) {
+      const th = this.track.theme;
+      const { corn, top, faces } = this._isoBox(ctx, p, pg, zoom);
+      for (const f of faces.slice(1)) { const i = f.i, a = corn[i], b = corn[(i + 1) % 4], c = top[(i + 1) % 4], d = top[i];
+        ctx.fillStyle = shade("#6b7682", f.depth > (corn[0][1] + corn[2][1]) / 2 ? 1.0 : 0.7);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = "#8b96a2"; ctx.beginPath(); ctx.moveTo(top[0][0], top[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(top[i][0], top[i][1]); ctx.closePath(); ctx.fill();
+      // stacked containers on deck
+      const cols = ["#c8431f", "#1f7ec8", "#3a9a3a", "#d2a23a"];
+      const cx = (top[0][0] + top[2][0]) / 2, cy = (top[0][1] + top[2][1]) / 2;
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = cols[i]; ctx.fillRect(cx - 18 + i * 9, cy - 10 - (i % 2) * 8, 8, 16); }
     }
 
     // a procedural 3D monster truck: 4 big tyres + an extruded body + cab, projected
