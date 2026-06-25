@@ -29,6 +29,7 @@ if (params.get("portrait")) race.portrait = true;
 if (params.get("hgt")) race.camHeight = parseFloat(params.get("hgt"));
 race.start();
 window.__race = race;
+if (params.get("noai")) { /* manual control for tests */ } else
 (function ai(){
   const p = race.player;
   if (p) {

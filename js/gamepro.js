@@ -892,7 +892,8 @@
     }
 
     _playerControl(car) {
-      return window.Input.resolve(car.angle);
+      const sf = car.stats && car.stats.maxSpeed ? Math.min(1, (car.speedApprox || 0) / car.stats.maxSpeed) : 0;
+      return window.Input.resolve(car.angle, sf);
     }
     _aiControl(car) {
       const look = 2.4 + car.speedApprox / 150;
@@ -960,10 +961,10 @@
       // Drift: holding NITRO while turning breaks the rear loose. Trucks grip
       // normally otherwise. The drift is the FAST line through a corner — it
       // holds a limited slip angle instead of spinning into a donut.
-      const autoDrift = onGround && car.nitroActive && Math.abs(car.steerS) > 0.2 && Math.abs(vlong) > 110;
+      const autoDrift = onGround && car.nitroActive && Math.abs(car.steerS) > 0.18 && Math.abs(vlong) > 95;
       let gripLat;
       if (!onGround) gripLat = 0.999;
-      else if (autoDrift) gripLat = 0.92; // slide, but bleed lateral so it settles
+      else if (autoDrift) gripLat = 0.975; // break the rear loose so it really slides (counter-steer keeps it controlled)
       else gripLat = s.grip * (car._offTrack ? 1.05 : 1);
       // water & snow are slippery — the truck holds less lateral grip on them
       if (car._inMud && onGround && (this.hazardType === "water" || this.hazardType === "snow")) {
@@ -996,7 +997,7 @@
       car.vy = f.y * vlong + r.y * vlat;
       car.speedApprox = Math.abs(vlong);
       car.slip = Math.abs(vlat);
-      car.drifting = onGround && car.slip > 70 && car.speedApprox > 80;
+      car.drifting = onGround && car.slip > 52 && car.speedApprox > 80;
 
       // ---- jumps ----
       if (car.rampCooldown > 0) car.rampCooldown -= dt;

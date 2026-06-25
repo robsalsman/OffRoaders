@@ -25,7 +25,8 @@
   I.setControlMode = function (m) { control = m; }; // "pad" | "wheel" (directional) | "drive" (relative)
 
   // Convert raw inputs into a control command for a car at the given heading.
-  I.resolve = function (carAngle) {
+  // speedFrac (0..1) lets the 3D wheel be speed-sensitive.
+  I.resolve = function (carAngle, speedFrac) {
     if (I.override) return { steer: I.steer, throttle: I.throttle, brake: I.brake, nitro: I.nitro };
     const brake = (btn.brake ? 1 : 0) || (kb.brake ? 1 : 0);
     const nitro = btn.nitro || kb.nitro;
@@ -34,14 +35,18 @@
 
     if (control === "drive") {
       // relative steering wheel for 3D chase. The car's turn authority is high
-      // (tuned for the point-and-snap pad), so for a held wheel we (a) shape the
-      // input with a steep curve (gentle near centre), (b) rate-limit it, and
-      // (c) cap the magnitude so only a big sweep gives a hard turn.
+      // (tuned for the point-and-snap pad), so we shape the input with a steep
+      // curve (gentle near centre), rate-limit it, and SCALE the magnitude by
+      // speed: sharp & responsive at low speed, calm & stable flat-out. Holding
+      // NITRO (a drift) frees up extra steering so you can hold a slide.
+      const sf = clamp(speedFrac || 0, 0, 1);
+      let maxSteer = 0.74 - 0.42 * sf;                       // ~0.74 crawl → ~0.32 flat-out
+      if (nitro) maxSteer = Math.min(0.92, maxSteer + 0.30); // drift: more bite to hold the slide
       let target = (kb.right ? 1 : 0) - (kb.left ? 1 : 0);
-      if (wheel.active) { const s = clamp(wheel.steer, -1, 1); target = Math.sign(s) * Math.pow(Math.abs(s), 2.2); }
+      if (wheel.active) { const s = clamp(wheel.steer, -1, 1); target = Math.sign(s) * Math.pow(Math.abs(s), 2.0); }
       driveSteer += clamp(target - driveSteer, -0.08, 0.08);
       driveSteer = clamp(driveSteer, -1, 1);
-      steer = driveSteer * 0.5; turn = Math.abs(driveSteer);
+      steer = driveSteer * maxSteer; turn = Math.abs(driveSteer);
     } else if (pad.active) { // directional: steer toward the pushed/dragged heading (pad or wheel)
       let diff = Math.atan2(pad.y, pad.x) - carAngle;
       while (diff > PI) diff -= 2 * PI;
